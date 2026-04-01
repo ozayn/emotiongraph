@@ -39,6 +39,19 @@ body {
   background: var(--surface);
 }
 
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.brand-mark {
+  flex-shrink: 0;
+  display: block;
+}
+
 .logo {
   font-weight: 600;
   letter-spacing: -0.02em;

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" role="img" aria-label="EmotionGraph">
+  <!-- Abstract trace + samples: variable signal over time. Single brand accent. -->
+  <path
+    d="M4 22 C8 10 12 26 16 14 C19 6 23 12 28 8"
+    stroke="#2d6a4f"
+    stroke-width="2.75"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <circle cx="4" cy="22" r="2.25" fill="#2d6a4f" />
+  <circle cx="16" cy="14" r="2.25" fill="#2d6a4f" />
+  <circle cx="28" cy="8" r="2.25" fill="#2d6a4f" />
+</svg>
