@@ -18,7 +18,8 @@ export default function TodayPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [blob, setBlob] = useState<Blob | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [pipelineLoading, setPipelineLoading] = useState(false);
+  const [pipelinePhase, setPipelinePhase] = useState<"transcribe" | "extract">("transcribe");
   const [stepError, setStepError] = useState<string | null>(null);
 
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -41,8 +42,16 @@ export default function TodayPage() {
     void refreshSaved();
   }, [refreshSaved]);
 
-  const runExtraction = useCallback(
-    async (text: string) => {
+  const handleRecordingComplete = async (recording: Blob) => {
+    setBlob(recording);
+    setStepError(null);
+    setPipelineLoading(true);
+    setPipelinePhase("transcribe");
+    try {
+      const { transcript: text } = await transcribeAudio(recording, "recording.webm");
+      setTranscript(text);
+
+      setPipelinePhase("extract");
       setExtractionLoading(true);
       setExtractionError(null);
       setExtraction(null);
@@ -54,19 +63,8 @@ export default function TodayPage() {
       } finally {
         setExtractionLoading(false);
       }
-    },
-    [logDate],
-  );
 
-  const openReviewPipeline = async () => {
-    if (!blob) return;
-    setStepError(null);
-    setBusy(true);
-    try {
-      const { transcript: text } = await transcribeAudio(blob, "recording.webm");
-      setTranscript(text);
       setReviewOpen(true);
-      void runExtraction(text);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
       if (msg.includes("no usable speech")) {
@@ -75,7 +73,7 @@ export default function TodayPage() {
         setStepError(msg || "Transcription failed");
       }
     } finally {
-      setBusy(false);
+      setPipelineLoading(false);
     }
   };
 
@@ -94,48 +92,68 @@ export default function TodayPage() {
     await refreshSaved();
   };
 
+  const runExtraction = useCallback(
+    async (text: string) => {
+      setExtractionLoading(true);
+      setExtractionError(null);
+      setExtraction(null);
+      try {
+        const res = await extractLogs(text, logDate);
+        setExtraction(res);
+      } catch (e) {
+        setExtractionError(e instanceof Error ? e.message : "Extraction failed");
+      } finally {
+        setExtractionLoading(false);
+      }
+    },
+    [logDate],
+  );
+
+  const recordingLocked = pipelineLoading || reviewOpen;
+
   return (
     <div className="today-page">
-      <div className="page-intro">
-        <h1>Today</h1>
-        <p className="lede">Log date</p>
-        <input
-          className="date-input"
-          type="date"
-          value={logDate}
-          onChange={(e) => setLogDate(e.target.value)}
-        />
-      </div>
-
-      <section className="panel">
-        <h2>Voice log</h2>
-        <p className="muted small">
-          Record, then open review. Transcription and extraction run on the server; only your explicit save writes to
-          the database.
-        </p>
-        <AudioRecorder disabled={busy || reviewOpen} onRecorded={setBlob} />
-        <div className="voice-actions">
-          <button
-            type="button"
-            className="btn primary"
-            disabled={!blob || busy || reviewOpen}
-            onClick={() => void openReviewPipeline()}
-          >
-            {busy ? "Working…" : "Transcribe & review"}
-          </button>
-          {blob && !reviewOpen && (
-            <button type="button" className="btn ghost" disabled={busy} onClick={() => setBlob(null)}>
-              Clear recording
-            </button>
-          )}
+      {pipelineLoading && (
+        <div className="pipeline-overlay" aria-busy="true" aria-live="polite">
+          <div className="pipeline-card">
+            <div className="pipeline-spinner" />
+            <p className="pipeline-title">
+              {pipelinePhase === "transcribe" ? "Transcribing…" : "Extracting entries…"}
+            </p>
+            <p className="pipeline-sub muted">Usually a few seconds.</p>
+          </div>
         </div>
-        {stepError && <p className="error-inline">{stepError}</p>}
+      )}
+
+      <header className="today-header">
+        <h1 className="today-title">Today</h1>
+        <label className="today-date-label">
+          <span className="sr-only">Log date</span>
+          <input className="date-input date-input--compact" type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} />
+        </label>
+      </header>
+
+      <section className="today-record panel-elevated">
+        <AudioRecorder disabled={recordingLocked} onRecorded={(b) => void handleRecordingComplete(b)} />
+        {blob && !pipelineLoading && !reviewOpen && (
+          <div className="today-record-secondary">
+            {stepError && (
+              <button type="button" className="btn primary btn-retry" onClick={() => void handleRecordingComplete(blob)}>
+                Try again
+              </button>
+            )}
+            <button type="button" className="btn btn-text btn-clear-recording" onClick={() => { setBlob(null); setStepError(null); }}>
+              Discard recording
+            </button>
+          </div>
+        )}
+        {stepError && <p className="error-inline error-inline--spaced">{stepError}</p>}
       </section>
 
-      <section className="panel">
-        <h2>Saved entries</h2>
+      <section className="today-entries">
+        <h2 className="today-entries-heading">Today&apos;s log</h2>
         {loadError && <p className="error-inline">{loadError}</p>}
-        {!loadError && saved.length === 0 && <p className="muted">No entries for this date.</p>}
+        {!loadError && saved.length === 0 && <p className="muted today-entries-empty">Nothing saved for this date yet.</p>}
         <ul className="saved-list">
           {saved.map((e) => (
             <li key={e.id} className="saved-item">

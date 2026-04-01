@@ -130,90 +130,98 @@ export default function ReviewExtractionModal({
   };
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <div className="modal" role="dialog" aria-labelledby="review-title">
-        <div className="modal-head">
-          <h2 id="review-title">Review voice log</h2>
-          <p className="modal-sub">
-            Date <span className="mono">{logDate}</span> — confirm or edit before saving. Nothing is stored until you
-            save.
-          </p>
+    <div className="review-backdrop" role="presentation">
+      <div className="review-sheet" role="dialog" aria-labelledby="review-title" aria-modal="true">
+        <div className="review-sheet-scroll">
+          <div className="review-sheet-head">
+            <h2 id="review-title">Review</h2>
+            <p className="review-sheet-sub">
+              <span className="mono">{logDate}</span>
+              <span className="review-sheet-sub-sep">·</span>
+              <span>Edits are saved only when you confirm below.</span>
+            </p>
+          </div>
+
+          <section className="review-block">
+            <div className="review-block-head">
+              <h3 className="review-block-title">Summary</h3>
+              {extractionLoading && <span className="pill">Working…</span>}
+            </div>
+            {extractionError && (
+              <p className="error-inline">
+                {extractionError}{" "}
+                <button
+                  type="button"
+                  className="linkish"
+                  onClick={() => {
+                    rowsTouched.current = false;
+                    lastExtractionKey.current = null;
+                    onRetryExtract();
+                  }}
+                >
+                  Retry
+                </button>
+              </p>
+            )}
+            {!extractionLoading && extraction && <p className="summary-text">{extraction.transcript_summary || "—"}</p>}
+          </section>
+
+          <section className="review-block">
+            <div className="review-block-head">
+              <h3 className="review-block-title">Entries</h3>
+              <button type="button" className="btn btn-minimal small" onClick={addRow}>
+                + Add
+              </button>
+            </div>
+            <div className="row-stack">
+              {rows.length === 0 && !extractionLoading && (
+                <p className="muted review-rows-empty">No entries yet. Add one or retry extraction.</p>
+              )}
+              {rows.map((row, i) => (
+                <article key={i} className="entry-card">
+                  <div className="entry-card-head">
+                    <span className="entry-card-label">Entry {i + 1}</span>
+                    <button type="button" className="btn btn-minimal small" onClick={() => removeRow(i)}>
+                      Remove
+                    </button>
+                  </div>
+                  <div className="entry-card-fields">
+                    {FIELDS.map(({ key, label, type }) => (
+                      <label key={key} className="field field--stacked">
+                        <span>{label}</span>
+                        <input
+                          type={type === "number" ? "number" : "text"}
+                          inputMode={type === "number" ? "numeric" : undefined}
+                          value={row[key] ?? ""}
+                          onChange={(e) => updateCell(i, key, e.target.value)}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          <details className="transcript-details" open>
+            <summary className="transcript-details-summary">
+              <span className="transcript-details-label">Transcript</span>
+              <span className="transcript-details-cue" aria-hidden="true" />
+            </summary>
+            <div className="transcript-panel">
+              <p className="transcript-body">{transcript || "—"}</p>
+            </div>
+          </details>
+
+          {saveError && <p className="error-inline review-save-error">{saveError}</p>}
+          <div className="review-scroll-spacer" aria-hidden="true" />
         </div>
 
-        <section className="review-section">
-          <h3>Transcript</h3>
-          <textarea className="transcript-box" readOnly value={transcript} rows={6} />
-        </section>
-
-        <section className="review-section">
-          <div className="review-section-head">
-            <h3>Extracted summary</h3>
-            {extractionLoading && <span className="pill">Extracting…</span>}
-          </div>
-          {extractionError && (
-            <p className="error-inline">
-              {extractionError}{" "}
-              <button
-                type="button"
-                className="linkish"
-                onClick={() => {
-                  rowsTouched.current = false;
-                  lastExtractionKey.current = null;
-                  onRetryExtract();
-                }}
-              >
-                Retry
-              </button>
-            </p>
-          )}
-          {!extractionLoading && extraction && (
-            <p className="summary-text">{extraction.transcript_summary || "—"}</p>
-          )}
-        </section>
-
-        <section className="review-section">
-          <div className="review-section-head">
-            <h3>Rows</h3>
-            <button type="button" className="btn ghost small" onClick={addRow}>
-              Add row
-            </button>
-          </div>
-          <div className="rows-scroll">
-            {rows.length === 0 && !extractionLoading && (
-              <p className="muted">No rows yet. Add a row or retry extraction.</p>
-            )}
-            {rows.map((row, i) => (
-              <div key={i} className="row-card">
-                <div className="row-card-head">
-                  <span className="mono muted">#{i + 1}</span>
-                  <button type="button" className="btn ghost small" onClick={() => removeRow(i)}>
-                    Remove
-                  </button>
-                </div>
-                <div className="row-grid">
-                  {FIELDS.map(({ key, label, type }) => (
-                    <label key={key} className="field">
-                      <span>{label}</span>
-                      <input
-                        type={type === "number" ? "number" : "text"}
-                        value={row[key] ?? ""}
-                        onChange={(e) => updateCell(i, key, e.target.value)}
-                      />
-                    </label>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {saveError && <p className="error-inline">{saveError}</p>}
-
-        <div className="modal-actions">
-          <button type="button" className="btn ghost" onClick={onDiscard} disabled={saving}>
+        <div className="review-sticky-footer">
+          <button type="button" className="btn btn-discard-footer" onClick={onDiscard} disabled={saving}>
             Discard
           </button>
-          <button type="button" className="btn primary" onClick={() => void handleSave()} disabled={saving}>
+          <button type="button" className="btn primary btn-save-footer" onClick={() => void handleSave()} disabled={saving}>
             {saving ? "Saving…" : "Save to log"}
           </button>
         </div>

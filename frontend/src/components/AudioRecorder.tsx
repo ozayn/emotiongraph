@@ -57,17 +57,17 @@ export default function AudioRecorder({ disabled, onRecorded }: Props) {
     <div className="audio-recorder">
       <div className="audio-recorder-actions">
         {!recording ? (
-          <button type="button" className="btn primary" disabled={disabled} onClick={() => void start()}>
-            Record
+          <button type="button" className="btn primary btn-record-update" disabled={disabled} onClick={() => void start()}>
+            Record update
           </button>
         ) : (
-          <button type="button" className="btn danger" onClick={stop}>
+          <button type="button" className="btn danger btn-record-update" onClick={stop}>
             Stop
           </button>
         )}
       </div>
-      {recording && <p className="hint recording-pulse">Recording…</p>}
-      {error && <p className="error-inline">{error}</p>}
+      {recording && <p className="hint recording-pulse recording-hint">Recording… Tap Stop when finished.</p>}
+      {error && <p className="error-inline error-inline--spaced">{error}</p>}
     </div>
   );
 }
