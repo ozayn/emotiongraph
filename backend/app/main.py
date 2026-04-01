@@ -48,8 +48,11 @@ async def transcribe(audio: UploadFile = File(...)):
 
 @app.post("/extract-logs", response_model=ExtractLogsResponse)
 def extract_logs(body: ExtractLogsRequest):
-    if not settings.openai_api_key:
-        raise HTTPException(status_code=503, detail="OPENAI_API_KEY is not configured")
+    if not settings.openai_api_key and not settings.groq_api_key:
+        raise HTTPException(
+            status_code=503,
+            detail="OPENAI_API_KEY or GROQ_API_KEY is not configured (extraction)",
+        )
     try:
         return extract_logs_from_transcript(body.transcript, body.log_date.isoformat())
     except ValueError as e:

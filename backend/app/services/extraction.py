@@ -48,18 +48,30 @@ def _parse_extract_response(raw: str) -> ExtractLogsResponse:
     return ExtractLogsResponse(transcript_summary=summary, rows=rows)
 
 
-def extract_logs_from_transcript(transcript: str, log_date_iso: str) -> ExtractLogsResponse:
-    if not settings.openai_api_key:
-        raise RuntimeError("OPENAI_API_KEY is not configured")
+def _extraction_client_and_model() -> tuple[OpenAI, str]:
+    """Prefer OpenAI when configured; otherwise Groq (same key as transcription)."""
+    if settings.openai_api_key:
+        return OpenAI(api_key=settings.openai_api_key), settings.openai_extraction_model
+    if settings.groq_api_key:
+        return (
+            OpenAI(
+                api_key=settings.groq_api_key,
+                base_url=settings.groq_openai_base_url,
+            ),
+            settings.groq_extraction_model,
+        )
+    raise RuntimeError("Configure OPENAI_API_KEY or GROQ_API_KEY for extraction")
 
-    client = OpenAI(api_key=settings.openai_api_key)
+
+def extract_logs_from_transcript(transcript: str, log_date_iso: str) -> ExtractLogsResponse:
+    client, model = _extraction_client_and_model()
     user_content = (
         f"log_date (context only, YYYY-MM-DD): {log_date_iso}\n\n"
         f"Transcript:\n{transcript}\n\n"
         f"{EXTRACTION_JSON_SCHEMA_HINT}"
     )
     completion = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=model,
         temperature=0.2,
         response_format={"type": "json_object"},
         messages=[

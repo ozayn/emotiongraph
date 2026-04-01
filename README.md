@@ -4,9 +4,7 @@
 
 From the repository root:
 
-1. Copy `backend/.env.example` to `backend/.env` and set:
-   - **`GROQ_API_KEY`** — speech-to-text for **`POST /transcribe`**
-   - **`OPENAI_API_KEY`** — structured log extraction for **`POST /extract-logs`**
+1. Copy `backend/.env.example` to `backend/.env` and set **`GROQ_API_KEY`** — used for **`POST /transcribe`** (Whisper-class STT) and **`POST /extract-logs`** (JSON extraction via Groq chat), unless you set **`OPENAI_API_KEY`**, in which case extraction uses OpenAI instead.
 2. Start everything (backend + frontend) in one terminal:
 
    ```bash
