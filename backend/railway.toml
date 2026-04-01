@@ -1,0 +1,8 @@
+# Railway: set this service's root directory to `backend/` in the project settings.
+# Local dev still uses port 8100 via scripts; Railway sets PORT at runtime.
+
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
