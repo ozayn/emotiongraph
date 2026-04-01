@@ -222,6 +222,82 @@ body {
   pointer-events: none;
 }
 
+.today-manual {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.manual-add-lead {
+  margin: -0.15rem 0 0;
+  line-height: 1.45;
+}
+
+.manual-add-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.manual-add-time-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.manual-add-more {
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.manual-add-more-summary {
+  cursor: pointer;
+  list-style: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--accent-blue);
+  padding: 0.35rem 0;
+  user-select: none;
+}
+
+.manual-add-more-summary::-webkit-details-marker {
+  display: none;
+}
+
+.manual-add-more-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding-top: 0.35rem;
+}
+
+.manual-add-error {
+  margin: 0;
+}
+
+.manual-add-success {
+  margin: 0;
+  padding: 0.55rem 0.7rem;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--accent-blue-mid);
+  background: var(--accent-blue-soft);
+  border: 1px solid rgba(74, 95, 110, 0.12);
+  border-radius: var(--radius);
+}
+
+.manual-add-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.manual-add-save {
+  min-height: 44px;
+  padding-inline: 1.35rem;
+  border-radius: var(--radius-lg);
+}
+
 .today-record-secondary {
   display: flex;
   flex-direction: column;
@@ -546,9 +622,39 @@ body {
   transition: box-shadow 0.25s var(--ease-soft);
 }
 
+.saved-item-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.35rem 0.75rem;
+}
+
+.saved-item-id {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.saved-item-times {
+  margin-left: auto;
+  text-align: right;
+}
+
 .saved-item-body {
-  margin-top: 0.35rem;
+  margin-top: 0.5rem;
   font-weight: 500;
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+.saved-item-category {
+  margin-top: 0.35rem;
+}
+
+.saved-item-metrics {
+  margin-top: 0.35rem;
 }
 
 .saved-item-meta {

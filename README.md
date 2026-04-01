@@ -29,6 +29,11 @@ Or run **backend** and **frontend** in separate terminals:
 
 The Vite dev server proxies API routes to **`http://127.0.0.1:8100`**. For a custom API base, set `VITE_API_BASE` (for example `http://127.0.0.1:8100`).
 
+### Database (SQLite locally, Postgres in production)
+
+- **Local:** By default the API uses **SQLite** (`sqlite:///./emotiongraph.db` under the backend process working directory — with `./scripts/run_backend.sh` that is `backend/emotiongraph.db`). No extra setup.
+- **Production:** Set **`DATABASE_URL`** to your **PostgreSQL** connection string. The backend ships the **psycopg** (v3) driver and accepts `postgresql://…`, `postgres://…` (normalized automatically), or an explicit `postgresql+psycopg://…` URL. Engine options are chosen per dialect (e.g. SQLite uses `check_same_thread`; Postgres uses `pool_pre_ping`). **Migrations are not included yet** — new deploys still rely on `create_all` at startup for the current schema.
+
 ### Production frontend (CORS)
 
 The deployed UI at **`https://emotiongraph.ozayn.com`** is included in the backend’s default **`CORS_ORIGINS`**. Override with env if you need a different list (comma-separated). The previous Railway frontend hostname remains in the default list for older deploys.

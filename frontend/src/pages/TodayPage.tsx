@@ -4,6 +4,56 @@ import AudioRecorder from "../components/AudioRecorder";
 import ReviewExtractionModal from "../components/ReviewExtractionModal";
 import type { ExtractLogsResponse, LogRow, SavedLogEntry } from "../types";
 
+const MANUAL_FIELD_KEYS: { key: keyof LogRow; label: string; type?: "number" }[] = [
+  { key: "start_time", label: "Start" },
+  { key: "end_time", label: "End" },
+  { key: "event", label: "What happened" },
+  { key: "event_category", label: "Category" },
+  { key: "energy_level", label: "Energy", type: "number" },
+  { key: "anxiety", label: "Anxiety", type: "number" },
+  { key: "contentment", label: "Contentment", type: "number" },
+  { key: "focus", label: "Focus", type: "number" },
+  { key: "music", label: "Music" },
+  { key: "comments", label: "Comments" },
+];
+
+function emptyManualDraft(): Record<keyof LogRow, string> {
+  return {
+    start_time: "",
+    end_time: "",
+    event: "",
+    event_category: "",
+    energy_level: "",
+    anxiety: "",
+    contentment: "",
+    focus: "",
+    music: "",
+    comments: "",
+  };
+}
+
+function draftToLogRow(d: Record<keyof LogRow, string>): LogRow {
+  const trim = (s: string) => (s.trim() === "" ? null : s.trim());
+  const num = (s: string): number | null => {
+    const t = s.trim();
+    if (t === "") return null;
+    const n = parseInt(t, 10);
+    return Number.isFinite(n) ? n : null;
+  };
+  return {
+    start_time: trim(d.start_time),
+    end_time: trim(d.end_time),
+    event: trim(d.event),
+    event_category: trim(d.event_category),
+    energy_level: num(d.energy_level),
+    anxiety: num(d.anxiety),
+    contentment: num(d.contentment),
+    focus: num(d.focus),
+    music: trim(d.music),
+    comments: trim(d.comments),
+  };
+}
+
 function todayIso(): string {
   const d = new Date();
   const y = d.getFullYear();
@@ -28,6 +78,11 @@ export default function TodayPage() {
   const [extractionLoading, setExtractionLoading] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
 
+  const [manualDraft, setManualDraft] = useState(emptyManualDraft);
+  const [manualSaving, setManualSaving] = useState(false);
+  const [manualError, setManualError] = useState<string | null>(null);
+  const [manualSavedBanner, setManualSavedBanner] = useState(false);
+
   const refreshSaved = useCallback(async () => {
     setLoadError(null);
     try {
@@ -41,6 +96,37 @@ export default function TodayPage() {
   useEffect(() => {
     void refreshSaved();
   }, [refreshSaved]);
+
+  useEffect(() => {
+    if (!manualSavedBanner) return;
+    const t = window.setTimeout(() => setManualSavedBanner(false), 5000);
+    return () => window.clearTimeout(t);
+  }, [manualSavedBanner]);
+
+  const setManualField = (key: keyof LogRow, value: string) => {
+    setManualSavedBanner(false);
+    setManualDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleManualSave = async () => {
+    setManualError(null);
+    const row = draftToLogRow(manualDraft);
+    if (!row.event) {
+      setManualError("Add a short description under “What happened” to save this entry.");
+      return;
+    }
+    setManualSaving(true);
+    try {
+      await saveLogs(logDate, [row]);
+      setManualDraft(emptyManualDraft());
+      setManualSavedBanner(true);
+      await refreshSaved();
+    } catch (e) {
+      setManualError(e instanceof Error ? e.message : "Could not save entry");
+    } finally {
+      setManualSaving(false);
+    }
+  };
 
   const handleRecordingComplete = async (recording: Blob) => {
     setBlob(recording);
@@ -167,6 +253,74 @@ export default function TodayPage() {
         {stepError && <p className="error-inline error-inline--spaced">{stepError}</p>}
       </section>
 
+      <section className="today-manual panel-elevated" aria-labelledby="manual-add-heading">
+        <p className="record-panel-label" id="manual-add-heading">
+          Add entry
+        </p>
+        <p className="manual-add-lead muted small">Type one row and save — no recording needed.</p>
+        <div className="manual-add-fields">
+          <label className="field field--stacked">
+            <span>What happened</span>
+            <input
+              type="text"
+              autoComplete="off"
+              placeholder="e.g. Morning walk"
+              value={manualDraft.event}
+              onChange={(e) => setManualField("event", e.target.value)}
+            />
+          </label>
+          <div className="manual-add-time-row">
+            <label className="field field--stacked">
+              <span>Start</span>
+              <input
+                type="text"
+                inputMode="text"
+                placeholder="optional"
+                value={manualDraft.start_time}
+                onChange={(e) => setManualField("start_time", e.target.value)}
+              />
+            </label>
+            <label className="field field--stacked">
+              <span>End</span>
+              <input
+                type="text"
+                inputMode="text"
+                placeholder="optional"
+                value={manualDraft.end_time}
+                onChange={(e) => setManualField("end_time", e.target.value)}
+              />
+            </label>
+          </div>
+          <details className="manual-add-more">
+            <summary className="manual-add-more-summary">More fields (optional)</summary>
+            <div className="manual-add-more-fields">
+              {MANUAL_FIELD_KEYS.filter((f) => !["event", "start_time", "end_time"].includes(f.key)).map(({ key, label, type }) => (
+                <label key={key} className="field field--stacked">
+                  <span>{label}</span>
+                  <input
+                    type={type === "number" ? "number" : "text"}
+                    inputMode={type === "number" ? "numeric" : undefined}
+                    value={manualDraft[key]}
+                    onChange={(e) => setManualField(key, e.target.value)}
+                  />
+                </label>
+              ))}
+            </div>
+          </details>
+        </div>
+        {manualError && <p className="error-inline manual-add-error">{manualError}</p>}
+        {manualSavedBanner && (
+          <p className="manual-add-success" role="status">
+            Saved to your log — it should appear in the list below.
+          </p>
+        )}
+        <div className="manual-add-actions">
+          <button type="button" className="btn primary manual-add-save" disabled={manualSaving} onClick={() => void handleManualSave()}>
+            {manualSaving ? "Saving…" : "Save entry"}
+          </button>
+        </div>
+      </section>
+
       <section className="today-entries">
         <h2 className="today-entries-heading">Today&apos;s log</h2>
         {loadError && <p className="error-inline">{loadError}</p>}
@@ -175,11 +329,30 @@ export default function TodayPage() {
           {saved.map((e) => (
             <li key={e.id} className="saved-item">
               <div className="saved-item-top">
-                <span className="mono muted">
+                <span className="saved-item-id mono" title="Database id">
+                  #{e.id}
+                </span>
+                <span className="mono muted saved-item-times">
                   {e.start_time ?? "—"} – {e.end_time ?? "—"}
                 </span>
               </div>
               <div className="saved-item-body">{e.event ?? "(no event)"}</div>
+              {e.event_category && <div className="saved-item-category muted small">{e.event_category}</div>}
+              {(e.energy_level != null ||
+                e.anxiety != null ||
+                e.contentment != null ||
+                e.focus != null) && (
+                <div className="saved-item-metrics mono muted small">
+                  {[
+                    e.energy_level != null ? `E ${e.energy_level}` : null,
+                    e.anxiety != null ? `A ${e.anxiety}` : null,
+                    e.contentment != null ? `C ${e.contentment}` : null,
+                    e.focus != null ? `F ${e.focus}` : null,
+                  ]
+                    .filter((x): x is string => x != null)
+                    .join(" · ")}
+                </div>
+              )}
               {(e.comments || e.music) && (
                 <div className="saved-item-meta muted small">
                   {[e.music && `Music: ${e.music}`, e.comments].filter(Boolean).join(" · ")}
