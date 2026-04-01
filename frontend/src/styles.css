@@ -1,35 +1,38 @@
 :root {
   color-scheme: light;
-  /* Mondrian-inspired: warm neutrals, ink structure, restrained primaries */
-  --ink: #1c1c1c;
-  --bg: #f5f3ee;
-  --surface: #fffdf9;
+  /* Matte Mondrian-inspired: warm off-white ground, charcoal structure, dusty primaries */
+  --ink: #2a2926;
+  --bg: #f5f3ed;
+  --surface: #fbf9f4;
   --text: var(--ink);
-  --muted: #5e5c56;
-  --border: #e2ded4;
-  --border-line: rgba(28, 28, 28, 0.12);
+  --muted: #6e6c66;
+  --border: #e4e1d8;
+  --border-line: rgba(42, 41, 38, 0.1);
 
-  /* Primary CTA — deep cadmium red */
-  --accent: #a81e15;
-  --accent-mid: #8f1a11;
-  --accent-soft: #f3e8e6;
+  /* Primary CTA — muted matte blue (Record update, Save, Retry) */
+  --accent: #5a6f7d;
+  --accent-mid: #4d606d;
+  --accent-soft: #e8ecef;
+  --accent-text-on-cta: #f7f8f9;
 
-  /* Secondary — De Stijl blue (links, quiet actions) */
-  --accent-blue: #1f4e79;
-  --accent-blue-mid: #2a5f8f;
-  --accent-blue-soft: #e8eef4;
+  /* Links & quiet actions — same family, slightly deeper */
+  --accent-blue: #4a5f6e;
+  --accent-blue-mid: #3f5260;
+  --accent-blue-soft: #e5eaed;
 
-  /* Tertiary — muted yellow (chips, rare highlights) */
-  --accent-yellow: #9a7b1a;
-  --accent-yellow-soft: #f5f0e0;
+  /* Small highlights only (e.g. working pill) */
+  --accent-yellow: #7a6f45;
+  --accent-yellow-soft: #efebe0;
 
-  --danger: #722c2e;
+  /* Minor accent — errors, stop recording (not main CTA) */
+  --danger: #855550;
+  --danger-border: rgba(133, 85, 80, 0.28);
   --radius: 14px;
   --radius-lg: 18px;
   --radius-xl: 22px;
-  --shadow: 0 10px 36px rgba(28, 28, 28, 0.055);
-  --shadow-soft: 0 2px 12px rgba(28, 28, 28, 0.035);
-  --shadow-primary: 0 6px 22px rgba(168, 30, 21, 0.22);
+  --shadow: 0 8px 28px rgba(42, 41, 38, 0.045);
+  --shadow-soft: 0 2px 10px rgba(42, 41, 38, 0.04);
+  --shadow-primary: 0 4px 16px rgba(74, 95, 110, 0.2);
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
   font-family: "IBM Plex Sans", system-ui, sans-serif;
@@ -152,8 +155,8 @@ body {
 
 .date-input:focus {
   outline: none;
-  border-color: rgba(28, 28, 28, 0.28);
-  box-shadow: 0 0 0 3px rgba(28, 28, 28, 0.07);
+  border-color: rgba(42, 41, 38, 0.22);
+  box-shadow: 0 0 0 3px rgba(74, 95, 110, 0.08);
 }
 
 .date-input--compact {
@@ -204,12 +207,14 @@ body {
 }
 
 .record-panel--live {
-  border-color: rgba(28, 28, 28, 0.2);
-  box-shadow: 0 0 0 1px rgba(28, 28, 28, 0.08), 0 8px 28px rgba(168, 30, 21, 0.07);
+  border-color: rgba(42, 41, 38, 0.14);
+  box-shadow:
+    0 0 0 1px rgba(42, 41, 38, 0.06),
+    0 8px 26px rgba(74, 95, 110, 0.09);
 }
 
 .record-panel--captured:not(.record-panel--live) {
-  border-color: rgba(28, 28, 28, 0.12);
+  border-color: rgba(42, 41, 38, 0.1);
 }
 
 .record-panel--processing {
@@ -256,9 +261,9 @@ body {
   justify-content: center;
   padding: 1.5rem;
   padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
-  background: rgba(244, 243, 239, 0.88);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(245, 243, 237, 0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   animation: pipelineBackdropIn 0.45s var(--ease-out) forwards;
 }
 
@@ -370,13 +375,13 @@ body {
 
 .btn.primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-text-on-cta);
   box-shadow: var(--shadow-primary);
 }
 
 .btn.primary:hover:not(:disabled) {
   background: var(--accent-mid);
-  box-shadow: 0 8px 26px rgba(168, 30, 21, 0.26);
+  box-shadow: 0 6px 20px rgba(74, 95, 110, 0.22);
 }
 
 .btn.primary:active:not(:disabled) {
@@ -384,26 +389,26 @@ body {
 }
 
 .btn.danger {
-  background: #faf7f6;
+  background: var(--surface);
   color: var(--danger);
-  border-color: rgba(139, 58, 62, 0.22);
+  border-color: var(--danger-border);
 }
 
 .btn.danger:hover:not(:disabled) {
-  background: #f5eeed;
-  border-color: rgba(139, 58, 62, 0.32);
+  background: #f7f4f3;
+  border-color: rgba(133, 85, 80, 0.38);
 }
 
 .btn-stop {
   background: var(--surface);
   color: var(--danger);
-  border: 1.5px solid rgba(139, 58, 62, 0.28);
+  border: 1.5px solid var(--danger-border);
   font-weight: 600;
 }
 
 .btn-stop:hover:not(:disabled) {
-  background: #faf8f7;
-  border-color: rgba(139, 58, 62, 0.4);
+  background: #f8f5f4;
+  border-color: rgba(133, 85, 80, 0.4);
 }
 
 .btn-stop:active:not(:disabled) {
@@ -454,7 +459,7 @@ body {
 
 .btn-text:hover:not(:disabled) {
   color: var(--text);
-  background: rgba(26, 26, 24, 0.04);
+  background: rgba(42, 41, 38, 0.04);
 }
 
 .btn-minimal {
@@ -555,7 +560,7 @@ body {
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(26, 26, 24, 0.38);
+  background: rgba(42, 41, 38, 0.28);
   display: flex;
   align-items: stretch;
   justify-content: center;
@@ -667,7 +672,7 @@ body {
   background: var(--accent-yellow-soft);
   color: var(--accent-yellow);
   font-weight: 600;
-  border: 1px solid rgba(154, 123, 26, 0.12);
+  border: 1px solid rgba(122, 111, 69, 0.14);
 }
 
 .summary-text {
@@ -700,8 +705,8 @@ body {
 }
 
 .entry-card:focus-within {
-  border-color: rgba(28, 28, 28, 0.22);
-  box-shadow: 0 0 0 2px rgba(28, 28, 28, 0.06), var(--shadow-soft);
+  border-color: rgba(42, 41, 38, 0.18);
+  box-shadow: 0 0 0 2px rgba(74, 95, 110, 0.06), var(--shadow-soft);
 }
 
 .entry-card-head {
@@ -750,8 +755,8 @@ body {
 
 .field input:focus {
   outline: none;
-  border-color: rgba(28, 28, 28, 0.32);
-  box-shadow: 0 0 0 3px rgba(28, 28, 28, 0.07);
+  border-color: rgba(42, 41, 38, 0.22);
+  box-shadow: 0 0 0 3px rgba(74, 95, 110, 0.07);
 }
 
 .field input::placeholder {
@@ -810,7 +815,6 @@ body {
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   background: var(--bg);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
 }
 
 .transcript-body {
@@ -843,7 +847,7 @@ body {
   padding-right: max(1rem, env(safe-area-inset-right));
   border-top: 1px solid var(--border);
   background: var(--surface);
-  box-shadow: 0 -10px 32px rgba(26, 26, 24, 0.05);
+  box-shadow: 0 -8px 24px rgba(42, 41, 38, 0.04);
 }
 
 .btn-discard-footer {
@@ -866,7 +870,7 @@ body {
 
 .btn-discard-footer:hover:not(:disabled) {
   color: var(--text);
-  background: rgba(26, 26, 24, 0.04);
+  background: rgba(42, 41, 38, 0.04);
 }
 
 .btn-discard-footer:disabled {
@@ -888,7 +892,7 @@ body {
 
 .btn-save-footer:hover:not(:disabled) {
   background: var(--accent-mid);
-  box-shadow: 0 8px 26px rgba(168, 30, 21, 0.26);
+  box-shadow: 0 6px 20px rgba(74, 95, 110, 0.22);
 }
 
 .btn-save-footer:active:not(:disabled) {
