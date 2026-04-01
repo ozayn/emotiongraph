@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" role="img" aria-label="EmotionGraph">
-  <!-- Abstract trace + samples: variable signal over time. Single brand accent. -->
+  <!-- Trace in ink; sample points: red, blue, yellow — restrained Mondrian nod -->
   <path
     d="M4 22 C8 10 12 26 16 14 C19 6 23 12 28 8"
-    stroke="#2d6a4f"
+    stroke="#1c1c1c"
     stroke-width="2.75"
     stroke-linecap="round"
     stroke-linejoin="round"
   />
-  <circle cx="4" cy="22" r="2.25" fill="#2d6a4f" />
-  <circle cx="16" cy="14" r="2.25" fill="#2d6a4f" />
-  <circle cx="28" cy="8" r="2.25" fill="#2d6a4f" />
+  <circle cx="4" cy="22" r="2.25" fill="#a81e15" />
+  <circle cx="16" cy="14" r="2.25" fill="#1f4e79" />
+  <circle cx="28" cy="8" r="2.25" fill="#c9a227" />
 </svg>
