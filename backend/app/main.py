@@ -9,7 +9,7 @@ from app.db import Base, engine, get_db
 from app.models import LogEntry
 from app.schemas import ExtractLogsRequest, ExtractLogsResponse, LogEntryRead, SaveLogsRequest
 from app.services.extraction import extract_logs_from_transcript
-from app.services.transcription import transcribe_audio_bytes
+from app.services.transcription import is_transcript_usable, transcribe_audio_bytes
 
 Base.metadata.create_all(bind=engine)
 
@@ -43,6 +43,11 @@ async def transcribe(audio: UploadFile = File(...)):
         raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
+    if not is_transcript_usable(text):
+        raise HTTPException(
+            status_code=422,
+            detail="Transcript contains no usable speech",
+        )
     return {"transcript": text}
 
 

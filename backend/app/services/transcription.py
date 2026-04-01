@@ -1,3 +1,4 @@
+import unicodedata
 from io import BytesIO
 
 from openai import OpenAI
@@ -6,6 +7,17 @@ from app.config import settings
 
 # Groq exposes Whisper-class STT via an OpenAI-compatible API:
 # https://console.groq.com/docs/speech-to-text
+
+
+def is_transcript_usable(text: str) -> bool:
+    """True if transcript has at least one character that is not whitespace or Unicode punctuation."""
+    for ch in text:
+        if ch.isspace():
+            continue
+        if unicodedata.category(ch).startswith("P"):
+            continue
+        return True
+    return False
 
 
 def transcribe_audio_bytes(filename: str, data: bytes) -> str:

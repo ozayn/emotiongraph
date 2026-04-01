@@ -68,7 +68,12 @@ export default function TodayPage() {
       setReviewOpen(true);
       void runExtraction(text);
     } catch (e) {
-      setStepError(e instanceof Error ? e.message : "Transcription failed");
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("no usable speech")) {
+        setStepError("Transcription failed or returned no usable speech.");
+      } else {
+        setStepError(msg || "Transcription failed");
+      }
     } finally {
       setBusy(false);
     }
