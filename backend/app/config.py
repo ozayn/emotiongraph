@@ -22,7 +22,10 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     openai_extraction_model: str = "gpt-4o-mini"
     database_url: str = "sqlite:///./emotiongraph.db"
-    cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    cors_origins: str = (
+        "http://localhost:5173,http://127.0.0.1:5173,"
+        "https://web-production-abed5.up.railway.app"
+    )
 
     use_outbound_proxy: bool = False
     outbound_proxy_url: str = ""
