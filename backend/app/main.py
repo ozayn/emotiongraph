@@ -32,8 +32,8 @@ def health():
 
 @app.post("/transcribe")
 async def transcribe(audio: UploadFile = File(...)):
-    if not settings.openai_api_key:
-        raise HTTPException(status_code=503, detail="OPENAI_API_KEY is not configured")
+    if not settings.groq_api_key:
+        raise HTTPException(status_code=503, detail="GROQ_API_KEY is not configured")
     try:
         raw = await audio.read()
         if not raw:

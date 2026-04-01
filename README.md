@@ -4,7 +4,9 @@
 
 From the repository root:
 
-1. Copy `backend/.env.example` to `backend/.env` and set `OPENAI_API_KEY`.
+1. Copy `backend/.env.example` to `backend/.env` and set:
+   - **`GROQ_API_KEY`** — speech-to-text for **`POST /transcribe`**
+   - **`OPENAI_API_KEY`** — structured log extraction for **`POST /extract-logs`**
 2. Start everything (backend + frontend) in one terminal:
 
    ```bash
