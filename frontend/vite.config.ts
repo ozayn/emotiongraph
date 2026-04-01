@@ -6,10 +6,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      "/transcribe": { target: "http://127.0.0.1:8000", changeOrigin: true },
-      "/extract-logs": { target: "http://127.0.0.1:8000", changeOrigin: true },
-      "/logs": { target: "http://127.0.0.1:8000", changeOrigin: true },
-      "/health": { target: "http://127.0.0.1:8000", changeOrigin: true },
+      "/transcribe": { target: "http://127.0.0.1:8100", changeOrigin: true },
+      "/extract-logs": { target: "http://127.0.0.1:8100", changeOrigin: true },
+      "/logs": { target: "http://127.0.0.1:8100", changeOrigin: true },
+      "/health": { target: "http://127.0.0.1:8100", changeOrigin: true },
     },
   },
 });
