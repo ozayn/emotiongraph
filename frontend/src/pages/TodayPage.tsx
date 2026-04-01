@@ -110,17 +110,29 @@ export default function TodayPage() {
   );
 
   const recordingLocked = pipelineLoading || reviewOpen;
+  const [recordingActive, setRecordingActive] = useState(false);
+
+  const recordPanelClass = [
+    "today-record",
+    "panel-elevated",
+    "record-panel",
+    recordingActive && "record-panel--live",
+    pipelineLoading && "record-panel--processing",
+    blob && !pipelineLoading && !reviewOpen && "record-panel--captured",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="today-page">
       {pipelineLoading && (
         <div className="pipeline-overlay" aria-busy="true" aria-live="polite">
           <div className="pipeline-card">
-            <div className="pipeline-spinner" />
-            <p className="pipeline-title">
+            <div className="pipeline-spinner" aria-hidden="true" />
+            <p className="pipeline-title" key={pipelinePhase}>
               {pipelinePhase === "transcribe" ? "Transcribing…" : "Extracting entries…"}
             </p>
-            <p className="pipeline-sub muted">Usually a few seconds.</p>
+            <p className="pipeline-sub muted">This usually takes a few seconds.</p>
           </div>
         </div>
       )}
@@ -133,8 +145,13 @@ export default function TodayPage() {
         </label>
       </header>
 
-      <section className="today-record panel-elevated">
-        <AudioRecorder disabled={recordingLocked} onRecorded={(b) => void handleRecordingComplete(b)} />
+      <section className={recordPanelClass}>
+        <p className="record-panel-label">Voice</p>
+        <AudioRecorder
+          disabled={recordingLocked}
+          onRecorded={(b) => void handleRecordingComplete(b)}
+          onRecordingActiveChange={setRecordingActive}
+        />
         {blob && !pipelineLoading && !reviewOpen && (
           <div className="today-record-secondary">
             {stepError && (

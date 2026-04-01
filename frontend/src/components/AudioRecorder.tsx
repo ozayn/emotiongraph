@@ -3,9 +3,11 @@ import { useCallback, useRef, useState } from "react";
 type Props = {
   disabled?: boolean;
   onRecorded: (blob: Blob) => void;
+  /** Fires when the mic is actively recording (for parent UI state). */
+  onRecordingActiveChange?: (active: boolean) => void;
 };
 
-export default function AudioRecorder({ disabled, onRecorded }: Props) {
+export default function AudioRecorder({ disabled, onRecorded, onRecordingActiveChange }: Props) {
   const [recording, setRecording] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mediaRef = useRef<MediaRecorder | null>(null);
@@ -32,6 +34,7 @@ export default function AudioRecorder({ disabled, onRecorded }: Props) {
         stopTracks(rec);
         mediaRef.current = null;
         setRecording(false);
+        onRecordingActiveChange?.(false);
         onRecorded(blob);
       };
       rec.onerror = () => {
@@ -39,10 +42,12 @@ export default function AudioRecorder({ disabled, onRecorded }: Props) {
         stopTracks(rec);
         mediaRef.current = null;
         setRecording(false);
+        onRecordingActiveChange?.(false);
       };
       mediaRef.current = rec;
       rec.start();
       setRecording(true);
+      onRecordingActiveChange?.(true);
     } catch {
       setError("Microphone access denied or unavailable.");
     }
@@ -61,12 +66,12 @@ export default function AudioRecorder({ disabled, onRecorded }: Props) {
             Record update
           </button>
         ) : (
-          <button type="button" className="btn danger btn-record-update" onClick={stop}>
-            Stop
+          <button type="button" className="btn btn-stop btn-record-update" onClick={stop}>
+            Stop recording
           </button>
         )}
       </div>
-      {recording && <p className="hint recording-pulse recording-hint">Recording… Tap Stop when finished.</p>}
+      {recording && <p className="hint recording-hint recording-hint--live">Listening… tap stop when you’re done.</p>}
       {error && <p className="error-inline error-inline--spaced">{error}</p>}
     </div>
   );
