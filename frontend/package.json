@@ -1,5 +1,6 @@
 {
   "name": "emotiongraph-ui",
+  "description": "EmotionGraph web UI",
   "private": true,
   "version": "0.0.1",
   "type": "module",

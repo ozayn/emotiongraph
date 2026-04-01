@@ -8,12 +8,12 @@ from app.config import settings
 from app.db import Base, engine, get_db
 from app.models import LogEntry
 from app.schemas import ExtractLogsRequest, ExtractLogsResponse, LogEntryRead, SaveLogsRequest
-from app.services.extraction import extract_logs_from_transcript
+from app.services.extraction import extract_logs_from_transcript, extraction_service_configured
 from app.services.transcription import is_transcript_usable, transcribe_audio_bytes
 
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="Emotiongraph API")
+app = FastAPI(title="EmotionGraph API")
 
 _origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
 app.add_middleware(
@@ -53,10 +53,10 @@ async def transcribe(audio: UploadFile = File(...)):
 
 @app.post("/extract-logs", response_model=ExtractLogsResponse)
 def extract_logs(body: ExtractLogsRequest):
-    if not settings.openai_api_key and not settings.groq_api_key:
+    if not extraction_service_configured():
         raise HTTPException(
             status_code=503,
-            detail="OPENAI_API_KEY or GROQ_API_KEY is not configured (extraction)",
+            detail="ANTHROPIC_API_KEY or GROQ_API_KEY is not configured (extraction)",
         )
     try:
         return extract_logs_from_transcript(body.transcript, body.log_date.isoformat())

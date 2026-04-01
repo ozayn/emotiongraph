@@ -1,6 +1,9 @@
 {
   "name": "EmotionGraph",
   "short_name": "EmotionGraph",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
   "icons": [
     {
       "src": "/logo-mark.svg",

@@ -19,11 +19,13 @@ class Settings(BaseSettings):
     groq_transcription_model: str = "whisper-large-v3-turbo"
     groq_extraction_model: str = "llama-3.3-70b-versatile"
 
-    openai_api_key: str = ""
-    openai_extraction_model: str = "gpt-4o-mini"
+    anthropic_api_key: str = ""
+    anthropic_extraction_model: str = "claude-sonnet-4-20250514"
+    anthropic_timeout_seconds: float = 90.0
     database_url: str = "sqlite:///./emotiongraph.db"
     cors_origins: str = (
         "http://localhost:5173,http://127.0.0.1:5173,"
+        "https://emotiongraph.ozayn.com,"
         "https://web-production-abed5.up.railway.app"
     )
 

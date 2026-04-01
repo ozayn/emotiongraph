@@ -1,10 +1,13 @@
-# Emotiongraph — local development
+# EmotionGraph — local development
 
 ## Quick start
 
 From the repository root:
 
-1. Copy `backend/.env.example` to `backend/.env` and set **`GROQ_API_KEY`** — used for **`POST /transcribe`** (Whisper-class STT) and **`POST /extract-logs`** (JSON extraction via Groq chat), unless you set **`OPENAI_API_KEY`**, in which case extraction uses OpenAI instead.
+1. Copy `backend/.env.example` to `backend/.env` and set:
+   - **`GROQ_API_KEY`** — required for **`POST /transcribe`** (Whisper-class STT).
+   - **`ANTHROPIC_API_KEY`** — primary for **`POST /extract-logs`** (Claude turns the transcript into structured JSON).
+   - **`GROQ_API_KEY`** (again, same key is fine) — fallback for **`POST /extract-logs`** if Claude fails, times out, or returns output that does not validate; Groq is not used for extraction when Claude succeeds.
 2. Start everything (backend + frontend) in one terminal:
 
    ```bash
@@ -25,6 +28,10 @@ Or run **backend** and **frontend** in separate terminals:
 ```
 
 The Vite dev server proxies API routes to **`http://127.0.0.1:8100`**. For a custom API base, set `VITE_API_BASE` (for example `http://127.0.0.1:8100`).
+
+### Production frontend (CORS)
+
+The deployed UI at **`https://emotiongraph.ozayn.com`** is included in the backend’s default **`CORS_ORIGINS`**. Override with env if you need a different list (comma-separated). The previous Railway frontend hostname remains in the default list for older deploys.
 
 ### Outbound proxy (backend scaffold)
 
