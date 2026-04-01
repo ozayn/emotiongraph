@@ -26,6 +26,13 @@ Or run **backend** and **frontend** in separate terminals:
 
 The Vite dev server proxies API routes to **`http://127.0.0.1:8100`**. For a custom API base, set `VITE_API_BASE` (for example `http://127.0.0.1:8100`).
 
+### Outbound proxy (backend scaffold)
+
+Optional env vars for a future single-URL outbound proxy (not used by outbound calls yet):
+
+- `USE_OUTBOUND_PROXY=false`
+- `OUTBOUND_PROXY_URL=http://username:password@ip:port`
+
 ## Scripts
 
 - **`scripts/run_backend.sh`** — `cd`s into `backend/`, creates `.venv` if missing, installs Python dependencies when `requirements.txt` is new or changed, runs FastAPI with **uvicorn** on **127.0.0.1:8100**.
