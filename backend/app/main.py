@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from app.config import DEFAULT_CORS_ORIGINS, settings
-from app.db import Base, SessionLocal, engine, get_db
+from app.db import Base, SessionLocal, engine, get_db, upgrade_rdbms_schema_for_multiuser
 from app.deps import require_user_id
 from app.models import LogEntry, TrackerDay, User
 from app.routers.export_csv import router as export_csv_router
@@ -33,6 +33,8 @@ try:
     seed_tracker_config_if_empty(_db_seed)
 finally:
     _db_seed.close()
+
+upgrade_rdbms_schema_for_multiuser()
 
 
 def _cors_allow_origins() -> list[str]:

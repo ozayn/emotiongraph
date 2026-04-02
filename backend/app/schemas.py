@@ -194,7 +194,14 @@ class InsightsRecentEntry(BaseModel):
     anxiety: int | None = None
     contentment: int | None = None
     focus: int | None = None
-    source_type: str
+    source_type: str = "manual"
+
+    @field_validator("source_type", mode="before")
+    @classmethod
+    def source_type_fallback(cls, v: Any) -> str:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return "manual"
+        return str(v).strip()
 
 
 class InsightsEventPattern(BaseModel):

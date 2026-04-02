@@ -84,6 +84,7 @@ def build_insights_payload(db: Session, user_id: int, start: date, end: date) ->
         .limit(25)
         .all()
     )
+    # source_type is NOT NULL in the model, but legacy DB rows may still be NULL → Pydantic would 500 the whole /insights response.
     recent_entries = [
         {
             "id": e.id,
@@ -94,7 +95,7 @@ def build_insights_payload(db: Session, user_id: int, start: date, end: date) ->
             "anxiety": e.anxiety,
             "contentment": e.contentment,
             "focus": e.focus,
-            "source_type": e.source_type,
+            "source_type": (e.source_type or "manual").strip() or "manual",
         }
         for e in recent
     ]
