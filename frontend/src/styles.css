@@ -258,9 +258,14 @@ body {
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  /* Tight rhythm between chrome controls; nav pulls extra separation via margin */
-  gap: 0.55rem 0.65rem;
+  gap: 0.6rem 1rem;
   min-width: 0;
+}
+
+.app-header-chrome {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
 }
 
 .theme-toggle-wrap {
@@ -303,25 +308,6 @@ body {
   outline-offset: 2px;
   border-color: var(--ink-a18);
   color: var(--accent-blue-mid);
-}
-
-.user-switcher {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  min-width: 0;
-}
-
-.user-switcher-label {
-  flex-shrink: 0;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-}
-
-.user-switcher .calm-select--compact {
-  max-width: 11rem;
-  min-width: 0;
-  flex: 1 1 auto;
 }
 
 .user-tz-wrap {
@@ -410,12 +396,34 @@ body {
 
 .app-header-nav {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.28rem;
+  justify-content: flex-end;
+  gap: 0.35rem 0.55rem;
   flex-shrink: 0;
-  /* Clear “chrome” vs “navigation” without extra DOM */
-  margin-inline-start: clamp(0.75rem, 2.5vw, 1.35rem);
-  padding-inline-start: 0.2rem;
+  min-width: 0;
+  margin-inline-start: clamp(0.35rem, 2vw, 0.85rem);
+  padding-inline-start: clamp(0.5rem, 2vw, 0.85rem);
+  border-inline-start: 1px solid var(--ink-a09);
+}
+
+.app-header-nav-primary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.12rem 0.2rem;
+}
+
+/* Subtle separator before secondary account action (hidden when rule not rendered). */
+.app-header-nav-rule {
+  flex-shrink: 0;
+  width: 1px;
+  height: 1.1em;
+  align-self: center;
+  margin-inline: 0.15rem 0.35rem;
+  background: var(--ink-a10);
+  opacity: 0.85;
 }
 
 .header-link {
@@ -423,7 +431,7 @@ body {
   font-weight: 600;
   color: var(--accent-blue);
   text-decoration: none;
-  padding: 0.42rem 0.62rem;
+  padding: 0.45rem 0.68rem;
   border-radius: var(--radius);
   white-space: nowrap;
   transition: background 0.2s var(--ease-soft), color 0.2s var(--ease-soft);
@@ -434,6 +442,35 @@ body {
   color: var(--accent-blue-mid);
 }
 
+/* Secondary: lighter than primary nav — text-style, no pill emphasis */
+.app-header-secondary-link {
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 0.35rem 0.45rem;
+  border-radius: var(--radius);
+  white-space: nowrap;
+  opacity: 0.92;
+  transition: color 0.2s var(--ease-soft), opacity 0.2s var(--ease-soft);
+}
+
+.app-header-secondary-link:hover {
+  color: var(--text);
+  opacity: 1;
+}
+
+.app-header-secondary-link:focus {
+  outline: none;
+}
+
+.app-header-secondary-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius);
+}
+
 .brand {
   display: inline-flex;
   align-items: center;
@@ -442,6 +479,20 @@ body {
   color: inherit;
   flex-shrink: 0;
   min-width: 0;
+  border-radius: var(--radius);
+  margin: -0.2rem;
+  padding: 0.2rem;
+  transition: opacity 0.2s var(--ease-soft), background 0.2s var(--ease-soft);
+}
+
+.brand:hover {
+  opacity: 0.92;
+  background: var(--frost-a32);
+}
+
+.brand:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .brand-mark {
@@ -643,6 +694,132 @@ body {
   .launch-rise {
     opacity: 1;
     transform: none;
+  }
+}
+
+/* --- First-run / switch profile (no auth) --- */
+.choose-profile-page {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: min(72dvh, 34rem);
+  padding: 1.25rem 0 2rem;
+}
+
+.choose-profile-ambient {
+  position: absolute;
+  inset: 8% 6% auto;
+  height: min(48vw, 14rem);
+  max-width: 20rem;
+  margin: 0 auto;
+  left: 50%;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse at 50% 42%,
+    var(--launch-glow-inner) 0%,
+    var(--launch-glow-outer) 48%,
+    transparent 74%
+  );
+  filter: blur(2px);
+  animation: launchAmbient 16s var(--ease-soft) infinite alternate;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.choose-profile-inner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 22rem;
+  margin: 0 auto;
+  padding: 0 0.5rem;
+  text-align: center;
+}
+
+.choose-profile-title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.35rem, 5.5vw, 1.75rem);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.choose-profile-sub {
+  margin: 0 0 1.35rem;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  max-width: 20rem;
+  margin-inline: auto;
+}
+
+.choose-profile-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.choose-profile-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  width: 100%;
+  padding: 1rem 1.15rem;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--ink-a12);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  cursor: pointer;
+  text-align: center;
+  font: inherit;
+  color: inherit;
+  transition:
+    border-color 0.2s var(--ease-soft),
+    box-shadow 0.2s var(--ease-soft),
+    transform 0.2s var(--ease-soft);
+}
+
+.choose-profile-card:hover {
+  border-color: var(--ink-a22);
+  box-shadow: var(--shadow);
+}
+
+.choose-profile-card:focus {
+  outline: none;
+}
+
+.choose-profile-card:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-color: var(--ink-a22);
+}
+
+.choose-profile-card:active {
+  transform: scale(0.992);
+}
+
+.choose-profile-name {
+  font-size: 1.05rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+
+.choose-profile-email {
+  font-size: 0.78rem;
+  word-break: break-all;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .choose-profile-ambient {
+    animation: none !important;
+    opacity: 0.85;
+    transform: translateX(-50%);
   }
 }
 

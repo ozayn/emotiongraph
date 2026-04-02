@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, Route, Routes, useLocation } from "react-router-dom";
+import { Link, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { fetchUsers } from "./api";
 import ThemeToggle from "./components/ThemeToggle";
-import UserSwitcher from "./components/UserSwitcher";
 import AdminTrackerPage from "./pages/AdminTrackerPage";
+import ChooseProfilePage from "./pages/ChooseProfilePage";
 import InsightsPage from "./pages/InsightsPage";
 import LaunchPage from "./pages/LaunchPage";
 import LogsPage from "./pages/LogsPage";
@@ -11,10 +11,11 @@ import PreferencesPage from "./pages/PreferencesPage";
 import TodayPage from "./pages/TodayPage";
 import { effectiveUserTimeZone } from "./datesTz";
 import type { User } from "./types";
-import { getSelectedUserId, setSelectedUserId } from "./userSession";
+import { clearSelectedUserId, getSelectedUserId, setSelectedUserId } from "./userSession";
 
 export default function App() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const [users, setUsers] = useState<User[]>([]);
   const [userId, setUserId] = useState<number | null>(null);
   const [usersError, setUsersError] = useState<string | null>(null);
@@ -38,9 +39,10 @@ export default function App() {
         if (match) {
           setSelectedUserId(String(match.id));
           setUserId(match.id);
-        } else if (list.length > 0) {
-          applyUser(list[0].id);
         } else {
+          if (stored) {
+            clearSelectedUserId();
+          }
           setUserId(null);
         }
         setUsersReady(true);
@@ -54,10 +56,6 @@ export default function App() {
       cancelled = true;
     };
   }, [applyUser]);
-
-  const onSelectUser = (id: number) => {
-    applyUser(id);
-  };
 
   const mergeUser = useCallback((u: User) => {
     setUsers((prev) => prev.map((x) => (x.id === u.id ? u : x)));
@@ -75,36 +73,58 @@ export default function App() {
     userId > 0 &&
     users.some((u) => u.id === userId);
 
+  const needsProfileChoice = usersReady && users.length > 0 && userId == null;
+
+  const onProfileChosen = (id: number, mode: "first" | "switch") => {
+    applyUser(id);
+    navigate(mode === "first" ? "/" : "/today", { replace: mode === "first" });
+  };
+
   return (
     <div className="app-shell">
       <header className="app-header">
         <div className="app-header-inner">
-          <Link className="brand" to="/today" aria-label="EmotionGraph — log">
+          <Link
+            className="brand"
+            to={userScopeReady ? "/today" : "/"}
+            aria-label={userScopeReady ? "EmotionGraph — open Today" : "EmotionGraph — home"}
+          >
             <img className="brand-mark" src="/logo-mark.svg" alt="" width="28" height="28" />
             <span className="logo">EmotionGraph</span>
           </Link>
           <div className="app-header-right">
-            <ThemeToggle />
-            {usersReady && users.length > 0 && (
-              <UserSwitcher users={users} userId={userId} onSelectUser={onSelectUser} />
+            <div className="app-header-chrome">
+              <ThemeToggle />
+            </div>
+            {usersReady && userScopeReady && (
+              <nav className="app-header-nav" aria-label="Main">
+                <div className="app-header-nav-primary">
+                  {pathname !== "/today" && pathname !== "/" && (
+                    <Link className="header-link" to="/today">
+                      Today
+                    </Link>
+                  )}
+                  {pathname !== "/entries" && (
+                    <Link className="header-link" to="/entries">
+                      Entries
+                    </Link>
+                  )}
+                  {pathname !== "/insights" && (
+                    <Link className="header-link" to="/insights">
+                      Insights
+                    </Link>
+                  )}
+                </div>
+                {pathname !== "/switch-profile" && (
+                  <>
+                    <span className="app-header-nav-rule" aria-hidden="true" />
+                    <Link className="app-header-secondary-link" to="/switch-profile">
+                      Switch profile
+                    </Link>
+                  </>
+                )}
+              </nav>
             )}
-            <nav className="app-header-nav" aria-label="App">
-              {usersReady && userScopeReady && pathname !== "/today" && pathname !== "/" && (
-                <Link className="header-link" to="/today">
-                  Today
-                </Link>
-              )}
-              {usersReady && userScopeReady && pathname !== "/entries" && (
-                <Link className="header-link" to="/entries">
-                  Entries
-                </Link>
-              )}
-              {usersReady && userScopeReady && (
-                <Link className="header-link" to="/insights">
-                  Insights
-                </Link>
-              )}
-            </nav>
           </div>
         </div>
       </header>
@@ -118,8 +138,26 @@ export default function App() {
           <Route
             path="/"
             element={
-              userScopeReady ? (
-                <LaunchPage users={users} userId={userId} />
+              needsProfileChoice ? (
+                <ChooseProfilePage users={users} onChoose={(id) => onProfileChosen(id, "first")} />
+              ) : userScopeReady ? (
+                <LaunchPage users={users} userId={userId as number} />
+              ) : (
+                <UsersGate usersReady={usersReady} users={users} />
+              )
+            }
+          />
+          <Route
+            path="/switch-profile"
+            element={
+              needsProfileChoice ? (
+                <ChooseProfilePage users={users} onChoose={(id) => onProfileChosen(id, "first")} />
+              ) : usersReady && users.length > 0 ? (
+                <ChooseProfilePage
+                  users={users}
+                  switching
+                  onChoose={(id) => onProfileChosen(id, "switch")}
+                />
               ) : (
                 <UsersGate usersReady={usersReady} users={users} />
               )
@@ -128,7 +166,9 @@ export default function App() {
           <Route
             path="/today"
             element={
-              userScopeReady ? (
+              needsProfileChoice ? (
+                <ChooseProfilePage users={users} onChoose={(id) => onProfileChosen(id, "first")} />
+              ) : userScopeReady ? (
                 <TodayPage key={userId} userId={userId} timeZone={userTimeZone} />
               ) : (
                 <UsersGate usersReady={usersReady} users={users} />
@@ -138,7 +178,9 @@ export default function App() {
           <Route
             path="/entries"
             element={
-              userScopeReady ? (
+              needsProfileChoice ? (
+                <ChooseProfilePage users={users} onChoose={(id) => onProfileChosen(id, "first")} />
+              ) : userScopeReady ? (
                 <LogsPage key={userId} userId={userId} timeZone={userTimeZone} />
               ) : (
                 <UsersGate usersReady={usersReady} users={users} />
@@ -148,7 +190,9 @@ export default function App() {
           <Route
             path="/insights"
             element={
-              userScopeReady ? (
+              needsProfileChoice ? (
+                <ChooseProfilePage users={users} onChoose={(id) => onProfileChosen(id, "first")} />
+              ) : userScopeReady ? (
                 <InsightsPage key={userId} userId={userId} timeZone={userTimeZone} />
               ) : (
                 <UsersGate usersReady={usersReady} users={users} />
@@ -159,7 +203,9 @@ export default function App() {
           <Route
             path="/preferences"
             element={
-              userScopeReady && selectedUser ? (
+              needsProfileChoice ? (
+                <ChooseProfilePage users={users} onChoose={(id) => onProfileChosen(id, "first")} />
+              ) : userScopeReady && selectedUser ? (
                 <PreferencesPage user={selectedUser} onUserUpdated={mergeUser} />
               ) : (
                 <UsersGate usersReady={usersReady} users={users} />
