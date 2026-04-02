@@ -26,6 +26,7 @@ from app.schemas import (
     ExtractLogsResponse,
     LogEntryPatch,
     LogEntryRead,
+    DebugLogsSaveResponse,
     LogsImportCommitRequest,
     LogsImportPreviewResponse,
     SaveLogsRequest,
@@ -323,6 +324,35 @@ def save_logs(
             exc_info=True,
         )
         raise
+
+
+@app.post("/debug/logs", response_model=DebugLogsSaveResponse)
+def debug_logs_save_dry_run(
+    body: SaveLogsRequest,
+    user_id: int = Depends(require_user_id),
+):
+    """Temporary: same body validation and ORM row build as POST /logs; does not persist."""
+    for r in body.rows:
+        LogEntry(
+            user_id=user_id,
+            log_date=body.log_date,
+            start_time=r.start_time,
+            end_time=r.end_time,
+            event=r.event,
+            energy_level=r.energy_level,
+            anxiety=r.anxiety,
+            contentment=r.contentment,
+            focus=r.focus,
+            music=r.music,
+            comments=r.comments,
+            source_type=r.source_type,
+        )
+    return DebugLogsSaveResponse(
+        user_id=user_id,
+        log_date=body.log_date,
+        row_count=len(body.rows),
+        rows=list(body.rows),
+    )
 
 
 @app.post("/logs/import-csv/preview", response_model=LogsImportPreviewResponse)

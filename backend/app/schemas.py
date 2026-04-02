@@ -178,6 +178,15 @@ class SaveLogsRequest(BaseModel):
     rows: list[LogRowBase]
 
 
+class DebugLogsSaveResponse(BaseModel):
+    """Dry-run diagnostics for POST /logs (no database write)."""
+
+    user_id: int
+    log_date: date
+    row_count: int
+    rows: list[LogRowBase]
+
+
 class LogImportRowIn(BaseModel):
     """One CSV line or JSON row for bulk import (server sets source_type to import on save)."""
 
