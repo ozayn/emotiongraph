@@ -2,8 +2,9 @@ import logging
 from datetime import date
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy.exc import StatementError
 from sqlalchemy.orm import Session
 
@@ -123,6 +124,20 @@ app.add_middleware(
 app.include_router(tracker_config_router)
 app.include_router(insights_router, prefix="/insights", tags=["insights"])
 app.include_router(export_csv_router, prefix="/export", tags=["export"])
+
+
+@app.exception_handler(Exception)
+async def _unhandled_exception_cors_friendly(request: Request, exc: Exception) -> JSONResponse:
+    """Return a normal JSON 500 so CORSMiddleware can attach Access-Control-Allow-Origin.
+
+    Uncaught exceptions that bubble past the app become Starlette's plain-text 500; browsers then
+    report a CORS error even when the origin is allowed (preflight can still succeed).
+    """
+    logger.error("Unhandled exception path=%s", request.url.path, exc_info=exc)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+    )
 
 
 @app.get("/health")
