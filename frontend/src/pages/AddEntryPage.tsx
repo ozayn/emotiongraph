@@ -1,0 +1,49 @@
+import { Link, useSearchParams } from "react-router-dom";
+import DayLogPanel from "../components/DayLogPanel";
+
+type Props = { userId: number; timeZone: string };
+
+function parseDayQueryParam(raw: string | null): string | undefined {
+  if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return undefined;
+  return raw;
+}
+
+export default function AddEntryPage({ userId, timeZone }: Props) {
+  const [searchParams] = useSearchParams();
+  const focusLogDate = parseDayQueryParam(searchParams.get("day"));
+
+  return (
+    <div className="entries-page add-entry-page">
+      <nav className="entries-nav entries-nav--split">
+        <Link className="linkish entries-back" to="/">
+          ← Home
+        </Link>
+        <span className="entries-nav-inline">
+          <Link className="linkish entries-back" to="/today">
+            Today
+          </Link>
+          <span className="muted small" aria-hidden="true">
+            ·
+          </span>
+          <Link className="linkish entries-back" to="/entries">
+            Entries
+          </Link>
+          <span className="muted small" aria-hidden="true">
+            ·
+          </span>
+          <Link className="linkish entries-back" to="/profile">
+            Profile
+          </Link>
+        </span>
+      </nav>
+      <header className="entries-header">
+        <h1 className="entries-title">Add entry</h1>
+        <p className="muted small entries-lead">
+          Typed notes, manual rows, and day context for one date at a time. Voice capture stays on Home.
+        </p>
+      </header>
+
+      <DayLogPanel userId={userId} timeZone={timeZone} focusLogDate={focusLogDate} />
+    </div>
+  );
+}

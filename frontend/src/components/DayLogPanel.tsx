@@ -95,15 +95,15 @@ function isAbortError(e: unknown): boolean {
 type Props = {
   userId: number;
   timeZone: string;
-  /** Refresh range list in parent after writes */
-  onMutate: () => void | Promise<void>;
-  /** When set (e.g. `?day=` from home), selects that date in the day panel */
+  /** Optional: refresh parent lists (e.g. Entries range) after writes */
+  onMutate?: () => void | Promise<void>;
+  /** When set (e.g. `?day=` in URL), selects that date */
   focusLogDate?: string;
 };
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-export default function EntriesDayPanel({ userId, timeZone, onMutate, focusLogDate }: Props) {
+export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }: Props) {
   const textAreaId = useId();
   const savedEditSourceLabelId = useId();
   const savedEditTitleRef = useRef<HTMLHeadingElement>(null);
@@ -200,7 +200,7 @@ export default function EntriesDayPanel({ userId, timeZone, onMutate, focusLogDa
       await patchLog(userId, savedEditEntry.id, draftToPatch(savedEditDraft));
       closeSavedEdit();
       await refreshSaved();
-      await onMutate();
+      await onMutate?.();
     } catch (err) {
       setSavedEditSaveError(err instanceof Error ? err.message : "Save failed");
     } finally {
@@ -215,7 +215,7 @@ export default function EntriesDayPanel({ userId, timeZone, onMutate, focusLogDa
       try {
         await deleteLog(userId, entry.id);
         await refreshSaved();
-        await onMutate();
+        await onMutate?.();
       } catch (err) {
         setSavedActionError(err instanceof Error ? err.message : "Could not delete entry");
       }
@@ -249,7 +249,7 @@ export default function EntriesDayPanel({ userId, timeZone, onMutate, focusLogDa
     if (savedMenuOpenId == null) return;
     const onPointerDown = (ev: PointerEvent) => {
       const t = ev.target;
-      if (t instanceof Element && t.closest("[data-entries-day-saved-menu-root]")) return;
+      if (t instanceof Element && t.closest("[data-day-log-saved-menu-root]")) return;
       setSavedMenuOpenId(null);
     };
     document.addEventListener("pointerdown", onPointerDown, true);
@@ -355,7 +355,7 @@ export default function EntriesDayPanel({ userId, timeZone, onMutate, focusLogDa
       setManualDraft(emptyManualDraft());
       setManualSavedBanner(true);
       await refreshSaved();
-      await onMutate();
+      await onMutate?.();
     } catch (e) {
       setManualError(e instanceof Error ? e.message : "Could not save entry");
     } finally {
@@ -379,7 +379,7 @@ export default function EntriesDayPanel({ userId, timeZone, onMutate, focusLogDa
       setDaySavedBanner(true);
       await refreshDay();
       setDayContextEditing(false);
-      await onMutate();
+      await onMutate?.();
     } catch (e) {
       setDayError(e instanceof Error ? e.message : "Could not save day info");
     } finally {
@@ -402,7 +402,7 @@ export default function EntriesDayPanel({ userId, timeZone, onMutate, focusLogDa
     );
     closeReview();
     await refreshSaved();
-    await onMutate();
+    await onMutate?.();
   };
 
   const handleTextExtract = async () => {
@@ -440,12 +440,12 @@ export default function EntriesDayPanel({ userId, timeZone, onMutate, focusLogDa
   );
 
   return (
-    <section className="entries-day-panel" id="entries-day-focus" aria-labelledby="entries-day-panel-title">
-      <h2 id="entries-day-panel-title" className="entries-day-panel-title">
-        Log by day
+    <section className="entries-day-panel" aria-labelledby="day-log-panel-title">
+      <h2 id="day-log-panel-title" className="entries-day-panel-title">
+        Day log
       </h2>
       <p className="entries-day-panel-lead muted small">
-        Choose a date for typed extraction, manual rows, day context, and the list below. Your range table still shows all entries in range.
+        Pick a date, then use text or a manual row, set optional day context, and review saved rows for that day.
       </p>
       <div className="entries-day-panel-date-row">
         <label className="entries-day-panel-date-label">
@@ -811,7 +811,7 @@ export default function EntriesDayPanel({ userId, timeZone, onMutate, focusLogDa
                       </p>
                     )}
                   </div>
-                  <div className="entries-item-menu-wrap" data-entries-day-saved-menu-root>
+                  <div className="entries-item-menu-wrap" data-day-log-saved-menu-root>
                     <button
                       type="button"
                       className="entries-item-menu-trigger"

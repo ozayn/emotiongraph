@@ -1,0 +1,146 @@
+import { useRef, useState } from "react";
+import { commitLogsImport, previewLogsImportCsv } from "../api";
+import type { LogImportRow, LogsImportPreviewResponse } from "../types";
+
+type Props = {
+  userId: number;
+  /** Called after a successful import commit */
+  onCommitted?: () => void;
+};
+
+export default function ProfileCsvImport({ userId, onCommitted }: Props) {
+  const [importPreview, setImportPreview] = useState<LogsImportPreviewResponse | null>(null);
+  const [importInputKey, setImportInputKey] = useState(0);
+  const [importSelectedName, setImportSelectedName] = useState<string | null>(null);
+  const [importPickErr, setImportPickErr] = useState<string | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importCommitErr, setImportCommitErr] = useState<string | null>(null);
+  const importFileRef = useRef<File | null>(null);
+
+  const onImportFilePicked = (files: FileList | null) => {
+    setImportPreview(null);
+    setImportCommitErr(null);
+    setImportPickErr(null);
+    const f = files?.[0] ?? null;
+    importFileRef.current = f;
+    setImportSelectedName(f?.name ?? null);
+  };
+
+  const runImportPreview = async () => {
+    const f = importFileRef.current;
+    if (!f) {
+      setImportPickErr("Choose a CSV file first.");
+      return;
+    }
+    setImportBusy(true);
+    setImportPickErr(null);
+    setImportCommitErr(null);
+    try {
+      const prev = await previewLogsImportCsv(userId, f);
+      setImportPreview(prev);
+    } catch (e) {
+      setImportPickErr(e instanceof Error ? e.message : "Preview failed");
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  const runImportCommit = async () => {
+    if (!importPreview?.rows.length) return;
+    setImportCommitErr(null);
+    setImportBusy(true);
+    try {
+      await commitLogsImport(userId, importPreview.rows);
+      setImportPreview(null);
+      importFileRef.current = null;
+      setImportSelectedName(null);
+      setImportInputKey((k) => k + 1);
+      onCommitted?.();
+    } catch (e) {
+      setImportCommitErr(e instanceof Error ? e.message : "Import failed");
+    } finally {
+      setImportBusy(false);
+    }
+  };
+
+  return (
+    <div className="profile-data-group">
+      <h3 className="profile-data-kicker">Import</h3>
+      <p className="muted small profile-data-microcopy">
+        UTF-8 CSV; <span className="mono">log_date</span> per row · saved as <span className="mono">import</span>
+      </p>
+      <div className="entries-import-upload">
+        <div className="entries-import-dropzone">
+          <input
+            id="profile-import-csv-input"
+            key={importInputKey}
+            type="file"
+            accept=".csv,text/csv"
+            className="entries-import-input-hidden"
+            aria-label="Choose CSV file to import"
+            onChange={(ev) => onImportFilePicked(ev.target.files)}
+          />
+          <div className="entries-import-dropzone-inner">
+            <label htmlFor="profile-import-csv-input" className="entries-import-choose">
+              Choose CSV
+            </label>
+            <span className="entries-import-filename mono muted small" aria-live="polite">
+              {importSelectedName ?? "No file selected"}
+            </span>
+          </div>
+        </div>
+        <button type="button" className="btn ghost small entries-import-preview-btn" disabled={importBusy} onClick={() => void runImportPreview()}>
+          {importBusy && !importPreview ? "Preview…" : "Preview"}
+        </button>
+      </div>
+      {importPickErr && <p className="error-inline">{importPickErr}</p>}
+      {importCommitErr && <p className="error-inline">{importCommitErr}</p>}
+      {importPreview && (
+        <div className="entries-import-preview">
+          <p className="muted small">
+            <strong>{importPreview.row_count}</strong> row{importPreview.row_count === 1 ? "" : "s"} ready
+            {importPreview.parse_errors.length > 0 ? " (some lines skipped)" : ""}.
+          </p>
+          {importPreview.parse_errors.length > 0 && (
+            <ul className="entries-import-errors muted small">
+              {importPreview.parse_errors.slice(0, 8).map((err) => (
+                <li key={err}>{err}</li>
+              ))}
+              {importPreview.parse_errors.length > 8 && <li>…</li>}
+            </ul>
+          )}
+          {importPreview.rows.length > 0 && (
+            <div className="entries-import-table-wrap">
+              <table className="entries-import-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Start</th>
+                    <th>Event</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {importPreview.rows.slice(0, 8).map((r: LogImportRow, i: number) => (
+                    <tr key={`${r.log_date}-${i}`}>
+                      <td className="mono">{r.log_date}</td>
+                      <td className="mono">{r.start_time ?? "—"}</td>
+                      <td>{r.event ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <button
+            type="button"
+            className="btn primary small entries-import-save"
+            disabled={importBusy || importPreview.rows.length === 0}
+            onClick={() => void runImportCommit()}
+          >
+            {importBusy ? "Saving…" : `Save ${importPreview.row_count} imported row${importPreview.row_count === 1 ? "" : "s"}`}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

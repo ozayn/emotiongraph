@@ -9,7 +9,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { downloadLogsCsvExport, fetchInsights } from "../api";
+import { fetchInsights } from "../api";
 import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
 import type { InsightsPayload } from "../types";
 import {
@@ -81,9 +81,6 @@ export default function InsightsPage({ userId, timeZone }: Props) {
   const [data, setData] = useState<InsightsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [exportBusy, setExportBusy] = useState(false);
-  const [exportError, setExportError] = useState<string | null>(null);
-
   useEffect(() => {
     if (!isReadyUserId(userId)) {
       setLoading(false);
@@ -124,20 +121,6 @@ export default function InsightsPage({ userId, timeZone }: Props) {
     setStartDate(addCalendarDaysToIso(end, -(days - 1)));
   };
 
-  const handleExportCsv = () => {
-    setExportError(null);
-    if (startDate > endDate) {
-      setExportError("End date must be on or after start date.");
-      return;
-    }
-    setExportBusy(true);
-    void downloadLogsCsvExport(userId, startDate, endDate)
-      .catch((e) => {
-        setExportError(e instanceof Error ? e.message : "Export failed");
-      })
-      .finally(() => setExportBusy(false));
-  };
-
   const s = data?.summary;
 
   if (!isReadyUserId(userId)) {
@@ -152,12 +135,12 @@ export default function InsightsPage({ userId, timeZone }: Props) {
     <div className="insights-page">
       <header className="insights-header">
         <div className="insights-header-top">
-          <Link to="/" className="insights-back muted small">
+          <Link to="/today" className="insights-back muted small">
             ← Today
           </Link>
         </div>
         <h1 className="insights-title">Insights</h1>
-        <p className="insights-lead muted small">A calm read on your logged patterns in this range.</p>
+        <p className="insights-lead muted small">A calm read on your logged patterns in this range. CSV export lives in Profile → Data.</p>
       </header>
 
       <section className="insights-card insights-range-card" aria-label="Date range">
@@ -187,26 +170,6 @@ export default function InsightsPage({ userId, timeZone }: Props) {
             <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="insights-date-input" />
           </label>
         </div>
-      </section>
-
-      <section className="insights-card insights-export-card" aria-label="Export data">
-        <h2 className="insights-export-title">Export</h2>
-        <p className="insights-export-lead muted small">
-          Download log rows for <strong>you</strong> only, using the date range above. Day fields (cycle, sleep) repeat on each row for that date.
-        </p>
-        <button
-          type="button"
-          className="btn primary insights-export-btn"
-          disabled={exportBusy || startDate > endDate}
-          onClick={() => void handleExportCsv()}
-        >
-          {exportBusy ? "Preparing…" : "Download CSV"}
-        </button>
-        {exportError && (
-          <p className="error-inline insights-export-error" role="alert">
-            {exportError}
-          </p>
-        )}
       </section>
 
       {error && <p className="error-inline insights-error">{error}</p>}

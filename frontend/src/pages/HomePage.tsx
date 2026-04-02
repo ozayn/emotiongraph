@@ -194,7 +194,7 @@ export default function HomePage({ userId, timeZone, users }: Props) {
       </div>
 
       <nav className="home-today-strip" aria-label="Today’s saved entries">
-        <Link className="home-today-link" to={`/entries?day=${logDate}#entries-day-focus`}>
+        <Link className="home-today-link" to={`/today#entries-history-focus`}>
           <span className="home-today-label">Today</span>
           {todayLogCount != null && todayLogCount > 0 ? (
             <span className="home-today-count mono" aria-label={`${todayLogCount} saved for today`}>

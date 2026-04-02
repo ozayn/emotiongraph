@@ -1,28 +1,11 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import {
-  commitLogsImport,
-  deleteLog,
-  fetchLogsRange,
-  patchLog,
-  previewLogsImportCsv,
-  saveLogs,
-} from "../api";
+import { deleteLog, fetchLogsRange, patchLog } from "../api";
 import CalmSelect from "../components/CalmSelect";
-import EntriesDayPanel from "../components/EntriesDayPanel";
 import MetricSelect from "../components/MetricSelect";
-import type { LogImportRow, LogsImportPreviewResponse, SavedLogEntry } from "../types";
+import type { SavedLogEntry } from "../types";
 import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
-import {
-  compactMetricSummary,
-  draftToNewLogRow,
-  draftToPatch,
-  emptyDraftForDate,
-  entryToDraft,
-  type EditDraft,
-  LOG_ADD_SOURCE_OPTIONS,
-  LOG_EDIT_SOURCE_OPTIONS,
-} from "../logEditDraft";
+import { compactMetricSummary, draftToPatch, entryToDraft, type EditDraft, LOG_EDIT_SOURCE_OPTIONS } from "../logEditDraft";
 import { optionsForMetricKey } from "../trackerOptions";
 
 const ENTRIES_VIEW_STORAGE_KEY = "emotiongraph_entries_view";
@@ -55,25 +38,35 @@ function shortDate(iso: string): string {
   return new Date(y, m - 1, day).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
-type Props = { userId: number; timeZone: string };
+export type LogsPageVariant = "history" | "today";
+
+type Props = { userId: number; timeZone: string; variant?: LogsPageVariant };
 
 function parseDayQueryParam(raw: string | null): string | undefined {
   if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return undefined;
   return raw;
 }
 
-export default function LogsPage({ userId, timeZone }: Props) {
+export default function LogsPage({ userId, timeZone, variant = "history" }: Props) {
   const [searchParams] = useSearchParams();
-  const focusLogDate = parseDayQueryParam(searchParams.get("day"));
-  const addSourceLabelId = useId();
+  const focusLogDate = variant === "history" ? parseDayQueryParam(searchParams.get("day")) : undefined;
   const editSourceLabelId = useId();
   const [startDate, setStartDate] = useState(() => addCalendarDaysToIso(todayIsoInTimeZone(timeZone), -60));
   const [endDate, setEndDate] = useState(() => todayIsoInTimeZone(timeZone));
 
   useEffect(() => {
-    setStartDate(addCalendarDaysToIso(todayIsoInTimeZone(timeZone), -60));
-    setEndDate(todayIsoInTimeZone(timeZone));
-  }, [userId, timeZone]);
+    if (variant === "today") {
+      const t = todayIsoInTimeZone(timeZone);
+      setStartDate(t);
+      setEndDate(t);
+    } else if (focusLogDate) {
+      setStartDate(focusLogDate);
+      setEndDate(focusLogDate);
+    } else {
+      setStartDate(addCalendarDaysToIso(todayIsoInTimeZone(timeZone), -60));
+      setEndDate(todayIsoInTimeZone(timeZone));
+    }
+  }, [userId, timeZone, focusLogDate, variant]);
   const [entries, setEntries] = useState<SavedLogEntry[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,22 +75,10 @@ export default function LogsPage({ userId, timeZone }: Props) {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [addDraft, setAddDraft] = useState<EditDraft | null>(null);
-  const [addSaveError, setAddSaveError] = useState<string | null>(null);
-  const [addSaving, setAddSaving] = useState(false);
-  const [importPreview, setImportPreview] = useState<LogsImportPreviewResponse | null>(null);
-  const [importInputKey, setImportInputKey] = useState(0);
-  const [importSelectedName, setImportSelectedName] = useState<string | null>(null);
-  const [importPickErr, setImportPickErr] = useState<string | null>(null);
-  const [importBusy, setImportBusy] = useState(false);
-  const [importCommitErr, setImportCommitErr] = useState<string | null>(null);
-
   const rangeRef = useRef({ start: startDate, end: endDate });
   rangeRef.current = { start: startDate, end: endDate };
 
   const sheetTitleRef = useRef<HTMLHeadingElement>(null);
-  const addSheetTitleRef = useRef<HTMLHeadingElement>(null);
-  const importFileRef = useRef<File | null>(null);
   const [visibleCount, setVisibleCount] = useState(ENTRIES_LIST_INITIAL);
   const [cardMenuOpenId, setCardMenuOpenId] = useState<number | null>(null);
   const [viewMode, setViewModeState] = useState<EntriesViewMode>(() => readStoredEntriesViewMode());
@@ -130,21 +111,25 @@ export default function LogsPage({ userId, timeZone }: Props) {
     void applyRange();
   }, [applyRange]);
 
-  const scrolledToDayPanelKey = useRef<string>("");
+  const scrolledHistoryKey = useRef<string>("");
   useEffect(() => {
-    if (!focusLogDate) {
-      scrolledToDayPanelKey.current = "";
+    if (loading) return;
+    const hash = window.location.hash;
+    const wantScroll =
+      (variant === "today" && hash === "#entries-history-focus") || (variant === "history" && focusLogDate != null);
+    if (!wantScroll) {
+      if (variant === "history" && !focusLogDate) scrolledHistoryKey.current = "";
       return;
     }
-    if (loading) return;
-    const key = `${focusLogDate}-${userId}`;
-    if (scrolledToDayPanelKey.current === key) return;
-    scrolledToDayPanelKey.current = key;
+    const key =
+      variant === "today" ? `today-${userId}-${hash}` : `${focusLogDate}-${userId}`;
+    if (scrolledHistoryKey.current === key) return;
+    scrolledHistoryKey.current = key;
     const id = window.requestAnimationFrame(() => {
-      document.getElementById("entries-day-focus")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      document.getElementById("entries-history-focus")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
     return () => window.cancelAnimationFrame(id);
-  }, [focusLogDate, loading, userId]);
+  }, [focusLogDate, loading, userId, variant]);
 
   useEffect(() => {
     setVisibleCount(ENTRIES_LIST_INITIAL);
@@ -163,17 +148,14 @@ export default function LogsPage({ userId, timeZone }: Props) {
         setEditing(null);
         setDraft(null);
         setSaveError(null);
-      } else if (addDraft) {
-        setAddDraft(null);
-        setAddSaveError(null);
       } else if (cardMenuOpenId != null) {
         setCardMenuOpenId(null);
       }
     };
-    if (!draft && !addDraft && cardMenuOpenId == null) return;
+    if (!draft && cardMenuOpenId == null) return;
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [draft, addDraft, cardMenuOpenId]);
+  }, [draft, cardMenuOpenId]);
 
   useEffect(() => {
     if (cardMenuOpenId == null) return;
@@ -194,93 +176,8 @@ export default function LogsPage({ userId, timeZone }: Props) {
     return () => window.cancelAnimationFrame(id);
   }, [draft, editing]);
 
-  useEffect(() => {
-    if (!addDraft) return;
-    const id = window.requestAnimationFrame(() => {
-      addSheetTitleRef.current?.focus();
-    });
-    return () => window.cancelAnimationFrame(id);
-  }, [addDraft]);
-
-  const openAddPast = () => {
-    setEditing(null);
-    setDraft(null);
-    setSaveError(null);
-    setActionError(null);
-    setAddSaveError(null);
-    setAddDraft(emptyDraftForDate(endDate));
-  };
-
-  const closeAddPast = () => {
-    setAddDraft(null);
-    setAddSaveError(null);
-  };
-
-  const handleAddSave = async () => {
-    if (!addDraft) return;
-    setAddSaveError(null);
-    setAddSaving(true);
-    try {
-      await saveLogs(userId, addDraft.log_date, [draftToNewLogRow(addDraft)]);
-      closeAddPast();
-      await applyRange();
-    } catch (e) {
-      setAddSaveError(e instanceof Error ? e.message : "Save failed");
-    } finally {
-      setAddSaving(false);
-    }
-  };
-
-  const onImportFilePicked = (files: FileList | null) => {
-    setImportPreview(null);
-    setImportCommitErr(null);
-    setImportPickErr(null);
-    const f = files?.[0] ?? null;
-    importFileRef.current = f;
-    setImportSelectedName(f?.name ?? null);
-  };
-
-  const runImportPreview = async () => {
-    const f = importFileRef.current;
-    if (!f) {
-      setImportPickErr("Choose a CSV file first.");
-      return;
-    }
-    setImportBusy(true);
-    setImportPickErr(null);
-    setImportCommitErr(null);
-    try {
-      const prev = await previewLogsImportCsv(userId, f);
-      setImportPreview(prev);
-    } catch (e) {
-      setImportPickErr(e instanceof Error ? e.message : "Preview failed");
-    } finally {
-      setImportBusy(false);
-    }
-  };
-
-  const runImportCommit = async () => {
-    if (!importPreview?.rows.length) return;
-    setImportCommitErr(null);
-    setImportBusy(true);
-    try {
-      await commitLogsImport(userId, importPreview.rows);
-      setImportPreview(null);
-      importFileRef.current = null;
-      setImportSelectedName(null);
-      setImportInputKey((k) => k + 1);
-      await applyRange();
-    } catch (e) {
-      setImportCommitErr(e instanceof Error ? e.message : "Import failed");
-    } finally {
-      setImportBusy(false);
-    }
-  };
-
   const openEdit = (e: SavedLogEntry) => {
     setCardMenuOpenId(null);
-    setAddDraft(null);
-    setAddSaveError(null);
     setSaveError(null);
     setActionError(null);
     setEditing(e);
@@ -323,156 +220,116 @@ export default function LogsPage({ userId, timeZone }: Props) {
     setDraft((d) => (d ? { ...d, [key]: value } : null));
   };
 
-  const setAddDraftField = <K extends keyof EditDraft>(key: K, value: EditDraft[K]) => {
-    setAddDraft((d) => (d ? { ...d, [key]: value } : null));
-  };
+  const todayIso = todayIsoInTimeZone(timeZone);
+  const todayHeading = (() => {
+    if (variant !== "today") return "";
+    const parts = todayIso.split("-").map(Number);
+    const [y, m, d] = parts;
+    if (!y || !m || !d || parts.length !== 3) return todayIso;
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  })();
 
   return (
-    <div className="entries-page">
-      <nav className="entries-nav">
+    <div className={`entries-page${variant === "today" ? " entries-page--today" : ""}`}>
+      <nav className="entries-nav entries-nav--split">
         <Link className="linkish entries-back" to="/">
           ← Home
         </Link>
+        {variant === "today" ? (
+          <Link className="linkish entries-back" to="/entries">
+            All entries →
+          </Link>
+        ) : (
+          <Link className="linkish entries-back" to="/profile#data">
+            Profile →
+          </Link>
+        )}
       </nav>
       <header className="entries-header">
-        <h1 className="entries-title">Entries</h1>
-        <p className="muted small entries-lead">
-          View, edit, or delete log rows. Add a structured row for any past date, or import many rows from CSV.
-        </p>
-        <div className="entries-actions">
-          <button type="button" className="btn ghost small" onClick={openAddPast}>
-            Add past entry
-          </button>
-        </div>
-        <div className="entries-range">
-          <label className="entries-range-field">
-            <span className="sr-only">Start date</span>
-            <input
-              type="date"
-              className="date-input date-input--compact"
-              value={startDate}
-              onChange={(ev) => {
-                setActionError(null);
-                setStartDate(ev.target.value);
-              }}
-            />
-          </label>
-          <span className="entries-range-sep muted" aria-hidden="true">
-            –
-          </span>
-          <label className="entries-range-field">
-            <span className="sr-only">End date</span>
-            <input
-              type="date"
-              className="date-input date-input--compact"
-              value={endDate}
-              onChange={(ev) => {
-                setActionError(null);
-                setEndDate(ev.target.value);
-              }}
-            />
-          </label>
-          <button type="button" className="btn ghost small entries-apply" onClick={() => void applyRange()}>
-            Apply range
-          </button>
-        </div>
+        {variant === "today" ? (
+          <>
+            <h1 className="entries-title">Today</h1>
+            <p className="muted small entries-today-date" aria-live="polite">
+              {todayHeading}
+            </p>
+            <p className="muted small entries-lead">
+              Logs for today in your timezone. For voice, use{" "}
+              <Link className="linkish" to="/">
+                Home
+              </Link>
+              . For text or manual rows,{" "}
+              <Link className="linkish" to={`/add-entry?day=${todayIso}`}>
+                Add entry
+              </Link>
+              . Import or export lives in{" "}
+              <Link className="linkish" to="/profile#data">
+                Profile → Data
+              </Link>
+              .
+            </p>
+          </>
+        ) : (
+          <>
+            <h1 className="entries-title">Entries</h1>
+            <p className="muted small entries-lead">
+              Browse history in a date range and edit or delete rows. CSV and structured add are under{" "}
+              <Link className="linkish" to="/profile#data">
+                Profile → Data
+              </Link>
+              . Typed or manual logs:{" "}
+              <Link className="linkish" to="/add-entry">
+                Add entry
+              </Link>
+              .
+            </p>
+            <div className="entries-range">
+              <label className="entries-range-field">
+                <span className="sr-only">Start date</span>
+                <input
+                  type="date"
+                  className="date-input date-input--compact"
+                  value={startDate}
+                  onChange={(ev) => {
+                    setActionError(null);
+                    setStartDate(ev.target.value);
+                  }}
+                />
+              </label>
+              <span className="entries-range-sep muted" aria-hidden="true">
+                –
+              </span>
+              <label className="entries-range-field">
+                <span className="sr-only">End date</span>
+                <input
+                  type="date"
+                  className="date-input date-input--compact"
+                  value={endDate}
+                  onChange={(ev) => {
+                    setActionError(null);
+                    setEndDate(ev.target.value);
+                  }}
+                />
+              </label>
+              <button type="button" className="btn ghost small entries-apply" onClick={() => void applyRange()}>
+                Apply range
+              </button>
+            </div>
+          </>
+        )}
       </header>
 
-      <EntriesDayPanel
-        userId={userId}
-        timeZone={timeZone}
-        focusLogDate={focusLogDate}
-        onMutate={() => void applyRange()}
-      />
+      <section className="entries-history-block" id="entries-history-focus" aria-label="Log history">
+        {loading && <p className="muted">Loading…</p>}
+        {loadError && <p className="error-inline">{loadError}</p>}
+        {actionError && <p className="error-inline entries-action-error">{actionError}</p>}
+        {!loading && !loadError && entries.length === 0 && <p className="muted entries-empty">No entries in this range.</p>}
 
-      <section className="entries-import" aria-labelledby="entries-import-title">
-        <h2 id="entries-import-title" className="entries-subtitle">
-          Import from CSV
-        </h2>
-        <p className="muted small entries-import-hint">
-          UTF-8. Use <span className="mono">log_date</span> (YYYY-MM-DD) per row—exports from this app include it as the first column. Rows save for the current user with source{" "}
-          <span className="mono">import</span>.
-        </p>
-        <div className="entries-import-upload">
-          <div className="entries-import-dropzone">
-            <input
-              id="entries-import-csv-input"
-              key={importInputKey}
-              type="file"
-              accept=".csv,text/csv"
-              className="entries-import-input-hidden"
-              aria-label="Choose CSV file to import"
-              onChange={(ev) => onImportFilePicked(ev.target.files)}
-            />
-            <div className="entries-import-dropzone-inner">
-              <label htmlFor="entries-import-csv-input" className="entries-import-choose">
-                Choose CSV
-              </label>
-              <span className="entries-import-filename mono muted small" aria-live="polite">
-                {importSelectedName ?? "No file selected"}
-              </span>
-            </div>
-          </div>
-          <button type="button" className="btn ghost small entries-import-preview-btn" disabled={importBusy} onClick={() => void runImportPreview()}>
-            {importBusy && !importPreview ? "Preview…" : "Preview"}
-          </button>
-        </div>
-        {importPickErr && <p className="error-inline">{importPickErr}</p>}
-        {importCommitErr && <p className="error-inline">{importCommitErr}</p>}
-        {importPreview && (
-          <div className="entries-import-preview">
-            <p className="muted small">
-              <strong>{importPreview.row_count}</strong> row{importPreview.row_count === 1 ? "" : "s"} ready
-              {importPreview.parse_errors.length > 0 ? " (some lines skipped)" : ""}.
-            </p>
-            {importPreview.parse_errors.length > 0 && (
-              <ul className="entries-import-errors muted small">
-                {importPreview.parse_errors.slice(0, 8).map((err) => (
-                  <li key={err}>{err}</li>
-                ))}
-                {importPreview.parse_errors.length > 8 && <li>…</li>}
-              </ul>
-            )}
-            {importPreview.rows.length > 0 && (
-              <div className="entries-import-table-wrap">
-                <table className="entries-import-table">
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Start</th>
-                      <th>Event</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {importPreview.rows.slice(0, 8).map((r: LogImportRow, i: number) => (
-                      <tr key={`${r.log_date}-${i}`}>
-                        <td className="mono">{r.log_date}</td>
-                        <td className="mono">{r.start_time ?? "—"}</td>
-                        <td>{r.event ?? "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-            <button
-              type="button"
-              className="btn primary small entries-import-save"
-              disabled={importBusy || importPreview.rows.length === 0}
-              onClick={() => void runImportCommit()}
-            >
-              {importBusy ? "Saving…" : `Save ${importPreview.row_count} imported row${importPreview.row_count === 1 ? "" : "s"}`}
-            </button>
-          </div>
-        )}
-      </section>
-
-      {loading && <p className="muted">Loading…</p>}
-      {loadError && <p className="error-inline">{loadError}</p>}
-      {actionError && <p className="error-inline entries-action-error">{actionError}</p>}
-      {!loading && !loadError && entries.length === 0 && <p className="muted entries-empty">No entries in this range.</p>}
-
-      {!loading && !loadError && entries.length > 0 && (
+        {!loading && !loadError && entries.length > 0 && (
         <>
           <div className="entries-view-bar" role="group" aria-label="Entry list layout">
             <span className="entries-view-bar-label muted small" id="entries-view-mode-label">
@@ -668,117 +525,8 @@ export default function LogsPage({ userId, timeZone }: Props) {
             </div>
           )}
         </>
-      )}
-
-      {addDraft && (
-        <>
-          <div className="log-edit-backdrop" role="presentation" onClick={closeAddPast} />
-          <div
-            className="log-edit-sheet"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="log-add-title"
-            onClick={(ev) => ev.stopPropagation()}
-          >
-            <div className="log-edit-sheet-scroll">
-              <div className="log-edit-sheet-head">
-                <h2 id="log-add-title" ref={addSheetTitleRef} tabIndex={-1}>
-                  Add entry (past date)
-                </h2>
-                <button type="button" className="btn btn-text log-edit-close" onClick={closeAddPast}>
-                  Close
-                </button>
-              </div>
-              <p className="muted small log-edit-past-note">Separate from Today’s voice flow. Saved as a normal log row for the date you choose.</p>
-              <div className="log-edit-fields">
-                <label className="field field--stacked">
-                  <span>Log date</span>
-                  <input
-                    type="date"
-                    value={addDraft.log_date}
-                    onChange={(ev) => setAddDraftField("log_date", ev.target.value)}
-                  />
-                </label>
-                <label className="field field--stacked">
-                  <span id={addSourceLabelId}>Source</span>
-                  <CalmSelect
-                    variant="field"
-                    aria-labelledby={addSourceLabelId}
-                    value={addDraft.source_type}
-                    onChange={(v) => setAddDraftField("source_type", v as EditDraft["source_type"])}
-                    options={LOG_ADD_SOURCE_OPTIONS}
-                  />
-                </label>
-                <label className="field field--stacked">
-                  <span>What happened</span>
-                  <input type="text" value={addDraft.event} onChange={(ev) => setAddDraftField("event", ev.target.value)} />
-                </label>
-                <div className="manual-add-time-row">
-                  <label className="field field--stacked">
-                    <span>Start</span>
-                    <input
-                      type="text"
-                      value={addDraft.start_time}
-                      onChange={(ev) => setAddDraftField("start_time", ev.target.value)}
-                    />
-                  </label>
-                  <label className="field field--stacked">
-                    <span>End</span>
-                    <input type="text" value={addDraft.end_time} onChange={(ev) => setAddDraftField("end_time", ev.target.value)} />
-                  </label>
-                </div>
-                {(["energy_level", "anxiety", "contentment", "focus"] as const).map((key) => {
-                  const opts = optionsForMetricKey(key);
-                  if (!opts) return null;
-                  return (
-                    <MetricSelect
-                      key={key}
-                      label={
-                        key === "energy_level"
-                          ? "Energy"
-                          : key === "anxiety"
-                            ? "Anxiety"
-                            : key === "contentment"
-                              ? "Contentment"
-                              : "Focus"
-                      }
-                      value={addDraft[key]}
-                      onChange={(v) => setAddDraftField(key, v)}
-                      options={opts}
-                    />
-                  );
-                })}
-                {optionsForMetricKey("music") && (
-                  <MetricSelect
-                    label="Music"
-                    value={addDraft.music}
-                    onChange={(v) => setAddDraftField("music", v)}
-                    options={optionsForMetricKey("music")!}
-                  />
-                )}
-                <label className="field field--stacked">
-                  <span>Comments</span>
-                  <textarea
-                    className="log-edit-comments"
-                    rows={3}
-                    value={addDraft.comments}
-                    onChange={(ev) => setAddDraftField("comments", ev.target.value)}
-                  />
-                </label>
-              </div>
-              {addSaveError && <p className="error-inline log-edit-error">{addSaveError}</p>}
-            </div>
-            <div className="log-edit-footer">
-              <button type="button" className="btn ghost" onClick={closeAddPast} disabled={addSaving}>
-                Cancel
-              </button>
-              <button type="button" className="btn primary" onClick={() => void handleAddSave()} disabled={addSaving}>
-                {addSaving ? "Saving…" : "Save entry"}
-              </button>
-            </div>
-          </div>
-        </>
-      )}
+        )}
+      </section>
 
       {draft && editing && (
         <>
