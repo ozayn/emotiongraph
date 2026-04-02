@@ -13,8 +13,8 @@ export default function UsersGate({ usersReady, users }: Props) {
     return (
       <p className="muted gate-message">
         {realm === "demo"
-          ? "We couldn’t load demo profiles. Refresh the page or try again in a moment."
-          : "No users found. Seed the database (Azin &amp; Zahra) and refresh."}
+          ? "Profiles didn’t load. Refresh and try again."
+          : "No profiles yet. Finish setup on the server, then refresh."}
       </p>
     );
   }

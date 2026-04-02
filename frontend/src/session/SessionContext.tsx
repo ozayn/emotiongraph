@@ -90,7 +90,7 @@ export function SessionProvider({ realm, children }: ProviderProps) {
           next = list.filter((u) => u.id === demoFilter);
           if (next.length === 0) {
             setUsersError(
-              "This demo can’t load that profile right now. Try again later, or use the full app if you have an account.",
+              "This preview isn’t available right now. Try again later, or open the full app if you already use it.",
             );
           }
         }

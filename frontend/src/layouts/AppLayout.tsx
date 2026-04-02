@@ -27,8 +27,8 @@ export default function AppLayout({ children }: Props) {
               <ThemeToggle />
             </div>
             {realm === "private" && (
-              <Link className="app-header-secondary-link app-header-demo-link" to="/demo/">
-                Demo
+              <Link className="app-header-tertiary-link" to="/demo/">
+                Try demo
               </Link>
             )}
             {usersReady && userScopeReady && (
@@ -49,10 +49,15 @@ export default function AppLayout({ children }: Props) {
       </header>
       {realm === "demo" && (
         <div className="app-banner app-banner--demo" role="status">
-          <span className="app-banner-demo-lead">Demo mode — sample data only.</span>{" "}
-          <Link className="app-banner-demo-private linkish" to="/">
-            Sign in for your data
-          </Link>
+          <div className="app-banner-demo-inner">
+            <span className="app-banner-demo-pill">Sample data</span>
+            <span className="app-banner-demo-sep muted" aria-hidden="true">
+              ·
+            </span>
+            <Link className="app-banner-demo-account" to="/">
+              Use my account
+            </Link>
+          </div>
         </div>
       )}
       {usersError && (

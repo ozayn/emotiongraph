@@ -28,15 +28,15 @@ export default function ChooseProfilePage({ users, switching = false, onChoose }
   const ordered = sortForChooser(users);
 
   const title = (() => {
-    if (isDemo) return switching ? "Switch demo profile" : "Choose a demo profile";
+    if (isDemo) return switching ? "Switch profile" : "Pick a profile";
     return switching ? "Switch profile" : "Who’s logging today?";
   })();
 
   const subtitle = (() => {
     if (isDemo) {
       return switching
-        ? "Try another sample profile to explore the demo."
-        : "You’re viewing shared sample data — not a private account.";
+        ? "Browse as someone else — still sample data only."
+        : "Sample stories and entries for exploring the app. Nothing here is your private log.";
     }
     return switching
       ? "Choose who is using this device. No password — this only sets local preferences."
