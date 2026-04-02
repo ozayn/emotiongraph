@@ -232,6 +232,28 @@ def _pg_first_user_id(conn) -> int | None:
     return conn.execute(text("SELECT id FROM users ORDER BY id ASC LIMIT 1")).scalar_one_or_none()
 
 
+def _pg_align_log_entries_id_sequence(conn) -> None:
+    """If rows were inserted with explicit ids (import/restore), the SERIAL sequence can lag and the next INSERT fails with duplicate key (500 on POST /logs)."""
+    seq = conn.execute(text("SELECT pg_get_serial_sequence('log_entries', 'id')")).scalar_one_or_none()
+    if not seq:
+        return
+    conn.execute(
+        text(
+            """
+            SELECT setval(
+                CAST(:seq AS regclass),
+                CASE
+                    WHEN (SELECT COUNT(*) FROM log_entries) = 0 THEN 1
+                    ELSE (SELECT MAX(id) FROM log_entries)
+                END,
+                (SELECT COUNT(*) > 0 FROM log_entries)
+            )
+            """
+        ),
+        {"seq": seq},
+    )
+
+
 def _pg_drop_tracker_days_unique_on_log_date_only(conn) -> None:
     """Old single-tenant schema often had UNIQUE(log_date); composite PK needs it dropped."""
     rows = conn.execute(
@@ -334,6 +356,8 @@ def upgrade_rdbms_schema_for_multiuser() -> None:
                 )
             except ProgrammingError:
                 pass
+
+            _pg_align_log_entries_id_sequence(conn)
 
         if not _pg_table_exists(conn, "tracker_days"):
             return
