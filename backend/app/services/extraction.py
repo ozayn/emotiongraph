@@ -35,6 +35,11 @@ Return a single JSON object with exactly these keys:
   "start_time", "end_time", "event", "energy_level", "anxiety", "contentment", "focus", "music", "comments"
 - Do not include "source_type" or any other keys in row objects.
 
+Activity-only rows (critical):
+- An action, activity, or event described on its own is enough for a valid row. You MUST still output a row when the speaker states what they did—even if they say nothing about mood, emotion, energy, focus, anxiety, contentment, or music.
+- Examples (English; same idea in Farsi, Serbian, and mixed speech): "I took a walk yesterday morning.", "Had lunch.", "Reviewed Slack.", "Went to the gym." → each deserves at least one row with a concise "event" in the speaker’s language; leave energy_level, anxiety, contentment, focus, and music null unless the text explicitly supports them.
+- Never skip or omit a row solely because no metrics or feelings were mentioned. Never fill metrics by guessing from the type of activity (e.g. do not assume anxiety or energy from "gym" or "meeting").
+
 Day-level vs rows (critical):
 - Cycle day (e.g. "cycle day 13"), how many hours slept, and sleep quality/poor sleep are day_context only. Do not create rows whose main purpose is only to record those facts.
 - Rows are for activities, meetings, work blocks, moods tied to a situation, or clear present-moment states—not for standalone sleep/cycle metadata.
@@ -50,12 +55,13 @@ Event vs comments (critical):
 - Put emotional arcs, nuance, secondary details, and mixed feelings in "comments", not in a bloated "event".
 
 Affect mapping (conservative):
+- energy_level, anxiety, contentment, and focus are NEVER required. Omit them or use null whenever the transcript does not clearly state them—this includes pure activity descriptions with no affect or rating language.
 - energy_level (1 low … 3 high): use only when the text clearly refers to physical energy, alertness, fatigue, exhaustion, or vitality—not general mood or happiness.
 - contentment / relief / feeling better / lighter / at peace / glad things improved: map to "contentment" first when the wording is about mood or satisfaction, not energy. If both energy and mood are explicit, set both scales appropriately; otherwise prefer the scale that matches the wording.
 - anxiety and focus: only when clearly supported; otherwise null.
 
 Rules:
-- Use null for any field you cannot infer with high confidence from the transcript. Do not invent times or ratings.
+- Use null for any field you cannot infer with high confidence from the transcript. Do not invent times, ratings, or emotions. An activity-only row is valid with "event" set and all numeric or music fields null.
 - Prefer fewer, broader rows over guessing fine-grained times. Split into multiple rows only when the transcript clearly describes distinct time-bounded episodes or clearly separable situations.
 - start_time and end_time: strings "HH:MM" in 24-hour form using Western digits (0-9), e.g. "09:30" or "14:00", if mentioned; map from Persian/Arabic/Cyrillic digit forms if the transcript uses them; otherwise null.
 - energy_level: integer 1 (low energy), 2 (neutral), or 3 (high energy) only if clearly stated (in any language); otherwise null.
@@ -84,9 +90,9 @@ When in doubt, leave start_time null instead of using capture_time_local.
 """
 
 SYSTEM_PROMPT = """You extract structured daily log data from spoken or written narrative text (voice transcripts or typed notes).
-The input may be English, Persian (Farsi), Serbian, or mixed—including code-switching. Understand all of it. Put cycle/sleep day metadata in day_context, not rows. Use rows for timed or situational episodes and justified present-state check-ins.
+The input may be English, Persian (Farsi), Serbian, or mixed—including code-switching. Understand all of it. Put cycle/sleep day metadata in day_context, not rows. Use rows for activities, actions, events, timed or situational episodes, and justified present-state check-ins—even when the speaker only says what they did and mentions no feelings or metrics.
 Preserve the speaker’s original language(s) in "event" and "comments" naturally; do not normalize mixed speech into awkward single-language paraphrases. transcript_summary is optional flavor—accuracy of rows and day_context matters more.
-Be conservative. Never fabricate specifics. Use null for unknown fields.
+Be conservative. Never fabricate emotions, scores, or clock times. Use null for unknown fields; metrics are optional and must not be inferred from activity type alone.
 The user will review and edit before anything is saved.
 Do not output source_type on rows; only the schema keys listed in the user message."""
 
