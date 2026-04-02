@@ -2,6 +2,8 @@ export type User = {
   id: number;
   name: string;
   email: string;
+  /** Saved IANA override, or null to use the device/browser zone on the client. */
+  timezone: string | null;
   created_at: string;
 };
 

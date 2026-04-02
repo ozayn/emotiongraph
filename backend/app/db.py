@@ -71,10 +71,11 @@ def _sqlite_wal_shm_paths(db_path: Path) -> list[Path]:
 
 def _sqlite_schema_requires_new_file(insp) -> bool:
     """
-    True if an existing SQLite file predates multi-user schema (users, user_id, composite tracker_days).
+    True if an existing SQLite file predates multi-user schema (users, user_id, composite tracker_days),
+    or predates users.timezone (ORM queries touch all mapped columns before ALTER migrations run).
 
-    SQLAlchemy create_all() never alters existing tables, so old files keep missing columns and
-    queries raise OperationalError (surfacing as HTTP 500).
+    Alembic upgrades add new columns; this guard only targets layouts too old to upgrade in place.
+    Without a reset, missing columns still cause OperationalError (surfacing as HTTP 500).
     """
     if insp.has_table("log_entries"):
         cols = {c["name"] for c in insp.get_columns("log_entries")}
@@ -90,13 +91,18 @@ def _sqlite_schema_requires_new_file(insp) -> bool:
             return True
     if insp.has_table("log_entries") and not insp.has_table("users"):
         return True
+    if insp.has_table("users"):
+        user_cols = {c["name"] for c in insp.get_columns("users")}
+        if "timezone" not in user_cols:
+            return True
     return False
 
 
 def _maybe_reset_stale_sqlite_file() -> None:
     """
-    For local file-based SQLite only: if the DB file matches a pre-multi-user layout, rename it
-    aside so create_all can build a fresh schema. PostgreSQL and :memory: SQLite are untouched.
+    For local file-based SQLite only: if the DB file matches a known stale layout (pre-multi-user,
+    wrong tracker_days PK, or users without timezone), rename it aside so the next startup can run
+    Alembic ``upgrade head`` on a new file. PostgreSQL and :memory: SQLite are untouched.
     """
     global engine
 
@@ -128,8 +134,9 @@ def _maybe_reset_stale_sqlite_file() -> None:
             side.unlink(missing_ok=True)
 
     logger.warning(
-        "Local SQLite database had an outdated schema (missing users / user_id / composite tracker_days). "
-        "Renamed it to %s — a fresh database will be created on startup. Old rows were not migrated.",
+        "Local SQLite database had an outdated schema (e.g. missing users, user_id, composite "
+        "tracker_days PK, or users.timezone). Renamed it to %s — a fresh database will be created "
+        "on startup. Old rows were not migrated.",
         backup.name,
     )
 
@@ -137,6 +144,66 @@ def _maybe_reset_stale_sqlite_file() -> None:
 
 
 _maybe_reset_stale_sqlite_file()
+
+# If any of these exist, the file clearly predates Alembic bookkeeping (create_all or a crashed
+# first migration). Without a baseline stamp, ``upgrade`` from revision 0 would re-run CREATE TABLE.
+_ALEMBIC_BASELINE_TABLE_MARKERS: tuple[str, ...] = (
+    "users",
+    "log_entries",
+    "tracker_days",
+    "tracker_field_definitions",
+    "tracker_select_options",
+)
+
+# First revision id (alembic/versions/*_initial_schema.py); baseline stamp then upgrade applies later revisions.
+_INITIAL_ALEMBIC_REVISION = "695619ad8629"
+
+
+def _alembic_has_no_revision_row(engine, insp) -> bool:
+    """True if Alembic has not recorded a revision (missing table or empty table)."""
+    if not insp.has_table("alembic_version"):
+        return True
+    with engine.connect() as c:
+        n = c.execute(text("SELECT COUNT(*) FROM alembic_version")).scalar()
+    return not n
+
+
+def _needs_alembic_baseline_stamp(engine, insp) -> bool:
+    if not _alembic_has_no_revision_row(engine, insp):
+        return False
+    return any(insp.has_table(name) for name in _ALEMBIC_BASELINE_TABLE_MARKERS)
+
+
+def ensure_schema_via_alembic() -> None:
+    """
+    Apply Alembic revisions through ``head`` using ``DATABASE_URL``.
+
+    If the database already has application tables but Alembic has no revision recorded (no
+    ``alembic_version`` table, or an empty one — e.g. ``create_all``-only deploys, or SQLite DDL that
+    committed before Alembic could write a row), stamp the initial revision then upgrade to head so
+    pending migrations still run.
+    """
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import inspect as sa_inspect
+
+    ini_path = Path(__file__).resolve().parent.parent / "alembic.ini"
+    cfg = Config(str(ini_path))
+    cfg.set_main_option("sqlalchemy.url", _RESOLVED_URL)
+
+    insp = sa_inspect(engine)
+    if _needs_alembic_baseline_stamp(engine, insp):
+        logger.warning(
+            "Database has application tables but Alembic has no revision recorded (missing or empty "
+            "alembic_version); stamping baseline at revision %s then upgrading to head. If the "
+            "schema is incomplete, delete the DB file or fix manually.",
+            _INITIAL_ALEMBIC_REVISION,
+        )
+        command.stamp(cfg, _INITIAL_ALEMBIC_REVISION)
+        command.upgrade(cfg, "head")
+        return
+
+    command.upgrade(cfg, "head")
 
 
 def _pg_table_columns(conn, table: str) -> set[str]:
@@ -343,6 +410,24 @@ def upgrade_rdbms_schema_for_multiuser() -> None:
             raise
 
 
+def ensure_users_timezone_column() -> None:
+    """Add users.timezone (IANA name) when missing — idempotent for SQLite and PostgreSQL."""
+    try:
+        insp = inspect(engine)
+    except Exception:
+        logger.exception("ensure_users_timezone_column: inspect failed")
+        return
+    if not insp.has_table("users"):
+        return
+    cols = {c["name"] for c in insp.get_columns("users")}
+    if "timezone" in cols:
+        return
+    logger.warning("Migrating users: adding timezone column (default UTC)")
+    ddl = "ALTER TABLE users ADD COLUMN timezone VARCHAR(64) NOT NULL DEFAULT 'UTC'"
+    with engine.begin() as conn:
+        conn.execute(text(ddl))
+
+
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
@@ -358,5 +443,5 @@ def get_db():
         db.close()
 
 
-# Register optional models on the same Base metadata (create_all in main).
+# Register optional models on the same Base metadata (Alembic autogenerate / migrations).
 import app.tracker_config_models  # noqa: E402, F401

@@ -1,3 +1,4 @@
+import { wallClockHHMMInTimeZone } from "./datesTz";
 import type {
   ExtractLogsResponse,
   InsightsPayload,
@@ -44,6 +45,15 @@ export async function fetchUsers(): Promise<User[]> {
   return parseJson(res);
 }
 
+export async function patchUserTimezone(userId: number, timezone: string | null): Promise<User> {
+  const res = await fetch(`${base()}/user/timezone`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...userScopedHeaders(userId) },
+    body: JSON.stringify({ timezone }),
+  });
+  return parseJson(res);
+}
+
 export async function transcribeAudio(blob: Blob, filename: string): Promise<{ transcript: string }> {
   const fd = new FormData();
   fd.append("audio", blob, filename);
@@ -60,17 +70,23 @@ export function localWallClockHHMM(): string {
 export async function extractLogs(
   transcript: string,
   logDate: string,
-  options?: { captureTimeLocal?: string | null },
+  options?: { captureTimeLocal?: string | null; timezone?: string | null },
 ): Promise<ExtractLogsResponse> {
+  const tz = options?.timezone?.trim() || null;
   const capture_time_local =
     options?.captureTimeLocal === undefined
-      ? localWallClockHHMM()
+      ? tz
+        ? wallClockHHMMInTimeZone(tz)
+        : localWallClockHHMM()
       : options.captureTimeLocal === null
         ? undefined
         : options.captureTimeLocal;
   const body: Record<string, unknown> = { transcript, log_date: logDate };
   if (capture_time_local != null) {
     body.capture_time_local = capture_time_local;
+  }
+  if (tz) {
+    body.timezone = tz;
   }
   const res = await fetch(`${base()}/extract-logs`, {
     method: "POST",

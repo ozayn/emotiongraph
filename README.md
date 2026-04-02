@@ -37,7 +37,8 @@ The Vite dev server proxies API routes to **`http://127.0.0.1:8100`**. For a cus
 ### Database (SQLite locally, Postgres in production)
 
 - **Local:** By default the API uses **SQLite** (`sqlite:///./emotiongraph.db` under the backend process working directory — with `./scripts/run_backend.sh` that is `backend/emotiongraph.db`). No extra setup.
-- **Production:** Set **`DATABASE_URL`** to your **PostgreSQL** connection string. The backend ships the **psycopg** (v3) driver and accepts `postgresql://…`, `postgres://…` (normalized automatically), or an explicit `postgresql+psycopg://…` URL. Engine options are chosen per dialect (e.g. SQLite uses `check_same_thread`; Postgres uses `pool_pre_ping`). **Migrations are not included yet** — new deploys still rely on `create_all` at startup for the current schema.
+- **Production:** Set **`DATABASE_URL`** to your **PostgreSQL** connection string. The backend ships the **psycopg** (v3) driver and accepts `postgresql://…`, `postgres://…` (normalized automatically), or an explicit `postgresql+psycopg://…` URL. Engine options are chosen per dialect (e.g. SQLite uses `check_same_thread`; Postgres uses `pool_pre_ping`).
+- **Migrations:** Schema changes are managed with **Alembic** (`backend/alembic/`, `backend/alembic.ini`). The app runs **`alembic upgrade head` on startup** (see `app.db.ensure_schema_via_alembic`). For production, prefer running **`alembic upgrade head`** in your deploy pipeline as well; details are in **`backend/MIGRATIONS.md`**.
 
 ### Production frontend (CORS)
 

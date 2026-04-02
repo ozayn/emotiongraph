@@ -1,9 +1,21 @@
 from datetime import date, datetime
 from typing import Any, Literal
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 MUSIC_VALUES = ("No", "Yes, upbeat", "Yes, calm", "Yes, other")
+
+
+def validate_iana_timezone(v: str) -> str:
+    s = str(v).strip()
+    if not s:
+        raise ValueError("timezone must be non-empty")
+    try:
+        ZoneInfo(s)
+    except ZoneInfoNotFoundError as e:
+        raise ValueError(f"unknown IANA timezone: {s}") from e
+    return s
 
 
 class _LogRowCore(BaseModel):
@@ -102,6 +114,18 @@ class ExtractLogsRequest(BaseModel):
         description="User's local wall-clock time when they requested extraction (24h HH:MM).",
         pattern=r"^([01]\d|2[0-3]):[0-5]\d$",
     )
+    timezone: str | None = Field(
+        None,
+        description="IANA timezone for log_date and capture_time_local context (e.g. America/Los_Angeles).",
+        max_length=64,
+    )
+
+    @field_validator("timezone", mode="before")
+    @classmethod
+    def extract_tz_optional(cls, v: Any) -> str | None:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        return validate_iana_timezone(str(v))
 
 
 class ExtractDayContext(BaseModel):
@@ -328,9 +352,26 @@ class UserRead(BaseModel):
     id: int
     name: str
     email: str
+    timezone: str | None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class UserTimezoneUpdate(BaseModel):
+    """``timezone`` null clears the saved override (client uses device/browser zone)."""
+
+    timezone: str | None = Field(
+        ...,
+        description="IANA timezone, or null to follow the browser default on the client.",
+    )
+
+    @field_validator("timezone", mode="before")
+    @classmethod
+    def tz_optional(cls, v: Any) -> str | None:
+        if v is None or (isinstance(v, str) and not str(v).strip()):
+            return None
+        return validate_iana_timezone(str(v))
 
 
 class TrackerDayUpsert(BaseModel):

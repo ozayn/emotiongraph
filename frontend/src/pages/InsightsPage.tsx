@@ -10,6 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import { downloadLogsCsvExport, fetchInsights } from "../api";
+import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
 import type { InsightsPayload } from "../types";
 import {
   formatAnxiety,
@@ -19,24 +20,7 @@ import {
   formatSleepQuality,
 } from "../trackerOptions";
 
-type Props = { userId: number };
-
-function isoToday(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function isoDaysAgo(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
+type Props = { userId: number; timeZone: string };
 
 function shortDate(iso: string): string {
   const [y, m, day] = iso.split("-").map(Number);
@@ -85,9 +69,15 @@ function isReadyUserId(id: number): boolean {
   return Number.isInteger(id) && id > 0;
 }
 
-export default function InsightsPage({ userId }: Props) {
-  const [endDate, setEndDate] = useState(isoToday);
-  const [startDate, setStartDate] = useState(() => isoDaysAgo(29));
+export default function InsightsPage({ userId, timeZone }: Props) {
+  const [endDate, setEndDate] = useState(() => todayIsoInTimeZone(timeZone));
+  const [startDate, setStartDate] = useState(() => addCalendarDaysToIso(todayIsoInTimeZone(timeZone), -29));
+
+  useEffect(() => {
+    const end = todayIsoInTimeZone(timeZone);
+    setEndDate(end);
+    setStartDate(addCalendarDaysToIso(end, -29));
+  }, [userId, timeZone]);
   const [data, setData] = useState<InsightsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -129,8 +119,9 @@ export default function InsightsPage({ userId }: Props) {
   }, [data]);
 
   const applyPreset = (days: number) => {
-    setEndDate(isoToday());
-    setStartDate(isoDaysAgo(days - 1));
+    const end = todayIsoInTimeZone(timeZone);
+    setEndDate(end);
+    setStartDate(addCalendarDaysToIso(end, -(days - 1)));
   };
 
   const handleExportCsv = () => {

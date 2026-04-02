@@ -12,6 +12,7 @@ import {
 import CalmSelect from "../components/CalmSelect";
 import MetricSelect from "../components/MetricSelect";
 import type { LogImportRow, LogRow, LogsImportPreviewResponse, SavedLogEntry } from "../types";
+import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
 import { optionsForMetricKey } from "../trackerOptions";
 
 const ALLOWED_MUSIC = ["No", "Yes, upbeat", "Yes, calm", "Yes, other"] as const;
@@ -64,23 +65,6 @@ type EditDraft = {
   comments: string;
   source_type: "manual" | "voice" | "text" | "import";
 };
-
-function isoToday(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
-function isoDaysAgo(days: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - days);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
 
 function shortDate(iso: string): string {
   const [y, m, day] = iso.split("-").map(Number);
@@ -180,13 +164,18 @@ function draftToPatch(d: EditDraft): LogEntryPatchBody {
   };
 }
 
-type Props = { userId: number };
+type Props = { userId: number; timeZone: string };
 
-export default function LogsPage({ userId }: Props) {
+export default function LogsPage({ userId, timeZone }: Props) {
   const addSourceLabelId = useId();
   const editSourceLabelId = useId();
-  const [startDate, setStartDate] = useState(() => isoDaysAgo(60));
-  const [endDate, setEndDate] = useState(isoToday);
+  const [startDate, setStartDate] = useState(() => addCalendarDaysToIso(todayIsoInTimeZone(timeZone), -60));
+  const [endDate, setEndDate] = useState(() => todayIsoInTimeZone(timeZone));
+
+  useEffect(() => {
+    setStartDate(addCalendarDaysToIso(todayIsoInTimeZone(timeZone), -60));
+    setEndDate(todayIsoInTimeZone(timeZone));
+  }, [userId, timeZone]);
   const [entries, setEntries] = useState<SavedLogEntry[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);

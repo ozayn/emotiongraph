@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { extractLogs, fetchLogs, fetchTrackerDay, saveLogs, saveTrackerDay, transcribeAudio } from "../api";
+import { todayIsoInTimeZone } from "../datesTz";
 import AudioRecorder from "../components/AudioRecorder";
 import MetricSelect from "../components/MetricSelect";
 import ReviewExtractionModal from "../components/ReviewExtractionModal";
@@ -67,14 +68,6 @@ function draftToLogRow(d: Record<keyof LogRow, string>): LogRow {
   };
 }
 
-function todayIso(): string {
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-}
-
 function formatDateHeading(iso: string): string {
   const parts = iso.split("-").map(Number);
   const [y, m, d] = parts;
@@ -90,7 +83,7 @@ function formatDateHeading(iso: string): string {
   return dt.toLocaleDateString(undefined, opts);
 }
 
-type TodayPageProps = { userId: number };
+type TodayPageProps = { userId: number; timeZone: string };
 
 /** Which input produced the current review session (sets saved `source_type`). */
 type ReviewOrigin = "voice" | "text";
@@ -104,8 +97,12 @@ function isAbortError(e: unknown): boolean {
   return e instanceof Error && e.name === "AbortError";
 }
 
-export default function TodayPage({ userId }: TodayPageProps) {
-  const [logDate, setLogDate] = useState(todayIso);
+export default function TodayPage({ userId, timeZone }: TodayPageProps) {
+  const [logDate, setLogDate] = useState(() => todayIsoInTimeZone(timeZone));
+
+  useEffect(() => {
+    setLogDate(todayIsoInTimeZone(timeZone));
+  }, [userId, timeZone]);
   const [saved, setSaved] = useState<SavedLogEntry[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -308,7 +305,7 @@ export default function TodayPage({ userId }: TodayPageProps) {
       setExtractionError(null);
       setExtraction(null);
       try {
-        const res = await extractLogs(text, logDate);
+        const res = await extractLogs(text, logDate, { timezone: timeZone });
         setExtraction(res);
       } catch (e) {
         setExtractionError(e instanceof Error ? e.message : "Extraction failed");
@@ -358,7 +355,7 @@ export default function TodayPage({ userId }: TodayPageProps) {
     setExtractionError(null);
     setExtraction(null);
     try {
-      const res = await extractLogs(t, logDate);
+      const res = await extractLogs(t, logDate, { timezone: timeZone });
       setExtraction(res);
     } catch (e) {
       setExtractionError(e instanceof Error ? e.message : "Extraction failed");
@@ -374,7 +371,7 @@ export default function TodayPage({ userId }: TodayPageProps) {
       setExtractionError(null);
       setExtraction(null);
       try {
-        const res = await extractLogs(text, logDate);
+        const res = await extractLogs(text, logDate, { timezone: timeZone });
         setExtraction(res);
       } catch (e) {
         setExtractionError(e instanceof Error ? e.message : "Extraction failed");

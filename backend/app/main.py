@@ -6,7 +6,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
 from app.config import DEFAULT_CORS_ORIGINS, settings
-from app.db import Base, SessionLocal, engine, get_db, upgrade_rdbms_schema_for_multiuser
+from app.db import (
+    SessionLocal,
+    ensure_schema_via_alembic,
+    ensure_users_timezone_column,
+    get_db,
+    upgrade_rdbms_schema_for_multiuser,
+)
 from app.deps import require_user_id
 from app.models import LogEntry, TrackerDay, User
 from app.routers.export_csv import router as export_csv_router
@@ -25,6 +31,7 @@ from app.schemas import (
     TrackerDayRead,
     TrackerDayUpsert,
     UserRead,
+    UserTimezoneUpdate,
 )
 from app.services.extraction import extract_logs_from_transcript, extraction_service_configured
 from app.services.logs_csv_import import (
@@ -34,7 +41,8 @@ from app.services.logs_csv_import import (
 )
 from app.services.transcription import is_transcript_usable, transcribe_audio_bytes
 
-Base.metadata.create_all(bind=engine)
+ensure_schema_via_alembic()
+ensure_users_timezone_column()
 
 _db_seed = SessionLocal()
 try:
@@ -81,6 +89,21 @@ def list_users(db: Session = Depends(get_db)):
     return db.query(User).order_by(User.id.asc()).all()
 
 
+@app.patch("/user/timezone", response_model=UserRead)
+def patch_user_timezone(
+    body: UserTimezoneUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(require_user_id),
+):
+    row = db.get(User, user_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    row.timezone = body.timezone
+    db.commit()
+    db.refresh(row)
+    return row
+
+
 @app.post("/transcribe")
 async def transcribe(audio: UploadFile = File(...)):
     if not settings.groq_api_key:
@@ -114,6 +137,7 @@ def extract_logs(body: ExtractLogsRequest):
             body.transcript,
             body.log_date.isoformat(),
             body.capture_time_local,
+            body.timezone,
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=f"invalid model JSON: {e}") from e

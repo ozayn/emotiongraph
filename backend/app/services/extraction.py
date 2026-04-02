@@ -75,6 +75,7 @@ Rules:
 
 PRESENT_TIMING_HINT = """
 capture_time_local (submission wall clock, "HH:MM", Western digits) is optional context. It is NOT the time of past memories, habits, or vague routines unless the rules below are satisfied.
+When user_timezone (IANA) is provided, treat log_date as that calendar date in that timezone and capture_time_local as wall clock in that same timezone—not UTC unless the zone is Etc/UTC.
 
 Use start_time = capture_time_local for a row ONLY when ALL hold:
   (1) The transcript clearly signals the present moment or something immediate/imminent—not a remembered or habitual story. Treat as qualifying cues (any language, including natural equivalents): e.g. English "now", "right now", "currently", "at the moment", "about to", "going now", "starting now", "heading to", "on my way"; Serbian e.g. "sada", "trenutno", "upravo", "idem na …"; Persian e.g. "الان", "دارم میرم …", "همین الان".
@@ -187,14 +188,25 @@ def _postprocess_extraction(
     return result.model_copy(update={"rows": new_rows})
 
 
-def _user_content(transcript: str, log_date_iso: str, capture_time_local: str | None) -> str:
+def _user_content(
+    transcript: str,
+    log_date_iso: str,
+    capture_time_local: str | None,
+    user_timezone: str | None,
+) -> str:
     cap_line = (
         f"capture_time_local (user's local wall clock when they submitted, HH:MM): {capture_time_local}\n\n"
         if capture_time_local
         else "capture_time_local: (not provided)\n\n"
     )
+    tz_line = (
+        f"user_timezone (IANA): {user_timezone}\n\n"
+        if user_timezone
+        else "user_timezone: (not provided — treat log_date and capture times as context-only strings)\n\n"
+    )
     return (
         f"log_date (context only, YYYY-MM-DD): {log_date_iso}\n\n"
+        f"{tz_line}"
         f"{cap_line}"
         f"Transcript:\n{transcript}\n\n"
         f"{PRESENT_TIMING_HINT}\n"
@@ -234,13 +246,18 @@ def _parse_extract_response(raw: str) -> ExtractLogsResponse:
     return ExtractLogsResponse(transcript_summary=summary, rows=rows, day_context=day_context)
 
 
-def _claude_raw_response(transcript: str, log_date_iso: str, capture_time_local: str | None) -> str:
+def _claude_raw_response(
+    transcript: str,
+    log_date_iso: str,
+    capture_time_local: str | None,
+    user_timezone: str | None,
+) -> str:
     if not settings.anthropic_api_key:
         raise RuntimeError("ANTHROPIC_API_KEY is not configured")
 
     timeout = httpx.Timeout(settings.anthropic_timeout_seconds, connect=15.0)
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key, timeout=timeout)
-    user_content = _user_content(transcript, log_date_iso, capture_time_local)
+    user_content = _user_content(transcript, log_date_iso, capture_time_local, user_timezone)
     msg = client.messages.create(
         model=settings.anthropic_extraction_model,
         max_tokens=4096,
@@ -258,7 +275,12 @@ def _claude_raw_response(transcript: str, log_date_iso: str, capture_time_local:
     return raw
 
 
-def _groq_raw_response(transcript: str, log_date_iso: str, capture_time_local: str | None) -> str:
+def _groq_raw_response(
+    transcript: str,
+    log_date_iso: str,
+    capture_time_local: str | None,
+    user_timezone: str | None,
+) -> str:
     if not settings.groq_api_key:
         raise RuntimeError("GROQ_API_KEY is not configured")
 
@@ -266,7 +288,7 @@ def _groq_raw_response(transcript: str, log_date_iso: str, capture_time_local: s
         api_key=settings.groq_api_key,
         base_url=settings.groq_openai_base_url,
     )
-    user_content = _user_content(transcript, log_date_iso, capture_time_local)
+    user_content = _user_content(transcript, log_date_iso, capture_time_local, user_timezone)
     completion = client.chat.completions.create(
         model=settings.groq_extraction_model,
         temperature=0.2,
@@ -286,6 +308,7 @@ def extract_logs_from_transcript(
     transcript: str,
     log_date_iso: str,
     capture_time_local: str | None = None,
+    user_timezone: str | None = None,
 ) -> ExtractLogsResponse:
     """
     Provider order (enforced in this function only):
@@ -312,7 +335,7 @@ def extract_logs_from_transcript(
     # --- Primary: Anthropic / Claude ---
     if use_anthropic:
         try:
-            raw = _claude_raw_response(transcript, log_date_iso, capture_time_local)
+            raw = _claude_raw_response(transcript, log_date_iso, capture_time_local, user_timezone)
             parsed = _postprocess_extraction(
                 _parse_extract_response(raw),
                 transcript,
@@ -328,7 +351,7 @@ def extract_logs_from_transcript(
     # --- Fallback (after Claude failure) or Groq-only ---
     if use_groq:
         try:
-            raw = _groq_raw_response(transcript, log_date_iso, capture_time_local)
+            raw = _groq_raw_response(transcript, log_date_iso, capture_time_local, user_timezone)
             parsed = _postprocess_extraction(
                 _parse_extract_response(raw),
                 transcript,

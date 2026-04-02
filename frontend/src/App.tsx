@@ -7,7 +7,9 @@ import AdminTrackerPage from "./pages/AdminTrackerPage";
 import InsightsPage from "./pages/InsightsPage";
 import LaunchPage from "./pages/LaunchPage";
 import LogsPage from "./pages/LogsPage";
+import PreferencesPage from "./pages/PreferencesPage";
 import TodayPage from "./pages/TodayPage";
+import { effectiveUserTimeZone } from "./datesTz";
 import type { User } from "./types";
 import { getSelectedUserId, setSelectedUserId } from "./userSession";
 
@@ -56,6 +58,13 @@ export default function App() {
   const onSelectUser = (id: number) => {
     applyUser(id);
   };
+
+  const mergeUser = useCallback((u: User) => {
+    setUsers((prev) => prev.map((x) => (x.id === u.id ? u : x)));
+  }, []);
+
+  const selectedUser = users.find((u) => u.id === userId) ?? null;
+  const userTimeZone = effectiveUserTimeZone(selectedUser);
 
   /** Positive id that exists in the current users list — avoids mounting scoped pages before session is coherent. */
   const userScopeReady =
@@ -119,22 +128,44 @@ export default function App() {
           <Route
             path="/today"
             element={
-              userScopeReady ? <TodayPage key={userId} userId={userId} /> : <UsersGate usersReady={usersReady} users={users} />
+              userScopeReady ? (
+                <TodayPage key={userId} userId={userId} timeZone={userTimeZone} />
+              ) : (
+                <UsersGate usersReady={usersReady} users={users} />
+              )
             }
           />
           <Route
             path="/entries"
             element={
-              userScopeReady ? <LogsPage key={userId} userId={userId} /> : <UsersGate usersReady={usersReady} users={users} />
+              userScopeReady ? (
+                <LogsPage key={userId} userId={userId} timeZone={userTimeZone} />
+              ) : (
+                <UsersGate usersReady={usersReady} users={users} />
+              )
             }
           />
           <Route
             path="/insights"
             element={
-              userScopeReady ? <InsightsPage key={userId} userId={userId} /> : <UsersGate usersReady={usersReady} users={users} />
+              userScopeReady ? (
+                <InsightsPage key={userId} userId={userId} timeZone={userTimeZone} />
+              ) : (
+                <UsersGate usersReady={usersReady} users={users} />
+              )
             }
           />
           <Route path="/admin" element={<AdminTrackerPage />} />
+          <Route
+            path="/preferences"
+            element={
+              userScopeReady && selectedUser ? (
+                <PreferencesPage user={selectedUser} onUserUpdated={mergeUser} />
+              ) : (
+                <UsersGate usersReady={usersReady} users={users} />
+              )
+            }
+          />
         </Routes>
       </main>
       {pathname !== "/today" && (
@@ -143,6 +174,19 @@ export default function App() {
             <Link className="app-footer-link muted small" to="/">
               Start
             </Link>
+            <span className="app-footer-sep muted small" aria-hidden="true">
+              ·
+            </span>
+            {userScopeReady && (
+              <>
+                <span className="app-footer-sep muted small" aria-hidden="true">
+                  ·
+                </span>
+                <Link className="app-footer-link muted small" to="/preferences">
+                  Preferences
+                </Link>
+              </>
+            )}
             <span className="app-footer-sep muted small" aria-hidden="true">
               ·
             </span>
