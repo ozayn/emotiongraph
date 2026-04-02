@@ -2666,6 +2666,70 @@ body {
   color: var(--text);
 }
 
+.profile-account-legal {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.profile-display-name {
+  margin-top: 0.35rem;
+  padding: 0.85rem 1rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.profile-display-name-title {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--ink-a52);
+}
+
+.profile-display-name-hint {
+  margin: 0;
+  line-height: 1.4;
+}
+
+.profile-display-name-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+@media (min-width: 420px) {
+  .profile-display-name-row {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.65rem;
+  }
+
+  .profile-display-name-save {
+    flex-shrink: 0;
+  }
+}
+
+.profile-display-name-input {
+  flex: 1;
+  min-width: 0;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.9375rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--ink-a12);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.profile-display-name-input:focus {
+  outline: none;
+  border-color: var(--accent-blue-mid);
+  box-shadow: 0 0 0 2px var(--blue-a12);
+}
+
 .profile-account-meta {
   margin: 0;
   letter-spacing: 0.02em;

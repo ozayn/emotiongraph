@@ -4,11 +4,13 @@ import { downloadLogsCsvExport } from "../api";
 import AddPastEntryFlow from "../components/AddPastEntryFlow";
 import InlineHelp from "../components/InlineHelp";
 import ProfileCsvImport from "../components/ProfileCsvImport";
+import UserDisplayNamePreferences from "../components/UserDisplayNamePreferences";
 import UserTimezonePreferences from "../components/UserTimezonePreferences";
 import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
 import { usePrivateAuthOptional } from "../auth/privateAuthContext";
 import { useSession } from "../session/SessionContext";
 import type { User } from "../types";
+import { displayNameForUser } from "../userDisplay";
 
 type Props = {
   user: User;
@@ -82,7 +84,8 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
         </h2>
         <div className="profile-account-card">
           <div className="profile-account-head">
-            <p className="profile-account-name">{user.name}</p>
+            <p className="profile-account-name">{displayNameForUser(user)}</p>
+            <p className="profile-account-legal muted small">Account name: {user.name}</p>
             <p className="profile-account-meta mono muted small">
               #{user.id}
               <span className="profile-account-meta-sep" aria-hidden="true">
@@ -92,6 +95,8 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
               <span>{authMode === "google_oauth" ? "Google account" : "local session"}</span>
             </p>
           </div>
+
+          <UserDisplayNamePreferences user={user} onUpdated={onUserUpdated} />
 
           <div className="profile-account-toolbar">
             <Link className="profile-account-add-link" to={pathFor("/add-entry")}>

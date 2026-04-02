@@ -6,6 +6,7 @@ import { useSession } from "../session/SessionContext";
 import { todayIsoInTimeZone } from "../datesTz";
 import AudioRecorder from "../components/AudioRecorder";
 import ReviewExtractionModal from "../components/ReviewExtractionModal";
+import { displayNameForUser } from "../userDisplay";
 import type { ExtractLogsResponse, LogRow, User } from "../types";
 
 type Props = { userId: number; timeZone: string; users?: User[] };
@@ -142,7 +143,8 @@ export default function HomePage({ userId, timeZone, users }: Props) {
     .filter(Boolean)
     .join(" ");
 
-  const profileName = users?.find((u) => u.id === userId)?.name?.trim() || "there";
+  const profileSelf = users?.find((u) => u.id === userId);
+  const profileName = profileSelf ? displayNameForUser(profileSelf) : "there";
 
   return (
     <div className="today-page today-page--voice-home">
@@ -164,7 +166,7 @@ export default function HomePage({ userId, timeZone, users }: Props) {
         </div>
         <div className="today-voice-home-stack">
           <div className="today-voice-home-inner">
-            <p className="today-voice-home-greeting">Hi, {profileName}</p>
+            <p className="today-voice-home-greeting">Hello, {profileName}</p>
           </div>
 
           <section

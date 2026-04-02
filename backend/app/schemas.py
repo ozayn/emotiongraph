@@ -366,6 +366,7 @@ class UserRead(BaseModel):
     id: int
     name: str
     email: str
+    display_name: str | None = None
     timezone: str | None
     created_at: datetime
     is_admin: bool = False
@@ -384,6 +385,20 @@ class AuthTokenResponse(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     user: UserRead
+
+
+class UserDisplayNameUpdate(BaseModel):
+    """Empty or whitespace-only clears display_name (client falls back to account name)."""
+
+    display_name: str | None = Field(None, max_length=128)
+
+    @field_validator("display_name", mode="before")
+    @classmethod
+    def empty_to_none(cls, v: Any) -> str | None:
+        if v is None:
+            return None
+        s = str(v).strip()
+        return s if s else None
 
 
 class UserTimezoneUpdate(BaseModel):

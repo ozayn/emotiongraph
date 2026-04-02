@@ -37,6 +37,7 @@ from app.schemas import (
     SaveLogsRequest,
     TrackerDayRead,
     TrackerDayUpsert,
+    UserDisplayNameUpdate,
     UserRead,
     UserTimezoneUpdate,
 )
@@ -205,6 +206,21 @@ def patch_user_timezone(
     if row is None:
         raise HTTPException(status_code=404, detail="User not found")
     row.timezone = body.timezone
+    db.commit()
+    db.refresh(row)
+    return user_read_from_user(row)
+
+
+@app.patch("/user/display-name", response_model=UserRead)
+def patch_user_display_name(
+    body: UserDisplayNameUpdate,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(require_user_id),
+):
+    row = db.get(User, user_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    row.display_name = body.display_name
     db.commit()
     db.refresh(row)
     return user_read_from_user(row)

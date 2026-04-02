@@ -2,6 +2,8 @@ export type User = {
   id: number;
   name: string;
   email: string;
+  /** Optional preferred form of address; UI falls back to `name` when null or empty. */
+  display_name: string | null;
   /** Saved IANA override, or null to use the device/browser zone on the client. */
   timezone: string | null;
   created_at: string;

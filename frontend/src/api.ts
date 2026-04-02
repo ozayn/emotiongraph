@@ -141,6 +141,15 @@ export async function patchUserTimezone(userId: number, timezone: string | null)
   return parseJson(res);
 }
 
+export async function patchUserDisplayName(userId: number, displayName: string | null): Promise<User> {
+  const res = await fetch(`${base()}/user/display-name`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...scopedAuthHeaders(userId) },
+    body: JSON.stringify({ display_name: displayName }),
+  });
+  return parseJson(res);
+}
+
 export async function transcribeAudio(blob: Blob, filename: string): Promise<{ transcript: string }> {
   const fd = new FormData();
   fd.append("audio", blob, filename);
