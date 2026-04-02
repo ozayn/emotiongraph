@@ -353,6 +353,7 @@ def upgrade_rdbms_schema_for_multiuser() -> None:
                 conn.execute(text("ALTER TABLE log_entries ADD COLUMN created_at TIMESTAMPTZ"))
                 conn.execute(text("UPDATE log_entries SET created_at = NOW() WHERE created_at IS NULL"))
                 conn.execute(text("ALTER TABLE log_entries ALTER COLUMN created_at SET NOT NULL"))
+                conn.execute(text("ALTER TABLE log_entries ALTER COLUMN created_at SET DEFAULT NOW()"))
 
             cols = _pg_table_columns(conn, "log_entries")
             if "source_type" not in cols:
@@ -378,6 +379,11 @@ def upgrade_rdbms_schema_for_multiuser() -> None:
                 )
             except ProgrammingError:
                 pass
+
+            cols = _pg_table_columns(conn, "log_entries")
+            if "created_at" in cols:
+                # Legacy path added NOT NULL created_at without DEFAULT — INSERTs omit the column and fail.
+                conn.execute(text("ALTER TABLE log_entries ALTER COLUMN created_at SET DEFAULT NOW()"))
 
             _pg_align_log_entries_id_sequence(conn)
 
