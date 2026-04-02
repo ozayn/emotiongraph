@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { blobFailsMinimumSpeechEnergy } from "../audioSilence";
 import { extractLogs, fetchLogs, saveLogs, transcribeAudio } from "../api";
+import { useSession } from "../session/SessionContext";
 import { todayIsoInTimeZone } from "../datesTz";
 import AudioRecorder from "../components/AudioRecorder";
 import ReviewExtractionModal from "../components/ReviewExtractionModal";
@@ -10,6 +11,7 @@ import type { ExtractLogsResponse, LogRow, User } from "../types";
 type Props = { userId: number; timeZone: string; users?: User[] };
 
 export default function HomePage({ userId, timeZone, users }: Props) {
+  const { pathFor } = useSession();
   /** Always “today” for the active profile’s effective timezone — no picker on home. */
   const logDate = todayIsoInTimeZone(timeZone);
 
@@ -54,7 +56,7 @@ export default function HomePage({ userId, timeZone, users }: Props) {
       setExtractionError(null);
       setExtraction(null);
       try {
-        const res = await extractLogs(text, logDate, { timezone: timeZone });
+        const res = await extractLogs(text, logDate, { timezone: timeZone, captureKind: "voice" });
         setExtraction(res);
       } catch (e) {
         setExtractionError(e instanceof Error ? e.message : "Extraction failed");
@@ -85,7 +87,7 @@ export default function HomePage({ userId, timeZone, users }: Props) {
       setExtractionError(null);
       setExtraction(null);
       try {
-        const res = await extractLogs(text, logDate, { timezone: timeZone });
+        const res = await extractLogs(text, logDate, { timezone: timeZone, captureKind: "voice" });
         setExtraction(res);
       } catch (e) {
         setExtractionError(e instanceof Error ? e.message : "Extraction failed");
@@ -194,7 +196,7 @@ export default function HomePage({ userId, timeZone, users }: Props) {
       </div>
 
       <nav className="home-today-strip" aria-label="Today’s saved entries">
-        <Link className="home-today-link" to={`/today#entries-history-focus`}>
+        <Link className="home-today-link" to={`${pathFor("/today")}#entries-history-focus`}>
           <span className="home-today-label">Today</span>
           {todayLogCount != null && todayLogCount > 0 ? (
             <span className="home-today-count mono" aria-label={`${todayLogCount} saved for today`}>

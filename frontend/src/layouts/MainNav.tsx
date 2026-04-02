@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
+import { useSession } from "../session/SessionContext";
 
 const PRIMARY = [
   { to: "/", label: "Home" },
@@ -8,15 +9,16 @@ const PRIMARY = [
   { to: "/profile", label: "Profile" },
 ] as const;
 
-type Props = { pathname: string };
+/** Primary IA — hides link for current route (realm-aware paths). */
+export default function MainNav() {
+  const { pathname } = useLocation();
+  const { pathFor } = useSession();
 
-/** Primary IA: Home, Today, Entries, Insights, Profile — hides link for current route. */
-export default function MainNav({ pathname }: Props) {
   return (
     <div className="app-header-nav-primary">
       {PRIMARY.map(({ to, label }) =>
-        pathname !== to ? (
-          <Link key={to} className="header-link" to={to}>
+        pathname !== pathFor(to) ? (
+          <Link key={to} className="header-link" to={pathFor(to)}>
             {label}
           </Link>
         ) : null,

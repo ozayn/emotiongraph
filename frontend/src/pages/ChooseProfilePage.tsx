@@ -1,3 +1,4 @@
+import { useSession } from "../session/SessionContext";
 import type { User } from "../types";
 
 /** Matches backend seed order for a stable, predictable first-run list. */
@@ -22,28 +23,42 @@ type Props = {
 };
 
 export default function ChooseProfilePage({ users, switching = false, onChoose }: Props) {
+  const { realm } = useSession();
+  const isDemo = realm === "demo";
   const ordered = sortForChooser(users);
 
+  const title = (() => {
+    if (isDemo) return switching ? "Switch demo profile" : "Choose a demo profile";
+    return switching ? "Switch profile" : "Who’s logging today?";
+  })();
+
+  const subtitle = (() => {
+    if (isDemo) {
+      return switching
+        ? "Try another sample profile to explore the demo."
+        : "You’re viewing shared sample data — not a private account.";
+    }
+    return switching
+      ? "Choose who is using this device. No password — this only sets local preferences."
+      : "Pick your name to open the app. This device will remember until you switch.";
+  })();
+
   return (
-    <div className="choose-profile-page">
+    <div className={`choose-profile-page${isDemo ? " choose-profile-page--demo" : ""}`}>
       <div className="choose-profile-ambient" aria-hidden="true" />
       <div className="choose-profile-inner">
-        <h1 className="choose-profile-title">{switching ? "Switch profile" : "Who’s logging today?"}</h1>
-        <p className="choose-profile-sub muted">
-          {switching
-            ? "Choose who is using this device. No password — this only sets local preferences."
-            : "Pick your name to open the app. This device will remember until you switch."}
-        </p>
+        <h1 className="choose-profile-title">{title}</h1>
+        <p className="choose-profile-sub muted">{subtitle}</p>
         <ul className="choose-profile-list" role="list">
           {ordered.map((u) => (
             <li key={u.id}>
               <button
                 type="button"
-                className="choose-profile-card"
+                className={`choose-profile-card${isDemo ? " choose-profile-card--demo" : ""}`}
                 onClick={() => onChoose(u.id)}
               >
                 <span className="choose-profile-name">{u.name}</span>
-                <span className="choose-profile-email muted small">{u.email}</span>
+                {!isDemo && u.email ? <span className="choose-profile-email muted small">{u.email}</span> : null}
               </button>
             </li>
           ))}

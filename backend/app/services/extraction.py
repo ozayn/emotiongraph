@@ -77,6 +77,8 @@ PRESENT_TIMING_HINT = """
 capture_time_local (submission wall clock, "HH:MM", Western digits) is optional context. It is NOT the time of past memories, habits, or vague routines unless the rules below are satisfied.
 When user_timezone (IANA) is provided, treat log_date as that calendar date in that timezone and capture_time_local as wall clock in that same timezone—not UTC unless the zone is Etc/UTC.
 
+**This input is typed text (not a live voice capture).** Be conservative with capture_time_local.
+
 Use start_time = capture_time_local for a row ONLY when ALL hold:
   (1) The transcript clearly signals the present moment, something immediate/imminent, or an **immediate-recent** state tied to now (e.g. just waking)—not a remembered distant story. Qualifying cues (any language, natural equivalents): English "now", "right now", "currently", "at the moment", "about to", "going now", "starting now", "heading to", "on my way"; **immediate morning / wake**: "just woke up", "just woken up", "just got up", "just got out of bed", "just rolled out of bed"; **present emotional check-in** phrased as current state, e.g. "I'm feeling …", "I am feeling …", or "I feel …" when describing mood now — but NOT "I feel that …" narrating a past belief; typed or recorded check-ins e.g. "as I'm typing", "as I type", "in this recording", "on this recording"; Serbian e.g. "sada", "trenutno", "upravo", "idem na …"; Persian e.g. "الان", "دارم میرم …", "همین الان".
   (2) The passage is not framed as habitual or generic: if the speaker uses "usually", "often", "typically", "generally", or close equivalents (e.g. "معمولا", "обично", "često"), do NOT anchor to capture_time_local unless a separate clearly present-tense segment also qualifies that row.
@@ -88,6 +90,22 @@ If you use capture_time_local as start_time for a row, set end_time to null. Nev
 If capture_time_local is absent, do not invent clock times from "now" alone; use null unless the text states a time clearly.
 
 When in doubt between a **distant memory** and a **present or immediate-recent** check-in, leave start_time null instead of using capture_time_local—but phrases like "just woke up" / "just got up" are immediate-recent and usually qualify.
+"""
+
+VOICE_CAPTURE_TIMING_HINT = """
+capture_time_local is the wall-clock time when this **live voice recording** was submitted (same calendar date as log_date in user_timezone).
+
+**Explicit clock times in the transcript always win.** Map any stated time (including non-Western digits) to start_time/end_time; never replace those with capture_time_local.
+
+**Live voice default (no explicit time):** The speaker is recording **now**. For short present-moment activity notes (e.g. naming what they are doing without a clock time), set start_time = capture_time_local and end_time = null unless the text gives an explicit end time. This applies to plain activity phrases that read as **current** (e.g. "having a cigarette", "on a walk", "in a meeting") when there is no retrospective framing.
+
+**Do NOT use capture_time_local** when the narrative is clearly about **the past** or a **remembered** episode (not the recording moment). Treat these as retrospective (including natural equivalents in Persian, Serbian, and English): "yesterday", "last night", "this morning" when recounting earlier events, "earlier", "earlier today", "ago", "last week", "previously", "back then"; past-tense recounts like "I had …" / "I was …" describing a **completed** earlier situation (contrast with present progressive "I'm having …" for something happening now); Persian e.g. دیروز (yesterday), دیشب (last night); Serbian e.g. juče, sinoć, jutros, ranije when clearly past.
+
+**Habitual / generic:** "usually", "often", "typically", "generally" (معمولا، обично, često, …) — do NOT use capture_time_local unless a separate segment clearly describes the present recording moment.
+
+**Several distinct past episodes** without clock times: prefer null start_time per row rather than stamping every row with capture_time_local.
+
+If you use capture_time_local as start_time, set end_time to null unless the text explicitly gives an end time.
 """
 
 SYSTEM_PROMPT = """You extract structured daily log data from spoken or written narrative text (voice transcripts or typed notes).
@@ -107,6 +125,74 @@ def _normalize_hhmm(value: str | None) -> str | None:
         return s
     h, mm = int(m.group(1)), m.group(2)
     return f"{h:02d}:{mm}"
+
+
+def _is_proper_hhmm(value: str | None) -> bool:
+    if not value or not isinstance(value, str):
+        return False
+    return bool(re.match(r"^([01]?\d|2[0-3]):([0-5]\d)$", value.strip()))
+
+
+def _transcript_suggests_retrospective(text: str) -> bool:
+    """
+    True when the transcript is plausibly about the past / remembered events, so we should not
+    default start_time to the recording clock. Multilingual (EN + common FA/SR cues).
+    """
+    if not text or not text.strip():
+        return False
+    lower = text.lower()
+
+    ascii_patterns = (
+        r"\byesterday\b",
+        r"\byesterday\s+morning\b",
+        r"\blast night\b",
+        r"\bthis morning\b",
+        r"\bearlier today\b",
+        r"\bearlier\b",
+        r"\bago\b",
+        r"\blast week\b",
+        r"\blast month\b",
+        r"\bpreviously\b",
+        r"\bback then\b",
+    )
+    for pat in ascii_patterns:
+        if re.search(pat, lower):
+            return True
+
+    # "I had …" past recount — exclude "I had to" (obligation) and "I had a great time" still matches;
+    # "I had a cigarette" (past) should match. Require "i had" not followed by "to".
+    if re.search(r"\bi had\b(?! to\b)", lower):
+        return True
+
+    for frag in (
+        "دیروز",
+        "دیشب",
+        "پارسال",
+        "قبلاً",
+        "قبلا",
+        "صبح امروز",
+    ):
+        if frag in text:
+            return True
+
+    for frag in ("juče", "sinoć", "sinoc", "jutros", "ranije", "prekjuče", "prekjuce"):
+        if frag in lower:
+            return True
+
+    return False
+
+
+def _remove_capture_start_time(rows: list[ExtractLogsRow], cap: str) -> list[ExtractLogsRow]:
+    out: list[ExtractLogsRow] = []
+    changed = False
+    for row in rows:
+        st = _normalize_hhmm(row.start_time)
+        if st == cap:
+            out.append(row.model_copy(update={"start_time": None}))
+            changed = True
+        else:
+            out.append(row)
+    return out if changed else rows
 
 
 def _transcript_allows_capture_time_anchor(text: str) -> bool:
@@ -172,36 +258,69 @@ def _maybe_strip_capture_time_rows(
     rows: list[ExtractLogsRow],
     transcript: str,
     capture_time_local: str | None,
+    capture_kind: str,
 ) -> list[ExtractLogsRow]:
-    """If the transcript does not justify anchoring to capture_time_local, clear matching start_time."""
+    """
+    Remove start_time when it equals capture_time_local but the transcript does not justify it.
+
+    - **text**: keep previous behavior (strip unless present/imminent anchor markers).
+    - **voice**: do not strip for present-moment notes; strip when retrospective cues suggest the
+      model wrongly anchored a past narrative to the recording clock.
+    """
     if not capture_time_local:
         return rows
     cap = _normalize_hhmm(capture_time_local)
     if not cap:
         return rows
+
+    if capture_kind == "voice":
+        if _transcript_suggests_retrospective(transcript):
+            return _remove_capture_start_time(rows, cap)
+        return rows
+
     if _transcript_allows_capture_time_anchor(transcript):
         return rows
-    out: list[ExtractLogsRow] = []
-    changed = False
-    for row in rows:
-        st = _normalize_hhmm(row.start_time)
-        if st == cap:
-            out.append(row.model_copy(update={"start_time": None}))
-            changed = True
-        else:
-            out.append(row)
-    return out if changed else rows
+    return _remove_capture_start_time(rows, cap)
+
+
+def _maybe_fill_voice_default_start_time(
+    rows: list[ExtractLogsRow],
+    transcript: str,
+    capture_time_local: str | None,
+    capture_kind: str,
+) -> list[ExtractLogsRow]:
+    """
+    For a single extracted row with no proper HH:MM start_time, stamp recording time (voice only).
+    Skipped for retrospective transcripts and for typed text.
+    """
+    if capture_kind != "voice" or not capture_time_local:
+        return rows
+    if _transcript_suggests_retrospective(transcript):
+        return rows
+    cap = _normalize_hhmm(capture_time_local)
+    if not cap or not re.match(r"^\d{2}:\d{2}$", cap):
+        return rows
+    if len(rows) != 1:
+        return rows
+    row = rows[0]
+    if _is_proper_hhmm(row.start_time):
+        return rows
+    if row.end_time is not None and str(row.end_time).strip():
+        return rows
+    return [row.model_copy(update={"start_time": cap})]
 
 
 def _postprocess_extraction(
     result: ExtractLogsResponse,
     transcript: str,
     capture_time_local: str | None,
+    capture_kind: str,
 ) -> ExtractLogsResponse:
-    new_rows = _maybe_strip_capture_time_rows(result.rows, transcript, capture_time_local)
-    if new_rows is result.rows:
+    stripped = _maybe_strip_capture_time_rows(result.rows, transcript, capture_time_local, capture_kind)
+    filled = _maybe_fill_voice_default_start_time(stripped, transcript, capture_time_local, capture_kind)
+    if stripped is result.rows and filled is stripped:
         return result
-    return result.model_copy(update={"rows": new_rows})
+    return result.model_copy(update={"rows": filled})
 
 
 def _user_content(
@@ -209,6 +328,7 @@ def _user_content(
     log_date_iso: str,
     capture_time_local: str | None,
     user_timezone: str | None,
+    capture_kind: str,
 ) -> str:
     cap_line = (
         f"capture_time_local (user's local wall clock when they submitted, HH:MM): {capture_time_local}\n\n"
@@ -220,12 +340,15 @@ def _user_content(
         if user_timezone
         else "user_timezone: (not provided — treat log_date and capture times as context-only strings)\n\n"
     )
+    kind_line = f"capture_kind: {capture_kind} (voice = live recording path; text = typed notes — follow the timing rules for this kind only)\n\n"
+    timing_hint = VOICE_CAPTURE_TIMING_HINT if capture_kind == "voice" else PRESENT_TIMING_HINT
     return (
         f"log_date (context only, YYYY-MM-DD): {log_date_iso}\n\n"
         f"{tz_line}"
         f"{cap_line}"
+        f"{kind_line}"
         f"Transcript:\n{transcript}\n\n"
-        f"{PRESENT_TIMING_HINT}\n"
+        f"{timing_hint}\n"
         f"{EXTRACTION_JSON_SCHEMA_HINT}"
     )
 
@@ -267,13 +390,14 @@ def _claude_raw_response(
     log_date_iso: str,
     capture_time_local: str | None,
     user_timezone: str | None,
+    capture_kind: str,
 ) -> str:
     if not settings.anthropic_api_key:
         raise RuntimeError("ANTHROPIC_API_KEY is not configured")
 
     timeout = httpx.Timeout(settings.anthropic_timeout_seconds, connect=15.0)
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key, timeout=timeout)
-    user_content = _user_content(transcript, log_date_iso, capture_time_local, user_timezone)
+    user_content = _user_content(transcript, log_date_iso, capture_time_local, user_timezone, capture_kind)
     msg = client.messages.create(
         model=settings.anthropic_extraction_model,
         max_tokens=4096,
@@ -296,6 +420,7 @@ def _groq_raw_response(
     log_date_iso: str,
     capture_time_local: str | None,
     user_timezone: str | None,
+    capture_kind: str,
 ) -> str:
     if not settings.groq_api_key:
         raise RuntimeError("GROQ_API_KEY is not configured")
@@ -304,7 +429,7 @@ def _groq_raw_response(
         api_key=settings.groq_api_key,
         base_url=settings.groq_openai_base_url,
     )
-    user_content = _user_content(transcript, log_date_iso, capture_time_local, user_timezone)
+    user_content = _user_content(transcript, log_date_iso, capture_time_local, user_timezone, capture_kind)
     completion = client.chat.completions.create(
         model=settings.groq_extraction_model,
         temperature=0.2,
@@ -325,6 +450,7 @@ def extract_logs_from_transcript(
     log_date_iso: str,
     capture_time_local: str | None = None,
     user_timezone: str | None = None,
+    capture_kind: str = "text",
 ) -> ExtractLogsResponse:
     """
     Provider order (enforced in this function only):
@@ -344,6 +470,8 @@ def extract_logs_from_transcript(
     if not extraction_service_configured():
         raise RuntimeError("Configure ANTHROPIC_API_KEY and/or GROQ_API_KEY for extraction")
 
+    ck = capture_kind if capture_kind in ("voice", "text") else "text"
+
     use_anthropic = bool(settings.anthropic_api_key)
     use_groq = bool(settings.groq_api_key)
     claude_err: Exception | None = None
@@ -351,11 +479,12 @@ def extract_logs_from_transcript(
     # --- Primary: Anthropic / Claude ---
     if use_anthropic:
         try:
-            raw = _claude_raw_response(transcript, log_date_iso, capture_time_local, user_timezone)
+            raw = _claude_raw_response(transcript, log_date_iso, capture_time_local, user_timezone, ck)
             parsed = _postprocess_extraction(
                 _parse_extract_response(raw),
                 transcript,
                 capture_time_local,
+                ck,
             )
             logger.info("extraction provider: anthropic")
             return parsed
@@ -367,11 +496,12 @@ def extract_logs_from_transcript(
     # --- Fallback (after Claude failure) or Groq-only ---
     if use_groq:
         try:
-            raw = _groq_raw_response(transcript, log_date_iso, capture_time_local, user_timezone)
+            raw = _groq_raw_response(transcript, log_date_iso, capture_time_local, user_timezone, ck)
             parsed = _postprocess_extraction(
                 _parse_extract_response(raw),
                 transcript,
                 capture_time_local,
+                ck,
             )
             if claude_err is not None:
                 logger.info("extraction provider: groq_fallback")

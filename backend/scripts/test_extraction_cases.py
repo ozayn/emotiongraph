@@ -19,6 +19,7 @@ EMOTIONGRAPH_API_BASE              API origin (default: http://127.0.0.1:8100)
 EMOTIONGRAPH_LOG_DATE              YYYY-MM-DD for requests (default: 2026-04-01)
 EMOTIONGRAPH_CAPTURE_TIME_LOCAL    HH:MM sent as capture_time_local (default: 14:30).
                                    Set to ``omit`` to leave capture_time_local out of the payload.
+EMOTIONGRAPH_CAPTURE_KIND          ``voice`` or ``text`` (default: text). Per-case ``capture_kind`` overrides.
 EMOTIONGRAPH_EXTRACTION_TEST_OUT   Output directory (default: extraction_test_outputs)
 
 Note: ``/extract-logs`` does not require ``X-User-Id``; this script only exercises extraction.
@@ -55,11 +56,20 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 EXTRACT_TIMEOUT = float(os.environ.get("EMOTIONGRAPH_EXTRACT_TIMEOUT", "120"))
 
+_ck = os.environ.get("EMOTIONGRAPH_CAPTURE_KIND", "text").strip().lower()
+DEFAULT_CAPTURE_KIND = _ck if _ck in ("voice", "text") else "text"
+
 # ---------------------------------------------------------------------------
 # Test cases: extend this list for new scenarios
 # ---------------------------------------------------------------------------
 
 TEST_CASES: list[dict[str, str]] = [
+    {
+        "case_id": "voice_short_activity_cigarette",
+        "input_text": "having a cigarette",
+        "notes": "Voice capture_kind; single-row utterance should get start_time from capture_time_local (model + post-process).",
+        "capture_kind": "voice",
+    },
     {
         "case_id": "present_meeting_anxiety",
         "input_text": "I'm going to a meeting and I am very anxious.",
@@ -177,9 +187,9 @@ TEST_CASES: list[dict[str, str]] = [
 # ---------------------------------------------------------------------------
 
 
-def call_extract(text: str, log_date: str, capture_time_local: str | None) -> dict:
+def call_extract(text: str, log_date: str, capture_time_local: str | None, capture_kind: str = "text") -> dict:
     url = f"{API_BASE}/extract-logs"
-    payload: dict = {"transcript": text, "log_date": log_date}
+    payload: dict = {"transcript": text, "log_date": log_date, "capture_kind": capture_kind}
     if capture_time_local is not None:
         payload["capture_time_local"] = capture_time_local
 
@@ -204,6 +214,7 @@ def main() -> int:
     print(f"API: {API_BASE}")
     print(f"log_date: {LOG_DATE}")
     print(f"capture_time_local: {CAPTURE_TIME_LOCAL!r}")
+    print(f"default capture_kind: {DEFAULT_CAPTURE_KIND!r}")
     print(f"Output: {OUTPUT_DIR}")
     print()
 
@@ -211,10 +222,13 @@ def main() -> int:
         case_id = case["case_id"]
         input_text = case["input_text"]
         notes = case["notes"]
+        ck = case.get("capture_kind", DEFAULT_CAPTURE_KIND)
+        if ck not in ("voice", "text"):
+            ck = DEFAULT_CAPTURE_KIND
         created_at = utc_now_iso()
 
         try:
-            extracted = call_extract(input_text, LOG_DATE, CAPTURE_TIME_LOCAL)
+            extracted = call_extract(input_text, LOG_DATE, CAPTURE_TIME_LOCAL, ck)
             record = {
                 "case_id": case_id,
                 "input_text": input_text,

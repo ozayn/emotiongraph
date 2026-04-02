@@ -1,17 +1,16 @@
-import { SessionProvider } from "./session/SessionContext";
-import AppLayout from "./layouts/AppLayout";
-import AppRoutes from "./routes/AppRoutes";
+import { Route, Routes } from "react-router-dom";
+import DemoApp from "./DemoApp";
+import PrivateApp from "./PrivateApp";
 
 /**
- * Root: session (future auth boundary) + chrome + routes.
- * Google OAuth can swap `SessionProvider` internals while keeping `useSession()` + route shape stable.
+ * Top-level split: private app at `/` (Google login when enabled) vs public demo at `/demo/*`.
+ * Each branch mounts its own `SessionProvider` so demo and private never share `userId` storage.
  */
 export default function App() {
   return (
-    <SessionProvider>
-      <AppLayout>
-        <AppRoutes />
-      </AppLayout>
-    </SessionProvider>
+    <Routes>
+      <Route path="/demo/*" element={<DemoApp />} />
+      <Route path="*" element={<PrivateApp />} />
+    </Routes>
   );
 }

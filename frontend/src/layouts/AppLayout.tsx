@@ -11,13 +11,14 @@ type Props = { children: React.ReactNode };
  */
 export default function AppLayout({ children }: Props) {
   const { pathname } = useLocation();
-  const { usersReady, userScopeReady, usersError } = useSession();
+  const { usersReady, userScopeReady, usersError, realm, pathFor, homePath } = useSession();
+  const switchProfilePath = pathFor("/switch-profile");
 
   return (
     <div className="app-shell">
       <header className="app-header">
         <div className="app-header-inner">
-          <Link className="brand" to="/" aria-label="EmotionGraph — home">
+          <Link className="brand" to={homePath} aria-label="EmotionGraph — home">
             <img className="brand-mark" src="/logo-mark.svg" alt="" width="28" height="28" />
             <span className="logo">EmotionGraph</span>
           </Link>
@@ -25,13 +26,18 @@ export default function AppLayout({ children }: Props) {
             <div className="app-header-chrome">
               <ThemeToggle />
             </div>
+            {realm === "private" && (
+              <Link className="app-header-secondary-link app-header-demo-link" to="/demo/">
+                Demo
+              </Link>
+            )}
             {usersReady && userScopeReady && (
               <nav className="app-header-nav" aria-label="Main">
-                <MainNav pathname={pathname} />
-                {pathname !== "/switch-profile" && (
+                <MainNav />
+                {pathname !== switchProfilePath && (
                   <>
                     <span className="app-header-nav-rule" aria-hidden="true" />
-                    <Link className="app-header-secondary-link" to="/switch-profile">
+                    <Link className="app-header-secondary-link" to={switchProfilePath}>
                       Switch profile
                     </Link>
                   </>
@@ -41,6 +47,14 @@ export default function AppLayout({ children }: Props) {
           </div>
         </div>
       </header>
+      {realm === "demo" && (
+        <div className="app-banner app-banner--demo" role="status">
+          <span className="app-banner-demo-lead">Demo mode — sample data only.</span>{" "}
+          <Link className="app-banner-demo-private linkish" to="/">
+            Sign in for your data
+          </Link>
+        </div>
+      )}
       {usersError && (
         <div className="app-banner error-inline" role="alert">
           {usersError}

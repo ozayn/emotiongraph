@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from "react-router-dom";
 import DayLogPanel from "../components/DayLogPanel";
+import { useSession } from "../session/SessionContext";
 
 type Props = { userId: number; timeZone: string };
 
@@ -9,29 +10,30 @@ function parseDayQueryParam(raw: string | null): string | undefined {
 }
 
 export default function AddEntryPage({ userId, timeZone }: Props) {
+  const { pathFor } = useSession();
   const [searchParams] = useSearchParams();
   const focusLogDate = parseDayQueryParam(searchParams.get("day"));
 
   return (
     <div className="entries-page add-entry-page">
       <nav className="entries-nav entries-nav--split">
-        <Link className="linkish entries-back" to="/">
+        <Link className="linkish entries-back" to={pathFor("/")}>
           ← Home
         </Link>
         <span className="entries-nav-inline">
-          <Link className="linkish entries-back" to="/today">
+          <Link className="linkish entries-back" to={pathFor("/today")}>
             Today
           </Link>
           <span className="muted small" aria-hidden="true">
             ·
           </span>
-          <Link className="linkish entries-back" to="/entries">
+          <Link className="linkish entries-back" to={pathFor("/entries")}>
             Entries
           </Link>
           <span className="muted small" aria-hidden="true">
             ·
           </span>
-          <Link className="linkish entries-back" to="/profile">
+          <Link className="linkish entries-back" to={pathFor("/profile")}>
             Profile
           </Link>
         </span>

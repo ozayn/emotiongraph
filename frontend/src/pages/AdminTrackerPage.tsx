@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchTrackerConfig, patchTrackerField, patchTrackerOption } from "../trackerConfigApi";
+import { useSession } from "../session/SessionContext";
 import type { TrackerFieldDefinitionDTO, TrackerSelectOptionDTO } from "../trackerConfigTypes";
 
 export default function AdminTrackerPage() {
+  const { pathFor } = useSession();
   const [fields, setFields] = useState<TrackerFieldDefinitionDTO[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,7 +87,7 @@ export default function AdminTrackerPage() {
   return (
     <div className="admin-page">
       <nav className="admin-nav">
-        <Link className="linkish admin-back" to="/">
+        <Link className="linkish admin-back" to={pathFor("/today")}>
           ← Today
         </Link>
       </nav>

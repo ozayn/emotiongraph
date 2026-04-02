@@ -227,6 +227,7 @@ def extract_logs(body: ExtractLogsRequest):
             body.log_date.isoformat(),
             body.capture_time_local,
             body.timezone,
+            body.capture_kind,
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=f"invalid model JSON: {e}") from e

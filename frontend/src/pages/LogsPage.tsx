@@ -6,6 +6,7 @@ import MetricSelect from "../components/MetricSelect";
 import type { SavedLogEntry } from "../types";
 import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
 import { compactMetricSummary, draftToPatch, entryToDraft, type EditDraft, LOG_EDIT_SOURCE_OPTIONS } from "../logEditDraft";
+import { useSession } from "../session/SessionContext";
 import { optionsForMetricKey } from "../trackerOptions";
 
 const ENTRIES_VIEW_STORAGE_KEY = "emotiongraph_entries_view";
@@ -48,6 +49,7 @@ function parseDayQueryParam(raw: string | null): string | undefined {
 }
 
 export default function LogsPage({ userId, timeZone, variant = "history" }: Props) {
+  const { pathFor } = useSession();
   const [searchParams] = useSearchParams();
   const focusLogDate = variant === "history" ? parseDayQueryParam(searchParams.get("day")) : undefined;
   const editSourceLabelId = useId();
@@ -237,15 +239,15 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
   return (
     <div className={`entries-page${variant === "today" ? " entries-page--today" : ""}`}>
       <nav className="entries-nav entries-nav--split">
-        <Link className="linkish entries-back" to="/">
+        <Link className="linkish entries-back" to={pathFor("/")}>
           ← Home
         </Link>
         {variant === "today" ? (
-          <Link className="linkish entries-back" to="/entries">
+          <Link className="linkish entries-back" to={pathFor("/entries")}>
             All entries →
           </Link>
         ) : (
-          <Link className="linkish entries-back" to="/profile#data">
+          <Link className="linkish entries-back" to={pathFor("/profile#data")}>
             Profile →
           </Link>
         )}
@@ -259,15 +261,15 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
             </p>
             <p className="muted small entries-lead">
               Logs for today in your timezone. For voice, use{" "}
-              <Link className="linkish" to="/">
+              <Link className="linkish" to={pathFor("/")}>
                 Home
               </Link>
               . For text or manual rows,{" "}
-              <Link className="linkish" to={`/add-entry?day=${todayIso}`}>
+              <Link className="linkish" to={`${pathFor("/add-entry")}?day=${todayIso}`}>
                 Add entry
               </Link>
               . Import or export lives in{" "}
-              <Link className="linkish" to="/profile#data">
+              <Link className="linkish" to={pathFor("/profile#data")}>
                 Profile → Data
               </Link>
               .
@@ -278,11 +280,11 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
             <h1 className="entries-title">Entries</h1>
             <p className="muted small entries-lead">
               Browse history in a date range and edit or delete rows. CSV and structured add are under{" "}
-              <Link className="linkish" to="/profile#data">
+              <Link className="linkish" to={pathFor("/profile#data")}>
                 Profile → Data
               </Link>
               . Typed or manual logs:{" "}
-              <Link className="linkish" to="/add-entry">
+              <Link className="linkish" to={pathFor("/add-entry")}>
                 Add entry
               </Link>
               .

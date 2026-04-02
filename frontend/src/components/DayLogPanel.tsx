@@ -412,7 +412,7 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
     setExtractionError(null);
     setExtraction(null);
     try {
-      const res = await extractLogs(t, logDate, { timezone: timeZone });
+      const res = await extractLogs(t, logDate, { timezone: timeZone, captureKind: "text" });
       setExtraction(res);
     } catch (e) {
       setExtractionError(e instanceof Error ? e.message : "Extraction failed");
@@ -428,7 +428,7 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
       setExtractionError(null);
       setExtraction(null);
       try {
-        const res = await extractLogs(text, logDate, { timezone: timeZone });
+        const res = await extractLogs(text, logDate, { timezone: timeZone, captureKind: "text" });
         setExtraction(res);
       } catch (e) {
         setExtractionError(e instanceof Error ? e.message : "Extraction failed");

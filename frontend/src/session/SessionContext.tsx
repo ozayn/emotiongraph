@@ -1,20 +1,25 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { fetchUsers } from "../api";
+import { allowLocalPrivateDev, getDemoUserIdFilter, googleAuthDevBypass, isGoogleAuthRequired } from "../config/realmConfig";
 import { effectiveUserTimeZone } from "../datesTz";
 import type { User } from "../types";
 import { clearSelectedUserId, getSelectedUserId, setSelectedUserId } from "../userSession";
-import type { AuthMode } from "./authTypes";
+import type { AppRealm, AuthMode } from "./authTypes";
+import { joinAppPath, routeBaseForRealm } from "./paths";
 
 export type SessionValue = {
-  /** Always `local_profile` until Google login is implemented. */
+  realm: AppRealm;
+  /** URL prefix for links: `""` (private) or `"/demo"` (demo). */
+  routeBase: "" | "/demo";
+  /** Home URL for this realm (`/` or `/demo`). */
+  homePath: string;
+  pathFor: (absoluteAppPath: string) => string;
   authMode: AuthMode;
   users: User[];
   usersReady: boolean;
   usersError: string | null;
   userId: number | null;
-  /** True when a valid user id is selected and present in `users`. */
   userScopeReady: boolean;
-  /** True when users exist but none selected (show picker). */
   needsProfileChoice: boolean;
   selectedUser: User | null;
   userTimeZone: string;
@@ -24,34 +29,80 @@ export type SessionValue = {
 
 const SessionContext = createContext<SessionValue | null>(null);
 
-export function SessionProvider({ children }: { children: ReactNode }) {
+type ProviderProps = {
+  realm: AppRealm;
+  children: ReactNode;
+};
+
+export function SessionProvider({ realm, children }: ProviderProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [userId, setUserId] = useState<number | null>(null);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [usersReady, setUsersReady] = useState(false);
 
-  const authMode: AuthMode = "local_profile";
+  const routeBase = routeBaseForRealm(realm);
+  const homePath = joinAppPath(routeBase, "/");
 
-  const applyUser = useCallback((id: number) => {
-    setSelectedUserId(String(id));
-    setUserId(id);
-  }, []);
+  const pathFor = useCallback(
+    (absoluteAppPath: string) => {
+      return joinAppPath(routeBase, absoluteAppPath);
+    },
+    [routeBase],
+  );
+
+  const skipUserFetch =
+    realm === "private" && isGoogleAuthRequired() && !allowLocalPrivateDev() && !googleAuthDevBypass();
+
+  const authMode: AuthMode = useMemo(() => {
+    if (realm === "demo") return "local_profile";
+    if (!isGoogleAuthRequired()) return "local_profile";
+    if (allowLocalPrivateDev() || googleAuthDevBypass()) return "local_profile";
+    return "unauthenticated";
+  }, [realm]);
+
+  const applyUser = useCallback(
+    (id: number) => {
+      if (skipUserFetch || authMode === "unauthenticated") return;
+      setSelectedUserId(String(id), realm);
+      setUserId(id);
+    },
+    [realm, skipUserFetch, authMode],
+  );
 
   useEffect(() => {
+    if (skipUserFetch || authMode === "unauthenticated") {
+      setUsers([]);
+      setUserId(null);
+      setUsersError(null);
+      setUsersReady(true);
+      return;
+    }
+
     let cancelled = false;
     setUsersError(null);
+    setUsersReady(false);
     void fetchUsers()
       .then((list) => {
         if (cancelled) return;
-        setUsers(list);
-        const stored = getSelectedUserId();
+        let next = list;
+        const demoFilter = getDemoUserIdFilter();
+        if (realm === "demo" && demoFilter != null) {
+          next = list.filter((u) => u.id === demoFilter);
+          if (next.length === 0) {
+            setUsersError(
+              "This demo can’t load that profile right now. Try again later, or use the full app if you have an account.",
+            );
+          }
+        }
+        setUsers(next);
+        const stored = getSelectedUserId(realm);
         const sid = stored ? Number.parseInt(stored, 10) : NaN;
-        const match = list.find((u) => u.id === sid);
+        const match = next.find((u) => u.id === sid);
         if (match) {
-          setSelectedUserId(String(match.id));
+          setSelectedUserId(String(match.id), realm);
           setUserId(match.id);
         } else {
-          if (stored) clearSelectedUserId();
+          if (stored) clearSelectedUserId(realm);
           setUserId(null);
         }
         setUsersReady(true);
@@ -64,7 +115,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [realm, skipUserFetch, authMode]);
 
   const mergeUser = useCallback((u: User) => {
     setUsers((prev) => prev.map((x) => (x.id === u.id ? u : x)));
@@ -74,6 +125,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const userTimeZone = effectiveUserTimeZone(selectedUser);
 
   const userScopeReady =
+    !skipUserFetch &&
+    authMode !== "unauthenticated" &&
     usersReady &&
     users.length > 0 &&
     userId != null &&
@@ -81,10 +134,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     userId > 0 &&
     users.some((u) => u.id === userId);
 
-  const needsProfileChoice = usersReady && users.length > 0 && userId == null;
+  const needsProfileChoice =
+    !skipUserFetch && authMode !== "unauthenticated" && usersReady && users.length > 0 && userId == null;
 
   const value = useMemo<SessionValue>(
     () => ({
+      realm,
+      routeBase,
+      homePath,
+      pathFor,
       authMode,
       users,
       usersReady,
@@ -98,6 +156,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       mergeUser,
     }),
     [
+      realm,
+      routeBase,
+      homePath,
+      pathFor,
+      authMode,
       users,
       usersReady,
       usersError,

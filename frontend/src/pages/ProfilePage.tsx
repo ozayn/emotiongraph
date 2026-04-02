@@ -6,6 +6,7 @@ import InlineHelp from "../components/InlineHelp";
 import ProfileCsvImport from "../components/ProfileCsvImport";
 import UserTimezonePreferences from "../components/UserTimezonePreferences";
 import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
+import { useSession } from "../session/SessionContext";
 import type { User } from "../types";
 
 type Props = {
@@ -16,6 +17,7 @@ type Props = {
 };
 
 export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: Props) {
+  const { pathFor, realm } = useSession();
   const { hash } = useLocation();
   const [exportStart, setExportStart] = useState(() => addCalendarDaysToIso(todayIsoInTimeZone(timeZone), -60));
   const [exportEnd, setExportEnd] = useState(() => todayIsoInTimeZone(timeZone));
@@ -62,7 +64,7 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
   return (
     <div className="profile-page">
       <nav className="entries-nav">
-        <Link className="linkish entries-back" to="/">
+        <Link className="linkish entries-back" to={pathFor("/")}>
           ← Home
         </Link>
       </nav>
@@ -90,25 +92,33 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
           </div>
 
           <div className="profile-account-toolbar">
-            <Link className="profile-account-add-link" to="/add-entry">
+            <Link className="profile-account-add-link" to={pathFor("/add-entry")}>
               Add entry
             </Link>
             <InlineHelp label="This profile">
               <p>Voice capture and daily review live in the top bar.</p>
-              <p>Google sign-in will link this profile to your account when it ships — not in this build.</p>
+              {realm === "private" ? (
+                <p>Google sign-in will link this profile to your account when it ships — not in this build.</p>
+              ) : (
+                <p>This is the public demo: use only non-sensitive sample data.</p>
+              )}
             </InlineHelp>
           </div>
 
           <div className="profile-account-footer">
-            <Link className="profile-account-secondary" to="/switch-profile">
+            <Link className="profile-account-secondary" to={pathFor("/switch-profile")}>
               Use a different profile
             </Link>
-            <span className="profile-account-footer-sep muted small" aria-hidden="true">
-              ·
-            </span>
-            <Link className="profile-account-secondary" to="/admin">
-              Tracker config
-            </Link>
+            {realm === "private" ? (
+              <>
+                <span className="profile-account-footer-sep muted small" aria-hidden="true">
+                  ·
+                </span>
+                <Link className="profile-account-secondary" to={pathFor("/admin")}>
+                  Tracker config
+                </Link>
+              </>
+            ) : null}
           </div>
         </div>
       </section>

@@ -70,7 +70,7 @@ export function localWallClockHHMM(): string {
 export async function extractLogs(
   transcript: string,
   logDate: string,
-  options?: { captureTimeLocal?: string | null; timezone?: string | null },
+  options?: { captureTimeLocal?: string | null; timezone?: string | null; captureKind?: "voice" | "text" },
 ): Promise<ExtractLogsResponse> {
   const savedTz = options?.timezone?.trim() || null;
   /** IANA zone for wall clock + model context: saved preference, else this device. */
@@ -81,7 +81,11 @@ export async function extractLogs(
       : options.captureTimeLocal === null
         ? undefined
         : options.captureTimeLocal;
-  const body: Record<string, unknown> = { transcript, log_date: logDate };
+  const body: Record<string, unknown> = {
+    transcript,
+    log_date: logDate,
+    capture_kind: options?.captureKind ?? "text",
+  };
   if (capture_time_local != null) {
     body.capture_time_local = capture_time_local;
   }

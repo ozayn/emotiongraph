@@ -10,6 +10,7 @@ import {
   YAxis,
 } from "recharts";
 import { fetchInsights } from "../api";
+import { useSession } from "../session/SessionContext";
 import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
 import type { InsightsPayload } from "../types";
 import {
@@ -70,6 +71,7 @@ function isReadyUserId(id: number): boolean {
 }
 
 export default function InsightsPage({ userId, timeZone }: Props) {
+  const { pathFor } = useSession();
   const [endDate, setEndDate] = useState(() => todayIsoInTimeZone(timeZone));
   const [startDate, setStartDate] = useState(() => addCalendarDaysToIso(todayIsoInTimeZone(timeZone), -29));
 
@@ -135,7 +137,7 @@ export default function InsightsPage({ userId, timeZone }: Props) {
     <div className="insights-page">
       <header className="insights-header">
         <div className="insights-header-top">
-          <Link to="/today" className="insights-back muted small">
+          <Link to={pathFor("/today")} className="insights-back muted small">
             ← Today
           </Link>
         </div>

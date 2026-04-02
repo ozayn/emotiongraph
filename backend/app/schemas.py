@@ -119,6 +119,11 @@ class ExtractLogsRequest(BaseModel):
         description="IANA timezone for log_date and capture_time_local context (e.g. America/Los_Angeles).",
         max_length=64,
     )
+    capture_kind: str = Field(
+        "text",
+        description='How the transcript was produced: "voice" (live recording) uses a more permissive default for start_time when no explicit time is given; "text" stays conservative.',
+        pattern=r"^(voice|text)$",
+    )
 
     @field_validator("timezone", mode="before")
     @classmethod
