@@ -116,7 +116,6 @@ export default function LoginPage() {
             <img className="login-brand-icon" src="/logo-mark.svg" alt="" width="32" height="32" />
             <div className="login-header-brand-text">
               <span className="logo login-brand-mark">EmotionGraph</span>
-              <span className="login-brand-tag muted small">Your private log</span>
             </div>
           </div>
           <ThemeToggle />

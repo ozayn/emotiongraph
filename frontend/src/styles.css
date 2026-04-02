@@ -521,11 +521,6 @@ body {
   font-size: 1.08rem;
 }
 
-.login-brand-tag {
-  font-size: 0.72rem;
-  letter-spacing: 0.02em;
-}
-
 .login-main {
   flex: 1;
   position: relative;
