@@ -408,18 +408,116 @@ body {
 .today-day-context {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  padding: 0.85rem 1rem 0.95rem;
+  gap: 0;
+  padding: 0;
   border-radius: calc(var(--radius-lg) + 4px);
   background: linear-gradient(165deg, rgba(255, 255, 255, 0.72) 0%, var(--surface) 55%, rgba(250, 248, 244, 0.98) 100%);
   border: 1px solid rgba(42, 41, 38, 0.07);
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55) inset, 0 8px 28px rgba(42, 41, 38, 0.04);
+  overflow: hidden;
+}
+
+.day-context-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0;
+  padding: 0.75rem 1rem;
+  min-height: 48px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.2s var(--ease-soft);
+}
+
+.day-context-trigger:hover {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.day-context-trigger:focus {
+  outline: none;
+}
+
+.day-context-trigger:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px rgba(74, 95, 110, 0.28);
+}
+
+.day-context-trigger-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.12rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.day-context-trigger-title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.day-context-trigger-hint {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  max-width: 100%;
+}
+
+.day-context-trigger-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  opacity: 0.85;
+}
+
+.day-context-collapsed-msg {
+  margin: 0 1rem 0.65rem;
 }
 
 @media (min-width: 480px) {
-  .today-day-context {
-    padding: 0.95rem 1.15rem 1.05rem;
+  .day-context-trigger {
+    padding: 0.8rem 1.15rem;
   }
+
+  .day-context-collapsed-msg {
+    margin-left: 1.15rem;
+    margin-right: 1.15rem;
+  }
+}
+
+.day-context-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 0.55rem 1rem 0.95rem;
+  border-top: 1px solid rgba(42, 41, 38, 0.07);
+}
+
+@media (min-width: 480px) {
+  .day-context-panel {
+    padding-left: 1.15rem;
+    padding-right: 1.15rem;
+    padding-bottom: 1.05rem;
+  }
+}
+
+.day-context-panel-lead {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  max-width: 32rem;
 }
 
 .day-context-top {

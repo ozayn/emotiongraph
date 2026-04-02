@@ -111,6 +111,7 @@ export default function TodayPage({ userId }: TodayPageProps) {
   const [daySaving, setDaySaving] = useState(false);
   const [dayError, setDayError] = useState<string | null>(null);
   const [daySavedBanner, setDaySavedBanner] = useState(false);
+  const [dayContextOpen, setDayContextOpen] = useState(false);
   const [dayContextEditing, setDayContextEditing] = useState(false);
   const dayContextFirstFieldRef = useRef<HTMLInputElement>(null);
 
@@ -188,6 +189,7 @@ export default function TodayPage({ userId }: TodayPageProps) {
 
   useEffect(() => {
     setDayContextEditing(false);
+    setDayContextOpen(false);
   }, [logDate]);
 
   useEffect(() => {
@@ -472,130 +474,182 @@ export default function TodayPage({ userId }: TodayPageProps) {
       </section>
 
       <section className="today-day-context" aria-labelledby="day-heading">
-        <div className="day-context-top">
-          <div className="day-context-top-text">
-            <p className="day-context-kicker" id="day-heading">
+        <button
+          type="button"
+          className="day-context-trigger"
+          aria-expanded={dayContextOpen}
+          aria-controls="day-context-panel"
+          onClick={() => {
+            setDayContextOpen((open) => {
+              if (open) setDayContextEditing(false);
+              return !open;
+            });
+          }}
+        >
+          <span className="day-context-trigger-text">
+            <span className="day-context-trigger-title" id="day-heading">
               Day context
-            </p>
-            <p className="day-context-sub muted">
-              {dayContextEditing ? "Update cycle and sleep for this date." : "Daily signals — separate from your log entries."}
-            </p>
-          </div>
-          {!dayContextEditing && (
-            <button
-              type="button"
-              className="btn ghost small day-context-edit-btn"
-              aria-expanded={false}
-              aria-controls="day-context-editor"
-              onClick={() => setDayContextEditing(true)}
-            >
-              Edit
-            </button>
-          )}
-          {dayContextEditing && (
-            <span className="sr-only" aria-live="polite">
-              Editing day context
             </span>
-          )}
-        </div>
+            <span className="day-context-trigger-hint muted">Optional · cycle, sleep, quality</span>
+          </span>
+          <span className="day-context-trigger-icon" aria-hidden="true">
+            {dayContextOpen ? (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M6 15l6-6 6 6"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            ) : (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M12 5v14M5 12h14"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                />
+              </svg>
+            )}
+          </span>
+        </button>
 
-        {!dayContextEditing && (
-          <div className="day-context-summary" role="group" aria-label="Day context values">
-            <div className="day-context-stat">
-              <span className="day-context-stat-label">Cycle day</span>
-              <span className="day-context-stat-value mono">{dayDraft.cycle_day.trim() || "—"}</span>
-            </div>
-            <div className="day-context-stat">
-              <span className="day-context-stat-label">Sleep</span>
-              <span className="day-context-stat-value mono">
-                {dayDraft.sleep_hours.trim() ? `${dayDraft.sleep_hours.trim()} h` : "—"}
-              </span>
-            </div>
-            <div className="day-context-stat">
-              <span className="day-context-stat-label">Sleep quality</span>
-              <span className="day-context-stat-value day-context-stat-value--quality">
-                {(() => {
-                  const q = dayDraft.sleep_quality.trim();
-                  if (!q) return "—";
-                  const n = Number.parseInt(q, 10);
-                  return Number.isFinite(n) ? formatSleepQuality(n) : "—";
-                })()}
-              </span>
-            </div>
-          </div>
+        {!dayContextOpen && dayError && (
+          <p className="error-inline manual-add-error day-context-collapsed-msg">{dayError}</p>
+        )}
+        {!dayContextOpen && daySavedBanner && (
+          <p className="manual-add-success day-context-collapsed-msg" role="status">
+            Day info saved.
+          </p>
         )}
 
-        <div className="day-context-editor" id="day-context-editor" hidden={!dayContextEditing}>
-            <div className="day-context-metrics" role="group" aria-label="Edit day context">
-              <label className="day-context-metric">
-                <span className="day-context-metric-label">Cycle day</span>
-                <input
-                  ref={dayContextFirstFieldRef}
-                  className="day-context-input"
-                  type="number"
-                  inputMode="numeric"
-                  min={1}
-                  max={366}
-                  placeholder="optional"
-                  value={dayDraft.cycle_day}
-                  onChange={(e) => setDayDraft((d) => ({ ...d, cycle_day: e.target.value }))}
-                />
-              </label>
-              <label className="day-context-metric">
-                <span className="day-context-metric-label">Sleep</span>
-                <span className="day-context-metric-unit muted">hours</span>
-                <input
-                  className="day-context-input"
-                  type="number"
-                  inputMode="decimal"
-                  min={0}
-                  max={24}
-                  step={0.25}
-                  placeholder="optional"
-                  value={dayDraft.sleep_hours}
-                  onChange={(e) => setDayDraft((d) => ({ ...d, sleep_hours: e.target.value }))}
-                />
-              </label>
-              <div className="day-context-metric day-context-metric--quality">
-                <MetricSelect
-                  label="Sleep quality"
-                  value={dayDraft.sleep_quality}
-                  onChange={(v) => setDayDraft((d) => ({ ...d, sleep_quality: v }))}
-                  options={SLEEP_QUALITY_OPTIONS}
-                />
+        {dayContextOpen && (
+          <div id="day-context-panel" className="day-context-panel">
+            <div className="day-context-top">
+              <div className="day-context-top-text">
+                <p className="day-context-panel-lead muted">
+                  {dayContextEditing ? "Update cycle and sleep for this date." : "Daily signals — separate from your log entries."}
+                </p>
+              </div>
+              {!dayContextEditing && (
+                <button
+                  type="button"
+                  className="btn ghost small day-context-edit-btn"
+                  aria-expanded={false}
+                  aria-controls="day-context-editor"
+                  onClick={() => setDayContextEditing(true)}
+                >
+                  Edit
+                </button>
+              )}
+              {dayContextEditing && (
+                <span className="sr-only" aria-live="polite">
+                  Editing day context
+                </span>
+              )}
+            </div>
+
+            {!dayContextEditing && (
+              <div className="day-context-summary" role="group" aria-label="Day context values">
+                <div className="day-context-stat">
+                  <span className="day-context-stat-label">Cycle day</span>
+                  <span className="day-context-stat-value mono">{dayDraft.cycle_day.trim() || "—"}</span>
+                </div>
+                <div className="day-context-stat">
+                  <span className="day-context-stat-label">Sleep</span>
+                  <span className="day-context-stat-value mono">
+                    {dayDraft.sleep_hours.trim() ? `${dayDraft.sleep_hours.trim()} h` : "—"}
+                  </span>
+                </div>
+                <div className="day-context-stat">
+                  <span className="day-context-stat-label">Sleep quality</span>
+                  <span className="day-context-stat-value day-context-stat-value--quality">
+                    {(() => {
+                      const q = dayDraft.sleep_quality.trim();
+                      if (!q) return "—";
+                      const n = Number.parseInt(q, 10);
+                      return Number.isFinite(n) ? formatSleepQuality(n) : "—";
+                    })()}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="day-context-editor" id="day-context-editor" hidden={!dayContextEditing}>
+              <div className="day-context-metrics" role="group" aria-label="Edit day context">
+                <label className="day-context-metric">
+                  <span className="day-context-metric-label">Cycle day</span>
+                  <input
+                    ref={dayContextFirstFieldRef}
+                    className="day-context-input"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={366}
+                    placeholder="optional"
+                    value={dayDraft.cycle_day}
+                    onChange={(e) => setDayDraft((d) => ({ ...d, cycle_day: e.target.value }))}
+                  />
+                </label>
+                <label className="day-context-metric">
+                  <span className="day-context-metric-label">Sleep</span>
+                  <span className="day-context-metric-unit muted">hours</span>
+                  <input
+                    className="day-context-input"
+                    type="number"
+                    inputMode="decimal"
+                    min={0}
+                    max={24}
+                    step={0.25}
+                    placeholder="optional"
+                    value={dayDraft.sleep_hours}
+                    onChange={(e) => setDayDraft((d) => ({ ...d, sleep_hours: e.target.value }))}
+                  />
+                </label>
+                <div className="day-context-metric day-context-metric--quality">
+                  <MetricSelect
+                    label="Sleep quality"
+                    value={dayDraft.sleep_quality}
+                    onChange={(v) => setDayDraft((d) => ({ ...d, sleep_quality: v }))}
+                    options={SLEEP_QUALITY_OPTIONS}
+                  />
+                </div>
+              </div>
+              {dayError && <p className="error-inline manual-add-error day-context-inline-msg">{dayError}</p>}
+              {daySavedBanner && (
+                <p className="manual-add-success day-context-inline-msg" role="status">
+                  Day info saved.
+                </p>
+              )}
+              <div className="day-context-edit-footer">
+                <button
+                  type="button"
+                  className="btn ghost small day-context-footer-btn"
+                  disabled={daySaving}
+                  onClick={() => setDayContextEditing(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn primary small day-context-footer-btn day-context-footer-save"
+                  disabled={daySaving}
+                  onClick={() => void handleSaveDay()}
+                >
+                  {daySaving ? "Saving…" : "Save day info"}
+                </button>
               </div>
             </div>
-            {dayError && <p className="error-inline manual-add-error day-context-inline-msg">{dayError}</p>}
-            {daySavedBanner && (
+
+            {!dayContextEditing && dayError && <p className="error-inline manual-add-error day-context-inline-msg">{dayError}</p>}
+            {!dayContextEditing && daySavedBanner && (
               <p className="manual-add-success day-context-inline-msg" role="status">
                 Day info saved.
               </p>
             )}
-            <div className="day-context-edit-footer">
-              <button
-                type="button"
-                className="btn ghost small day-context-footer-btn"
-                disabled={daySaving}
-                onClick={() => setDayContextEditing(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="btn primary small day-context-footer-btn day-context-footer-save"
-                disabled={daySaving}
-                onClick={() => void handleSaveDay()}
-              >
-                {daySaving ? "Saving…" : "Save day info"}
-              </button>
-            </div>
-        </div>
-
-        {!dayContextEditing && dayError && <p className="error-inline manual-add-error day-context-inline-msg">{dayError}</p>}
-        {!dayContextEditing && daySavedBanner && (
-          <p className="manual-add-success day-context-inline-msg" role="status">
-            Day info saved.
-          </p>
+          </div>
         )}
       </section>
 
