@@ -24,9 +24,9 @@ def upgrade() -> None:
     if "is_builtin" not in tfd_cols:
         op.add_column(
             "tracker_field_definitions",
-            sa.Column("is_builtin", sa.Boolean(), nullable=False, server_default=sa.text("1")),
+            sa.Column("is_builtin", sa.Boolean(), nullable=False, server_default=sa.text("true")),
         )
-        op.alter_column("tracker_field_definitions", "is_builtin", server_default=sa.text("0"))
+        op.alter_column("tracker_field_definitions", "is_builtin", server_default=sa.text("false"))
 
     if not insp.has_table("log_entry_custom_values"):
         op.create_table(
