@@ -1,6 +1,6 @@
 from datetime import date
 
-from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,7 @@ from app.services.user_seed import seed_users_if_empty
 from app.schemas import (
     ExtractLogsRequest,
     ExtractLogsResponse,
+    LogEntryPatch,
     LogEntryRead,
     SaveLogsRequest,
     TrackerDayRead,
@@ -101,7 +102,11 @@ def extract_logs(body: ExtractLogsRequest):
             detail="ANTHROPIC_API_KEY or GROQ_API_KEY is not configured (extraction)",
         )
     try:
-        return extract_logs_from_transcript(body.transcript, body.log_date.isoformat())
+        return extract_logs_from_transcript(
+            body.transcript,
+            body.log_date.isoformat(),
+            body.capture_time_local,
+        )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=f"invalid model JSON: {e}") from e
     except Exception as e:
@@ -154,17 +159,81 @@ def put_tracker_day(
 
 @app.get("/logs", response_model=list[LogEntryRead])
 def list_logs(
-    log_date: date,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(require_user_id),
+    log_date: date | None = Query(None),
+    start_date: date | None = Query(None),
+    end_date: date | None = Query(None),
+):
+    if log_date is not None:
+        if start_date is not None or end_date is not None:
+            raise HTTPException(
+                status_code=400,
+                detail="Use either log_date or both start_date and end_date, not both",
+            )
+        return (
+            db.query(LogEntry)
+            .filter(LogEntry.user_id == user_id, LogEntry.log_date == log_date)
+            .order_by(LogEntry.id.asc())
+            .all()
+        )
+    if start_date is None or end_date is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide log_date or both start_date and end_date",
+        )
+    if end_date < start_date:
+        raise HTTPException(status_code=400, detail="end_date must be on or after start_date")
+    return (
+        db.query(LogEntry)
+        .filter(
+            LogEntry.user_id == user_id,
+            LogEntry.log_date >= start_date,
+            LogEntry.log_date <= end_date,
+        )
+        .order_by(LogEntry.log_date.desc(), LogEntry.id.desc())
+        .all()
+    )
+
+
+@app.patch("/logs/{entry_id}", response_model=LogEntryRead)
+def patch_log_entry(
+    entry_id: int,
+    body: LogEntryPatch,
     db: Session = Depends(get_db),
     user_id: int = Depends(require_user_id),
 ):
-    rows = (
-        db.query(LogEntry)
-        .filter(LogEntry.user_id == user_id, LogEntry.log_date == log_date)
-        .order_by(LogEntry.id.asc())
-        .all()
-    )
-    return rows
+    row = db.get(LogEntry, entry_id)
+    if row is None or row.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Log entry not found")
+    data = body.model_dump(exclude_unset=True)
+    filtered = {
+        k: v
+        for k, v in data.items()
+        if not (v is None and k in ("source_type", "log_date"))
+    }
+    if not filtered:
+        db.refresh(row)
+        return row
+    for key, value in filtered.items():
+        setattr(row, key, value)
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+@app.delete("/logs/{entry_id}", status_code=204)
+def delete_log_entry(
+    entry_id: int,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(require_user_id),
+):
+    row = db.get(LogEntry, entry_id)
+    if row is None or row.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Log entry not found")
+    db.delete(row)
+    db.commit()
+    return None
 
 
 @app.post("/logs", response_model=list[LogEntryRead])

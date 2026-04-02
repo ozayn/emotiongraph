@@ -92,6 +92,9 @@ function formatDateHeading(iso: string): string {
 
 type TodayPageProps = { userId: number };
 
+/** Which input produced the current review session (sets saved `source_type`). */
+type ReviewOrigin = "voice" | "text";
+
 function isReadyUserId(id: number): boolean {
   return Number.isInteger(id) && id > 0;
 }
@@ -112,7 +115,9 @@ export default function TodayPage({ userId }: TodayPageProps) {
   const [stepError, setStepError] = useState<string | null>(null);
 
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewOrigin, setReviewOrigin] = useState<ReviewOrigin | null>(null);
   const [transcript, setTranscript] = useState("");
+  const [freeTextDraft, setFreeTextDraft] = useState("");
   const [extraction, setExtraction] = useState<ExtractLogsResponse | null>(null);
   const [extractionLoading, setExtractionLoading] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
@@ -206,6 +211,7 @@ export default function TodayPage({ userId }: TodayPageProps) {
   useEffect(() => {
     setDayContextEditing(false);
     setDayContextOpen(false);
+    setFreeTextDraft("");
   }, [logDate]);
 
   useEffect(() => {
@@ -295,6 +301,7 @@ export default function TodayPage({ userId }: TodayPageProps) {
     try {
       const { transcript: text } = await transcribeAudio(recording, "recording.webm");
       setTranscript(text);
+      setReviewOrigin("voice");
 
       setPipelinePhase("extract");
       setExtractionLoading(true);
@@ -324,6 +331,7 @@ export default function TodayPage({ userId }: TodayPageProps) {
 
   const closeReview = () => {
     setReviewOpen(false);
+    setReviewOrigin(null);
     setTranscript("");
     setExtraction(null);
     setExtractionError(null);
@@ -332,13 +340,32 @@ export default function TodayPage({ userId }: TodayPageProps) {
   };
 
   const handleSaveRows = async (rows: LogRow[]) => {
+    const st: LogRow["source_type"] = reviewOrigin === "text" ? "text" : "voice";
     await saveLogs(
       userId,
       logDate,
-      rows.map((r) => ({ ...r, source_type: "voice" as const })),
+      rows.map((r) => ({ ...r, source_type: st })),
     );
     closeReview();
     await refreshSaved();
+  };
+
+  const handleTextExtract = async () => {
+    const t = freeTextDraft.trim();
+    if (!t) return;
+    setReviewOrigin("text");
+    setExtractionLoading(true);
+    setExtractionError(null);
+    setExtraction(null);
+    try {
+      const res = await extractLogs(t, logDate);
+      setExtraction(res);
+    } catch (e) {
+      setExtractionError(e instanceof Error ? e.message : "Extraction failed");
+    } finally {
+      setExtractionLoading(false);
+      setReviewOpen(true);
+    }
   };
 
   const runExtraction = useCallback(
@@ -358,7 +385,8 @@ export default function TodayPage({ userId }: TodayPageProps) {
     [logDate],
   );
 
-  const recordingLocked = pipelineLoading || reviewOpen;
+  const recordingLocked = pipelineLoading || reviewOpen || extractionLoading;
+  const reviewSourceText = reviewOrigin === "text" ? freeTextDraft : transcript;
   const [recordingActive, setRecordingActive] = useState(false);
 
   const recordPanelClass = [
@@ -398,7 +426,11 @@ export default function TodayPage({ userId }: TodayPageProps) {
         </div>
       </header>
 
-      <section className={recordPanelClass} aria-label="Voice log">
+      <section
+        className={recordPanelClass}
+        aria-label="Voice: speak naturally, then review extracted rows before saving"
+      >
+        <h2 className="sr-only">Voice</h2>
         <AudioRecorder
           disabled={recordingLocked}
           onRecorded={(b) => void handleRecordingComplete(b)}
@@ -419,6 +451,37 @@ export default function TodayPage({ userId }: TodayPageProps) {
         {stepError && <p className="error-inline error-inline--spaced">{stepError}</p>}
       </section>
 
+      <section className="today-text-extract" aria-labelledby="text-mode-heading">
+        <h2 className="today-mode-heading" id="text-mode-heading">
+          Text
+        </h2>
+        <p className="today-text-extract-lead muted small">
+          Natural typed language — extract structured rows, review, then save (same path as voice).
+        </p>
+        <label className="sr-only" htmlFor="today-free-text">
+          Natural-language log note for text extraction
+        </label>
+        <textarea
+          id="today-free-text"
+          className="today-free-text-input"
+          rows={4}
+          placeholder="e.g. Rough morning, better after lunch…"
+          value={freeTextDraft}
+          onChange={(e) => setFreeTextDraft(e.target.value)}
+          disabled={pipelineLoading || reviewOpen || extractionLoading}
+        />
+        <div className="today-text-extract-actions">
+          <button
+            type="button"
+            className="btn primary small today-text-extract-btn"
+            disabled={!freeTextDraft.trim() || pipelineLoading || reviewOpen || extractionLoading}
+            onClick={() => void handleTextExtract()}
+          >
+            {extractionLoading && !pipelineLoading && !reviewOpen ? "Extracting…" : "Extract"}
+          </button>
+        </div>
+      </section>
+
       <section className="today-manual-shell" aria-labelledby="manual-add-heading">
         <details
           className="today-manual today-manual--secondary today-manual-disclosure"
@@ -426,8 +489,11 @@ export default function TodayPage({ userId }: TodayPageProps) {
           onToggle={(e) => setManualSectionOpen(e.currentTarget.open)}
         >
           <summary className="today-manual-summary">
-            <span id="manual-add-heading" className="today-manual-summary-title">
-              Type instead
+            <span className="today-manual-summary-stack">
+              <span id="manual-add-heading" className="today-manual-summary-title">
+                Manual
+              </span>
+              <span className="today-manual-summary-hint muted">Field by field, direct save</span>
             </span>
             <span className="today-manual-summary-chevron" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -436,6 +502,9 @@ export default function TodayPage({ userId }: TodayPageProps) {
             </span>
           </summary>
           <div className="today-manual-body">
+            <p className="today-manual-lead muted small">
+              Structured fields only — fill what you know and save. No extraction step.
+            </p>
             <div className="manual-add-fields">
               <label className="field field--stacked">
                 <span>What happened</span>
@@ -738,12 +807,13 @@ export default function TodayPage({ userId }: TodayPageProps) {
 
       <ReviewExtractionModal
         open={reviewOpen}
-        transcript={transcript}
+        transcript={reviewSourceText}
         logDate={logDate}
+        extractSourceType={reviewOrigin === "text" ? "text" : "voice"}
         extraction={extraction}
         extractionLoading={extractionLoading}
         extractionError={extractionError}
-        onRetryExtract={() => void runExtraction(transcript)}
+        onRetryExtract={() => void runExtraction(reviewSourceText)}
         onSave={handleSaveRows}
         onDiscard={closeReview}
       />

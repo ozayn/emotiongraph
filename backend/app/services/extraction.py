@@ -17,7 +17,7 @@ import httpx
 from openai import OpenAI
 
 from app.config import settings
-from app.schemas import ExtractLogsResponse, LogRowBase
+from app.schemas import ExtractLogsResponse, ExtractLogsRow
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +32,7 @@ Return a single JSON object with exactly these keys:
 - "transcript_summary": string, a short neutral summary of what was said.
 - "rows": array of objects. Each object may include only these keys (omit a key or use null if unknown):
   "start_time", "end_time", "event", "energy_level", "anxiety", "contentment", "focus", "music", "comments"
+- Do not include "source_type" or any other keys in row objects.
 
 Language (explicitly multilingual; robust to code-switching):
 - Transcripts may be in English, Persian (Farsi), Serbian (Latin or Cyrillic script as transcribed), or any mix of these in the same utterance (code-switching). Interpret meaning across all of them; do not require English input.
@@ -52,17 +53,39 @@ Rules:
 - Output must be valid JSON only, no markdown fences.
 """
 
-SYSTEM_PROMPT = """You extract structured daily log rows from a voice transcript.
-The transcript is explicitly multilingual: it may be English, Persian (Farsi), Serbian, or mixed—including frequent code-switching between these languages in one recording. Understand all of it; preserve the original language(s) in free-text fields (event, comments, transcript_summary); map structured fields to the fixed numeric scales and allowed music strings described in the user message.
+PRESENT_TIMING_HINT = """
+Present / immediate timing (conservative):
+- The request may include capture_time_local: the user's local wall-clock time when they submitted, as "HH:MM" (24-hour form, Western digits). It is a submission hint, not the time of events in a remembered story unless the rules below apply.
+
+For a given row, set start_time to exactly capture_time_local only if ALL of the following are true:
+  (1) The text clearly describes the present moment, a current state, or something starting now or imminently—not a recalled or narrated past event (in any supported language).
+  (2) No explicit clock time for that row can be read from the text (otherwise use that time or null).
+  (3) The passage is not a vague generalization, habit, or unclear timing—when in doubt, leave start_time null.
+
+If you set start_time from capture_time_local for a row, set end_time to null. Never infer end_time from capture_time_local.
+
+If capture_time_local is not provided in the request, do not invent clock times from "now" alone; use null unless the text states a time clearly.
+"""
+
+SYSTEM_PROMPT = """You extract structured daily log rows from spoken or written narrative text (voice transcripts or typed notes).
+The input is explicitly multilingual: it may be English, Persian (Farsi), Serbian, or mixed—including frequent code-switching between these languages. Understand all of it; preserve the original language(s) in free-text fields (event, comments, transcript_summary); map structured fields to the fixed numeric scales and allowed music strings described in the user message.
 Be conservative. Never fabricate specifics. Use null for unknown fields.
-Do not translate the transcript or user-facing free text for uniformity—only extract and summarize in the source language(s), including natural mixed-language phrasing.
-The user will review and edit before anything is saved."""
+Do not translate the input or user-facing free text for uniformity—only extract and summarize in the source language(s), including natural mixed-language phrasing.
+The user will review and edit before anything is saved.
+Do not output source_type on rows; only the schema fields listed in the user message."""
 
 
-def _user_content(transcript: str, log_date_iso: str) -> str:
+def _user_content(transcript: str, log_date_iso: str, capture_time_local: str | None) -> str:
+    cap_line = (
+        f"capture_time_local (user's local wall clock when they submitted, HH:MM): {capture_time_local}\n\n"
+        if capture_time_local
+        else "capture_time_local: (not provided)\n\n"
+    )
     return (
         f"log_date (context only, YYYY-MM-DD): {log_date_iso}\n\n"
+        f"{cap_line}"
         f"Transcript:\n{transcript}\n\n"
+        f"{PRESENT_TIMING_HINT}\n"
         f"{EXTRACTION_JSON_SCHEMA_HINT}"
     )
 
@@ -79,21 +102,22 @@ def _parse_extract_response(raw: str) -> ExtractLogsResponse:
     rows_raw = data.get("rows")
     if not isinstance(summary, str) or not isinstance(rows_raw, list):
         raise ValueError("invalid shape")
-    rows: list[LogRowBase] = []
+    rows: list[ExtractLogsRow] = []
     for item in rows_raw:
         if not isinstance(item, dict):
             continue
-        rows.append(LogRowBase.model_validate(item))
+        clean = {k: v for k, v in item.items() if k != "source_type"}
+        rows.append(ExtractLogsRow.model_validate(clean))
     return ExtractLogsResponse(transcript_summary=summary, rows=rows)
 
 
-def _claude_raw_response(transcript: str, log_date_iso: str) -> str:
+def _claude_raw_response(transcript: str, log_date_iso: str, capture_time_local: str | None) -> str:
     if not settings.anthropic_api_key:
         raise RuntimeError("ANTHROPIC_API_KEY is not configured")
 
     timeout = httpx.Timeout(settings.anthropic_timeout_seconds, connect=15.0)
     client = anthropic.Anthropic(api_key=settings.anthropic_api_key, timeout=timeout)
-    user_content = _user_content(transcript, log_date_iso)
+    user_content = _user_content(transcript, log_date_iso, capture_time_local)
     msg = client.messages.create(
         model=settings.anthropic_extraction_model,
         max_tokens=4096,
@@ -111,7 +135,7 @@ def _claude_raw_response(transcript: str, log_date_iso: str) -> str:
     return raw
 
 
-def _groq_raw_response(transcript: str, log_date_iso: str) -> str:
+def _groq_raw_response(transcript: str, log_date_iso: str, capture_time_local: str | None) -> str:
     if not settings.groq_api_key:
         raise RuntimeError("GROQ_API_KEY is not configured")
 
@@ -119,7 +143,7 @@ def _groq_raw_response(transcript: str, log_date_iso: str) -> str:
         api_key=settings.groq_api_key,
         base_url=settings.groq_openai_base_url,
     )
-    user_content = _user_content(transcript, log_date_iso)
+    user_content = _user_content(transcript, log_date_iso, capture_time_local)
     completion = client.chat.completions.create(
         model=settings.groq_extraction_model,
         temperature=0.2,
@@ -135,7 +159,11 @@ def _groq_raw_response(transcript: str, log_date_iso: str) -> str:
     return choice
 
 
-def extract_logs_from_transcript(transcript: str, log_date_iso: str) -> ExtractLogsResponse:
+def extract_logs_from_transcript(
+    transcript: str,
+    log_date_iso: str,
+    capture_time_local: str | None = None,
+) -> ExtractLogsResponse:
     """
     Provider order (enforced in this function only):
 
@@ -160,7 +188,7 @@ def extract_logs_from_transcript(transcript: str, log_date_iso: str) -> ExtractL
     # --- Primary: Anthropic / Claude ---
     if use_anthropic:
         try:
-            raw = _claude_raw_response(transcript, log_date_iso)
+            raw = _claude_raw_response(transcript, log_date_iso, capture_time_local)
             parsed = _parse_extract_response(raw)
             logger.info("extraction provider: anthropic")
             return parsed
@@ -172,7 +200,7 @@ def extract_logs_from_transcript(transcript: str, log_date_iso: str) -> ExtractL
     # --- Fallback (after Claude failure) or Groq-only ---
     if use_groq:
         try:
-            raw = _groq_raw_response(transcript, log_date_iso)
+            raw = _groq_raw_response(transcript, log_date_iso, capture_time_local)
             parsed = _parse_extract_response(raw)
             if claude_err is not None:
                 logger.info("extraction provider: groq_fallback")

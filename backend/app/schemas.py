@@ -6,7 +6,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 MUSIC_VALUES = ("No", "Yes, upbeat", "Yes, calm", "Yes, other")
 
 
-class LogRowBase(BaseModel):
+class _LogRowCore(BaseModel):
+    """Shared structured fields for log rows (no source_type)."""
+
     model_config = ConfigDict(extra="ignore")
 
     start_time: str | None = None
@@ -18,7 +20,127 @@ class LogRowBase(BaseModel):
     focus: int | None = None
     music: str | None = None
     comments: str | None = None
-    source_type: Literal["manual", "voice"] = "manual"
+
+    @field_validator("energy_level", mode="before")
+    @classmethod
+    def energy_level_scale(cls, v: Any) -> int | None:
+        n = _coerce_int(v)
+        if n is None:
+            return None
+        return n if n in (1, 2, 3) else None
+
+    @field_validator("anxiety", mode="before")
+    @classmethod
+    def anxiety_scale(cls, v: Any) -> int | None:
+        n = _coerce_int(v)
+        if n is None:
+            return None
+        return n if n in (0, 1, 2, 3) else None
+
+    @field_validator("contentment", mode="before")
+    @classmethod
+    def contentment_scale(cls, v: Any) -> int | None:
+        n = _coerce_int(v)
+        if n is None:
+            return None
+        return n if n in (1, 2, 3) else None
+
+    @field_validator("focus", mode="before")
+    @classmethod
+    def focus_scale(cls, v: Any) -> int | None:
+        n = _coerce_int(v)
+        if n is None:
+            return None
+        return n if n in (1, 2, 3, 4, 5) else None
+
+    @field_validator("music", mode="before")
+    @classmethod
+    def music_options(cls, v: Any) -> str | None:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        s = str(v).strip()
+        for allowed in MUSIC_VALUES:
+            if s == allowed:
+                return allowed
+        return s
+
+
+class ExtractLogsRow(_LogRowCore):
+    """Row returned by /extract-logs. source_type is set only when saving (voice/text/manual)."""
+
+
+class LogRowBase(_LogRowCore):
+    source_type: Literal["manual", "voice", "text"] = "manual"
+
+    @field_validator("source_type", mode="before")
+    @classmethod
+    def normalize_source_type(cls, v: Any) -> str:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return "manual"
+        s = str(v).strip().lower()
+        return s if s in ("manual", "voice", "text") else "manual"
+
+
+def _coerce_int(v: Any) -> int | None:
+    if v is None or v == "":
+        return None
+    if isinstance(v, int):
+        return v
+    if isinstance(v, str) and v.strip() == "":
+        return None
+    try:
+        return int(v)
+    except (TypeError, ValueError):
+        return None
+
+
+class ExtractLogsRequest(BaseModel):
+    transcript: str = Field(..., min_length=1)
+    log_date: date
+    capture_time_local: str | None = Field(
+        None,
+        description="User's local wall-clock time when they requested extraction (24h HH:MM).",
+        pattern=r"^([01]\d|2[0-3]):[0-5]\d$",
+    )
+
+
+class ExtractLogsResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    transcript_summary: str
+    rows: list[ExtractLogsRow]
+
+
+class SaveLogsRequest(BaseModel):
+    log_date: date
+    rows: list[LogRowBase]
+
+
+class LogEntryRead(LogRowBase):
+    id: int
+    user_id: int
+    log_date: date
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class LogEntryPatch(BaseModel):
+    """Partial update for PATCH /logs/{id}; only sent fields are applied."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    start_time: str | None = None
+    end_time: str | None = None
+    event: str | None = None
+    energy_level: int | None = None
+    anxiety: int | None = None
+    contentment: int | None = None
+    focus: int | None = None
+    music: str | None = None
+    comments: str | None = None
+    source_type: Literal["manual", "voice", "text"] | None = None
+    log_date: date | None = None
 
     @field_validator("energy_level", mode="before")
     @classmethod
@@ -65,50 +187,13 @@ class LogRowBase(BaseModel):
 
     @field_validator("source_type", mode="before")
     @classmethod
-    def normalize_source_type(cls, v: Any) -> str:
+    def normalize_source_type(cls, v: Any) -> str | None:
         if v is None or (isinstance(v, str) and not v.strip()):
-            return "manual"
+            return None
         s = str(v).strip().lower()
-        return s if s in ("manual", "voice") else "manual"
-
-
-def _coerce_int(v: Any) -> int | None:
-    if v is None or v == "":
-        return None
-    if isinstance(v, int):
-        return v
-    if isinstance(v, str) and v.strip() == "":
-        return None
-    try:
-        return int(v)
-    except (TypeError, ValueError):
-        return None
-
-
-class ExtractLogsRequest(BaseModel):
-    transcript: str = Field(..., min_length=1)
-    log_date: date
-
-
-class ExtractLogsResponse(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-
-    transcript_summary: str
-    rows: list[LogRowBase]
-
-
-class SaveLogsRequest(BaseModel):
-    log_date: date
-    rows: list[LogRowBase]
-
-
-class LogEntryRead(LogRowBase):
-    id: int
-    user_id: int
-    log_date: date
-    created_at: datetime
-
-    model_config = {"from_attributes": True}
+        if s not in ("manual", "voice", "text"):
+            raise ValueError("source_type must be manual, voice, or text")
+        return s
 
 
 class TrackerDayRead(BaseModel):

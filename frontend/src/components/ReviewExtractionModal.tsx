@@ -29,10 +29,21 @@ function emptyRow(): LogRow {
   };
 }
 
+type ExtractSourceType = "voice" | "text";
+
+function extractDownloadFilename(sourceType: ExtractSourceType, logDate: string): string {
+  const d = new Date();
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `emotiongraph_extract_${sourceType}_${logDate}_${hh}${mm}.json`;
+}
+
 type Props = {
   open: boolean;
   transcript: string;
   logDate: string;
+  /** How the input was produced; used in dev JSON export and filename. */
+  extractSourceType: ExtractSourceType;
   extraction: ExtractLogsResponse | null;
   extractionLoading: boolean;
   extractionError: string | null;
@@ -45,6 +56,7 @@ export default function ReviewExtractionModal({
   open,
   transcript,
   logDate,
+  extractSourceType,
   extraction,
   extractionLoading,
   extractionError,
@@ -132,6 +144,37 @@ export default function ReviewExtractionModal({
     }
   };
 
+  const downloadExtractionJson = () => {
+    if (!extraction) return;
+    const extracted_output: Record<string, unknown> = {
+      transcript_summary: extraction.transcript_summary,
+      summary: extraction.transcript_summary,
+      rows,
+    };
+    if (extraction.day_context != null) {
+      extracted_output.day_context = extraction.day_context;
+    }
+    const payload = {
+      input_text: transcript,
+      log_date: logDate,
+      source_type: extractSourceType,
+      extracted_output,
+      created_at: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = extractDownloadFilename(extractSourceType, logDate);
+    a.rel = "noopener";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const canDownloadExtract = Boolean(!extractionLoading && extraction);
+
   return (
     <div className="review-backdrop" role="presentation">
       <div className="review-sheet" role="dialog" aria-labelledby="review-title" aria-modal="true">
@@ -143,6 +186,15 @@ export default function ReviewExtractionModal({
               <span className="review-sheet-sub-sep">·</span>
               <span>Edits are saved only when you confirm below.</span>
             </p>
+            {canDownloadExtract && (
+              <button
+                type="button"
+                className="btn btn-text small review-dev-download"
+                onClick={downloadExtractionJson}
+              >
+                Download JSON (dev)
+              </button>
+            )}
           </div>
 
           <section className="review-block">

@@ -17,7 +17,7 @@ export type LogRow = {
   music: string | null;
   comments: string | null;
   /** Sent on save; omitted or empty defaults to "manual" on the server. */
-  source_type?: "manual" | "voice";
+  source_type?: "manual" | "voice" | "text";
 };
 
 export type SavedLogEntry = LogRow & {
@@ -25,12 +25,14 @@ export type SavedLogEntry = LogRow & {
   user_id: number;
   log_date: string;
   created_at: string;
-  source_type: "manual" | "voice";
+  source_type: "manual" | "voice" | "text";
 };
 
 export type ExtractLogsResponse = {
   transcript_summary: string;
   rows: LogRow[];
+  /** Present when the extraction API returns day-level context (optional / forward-compatible). */
+  day_context?: unknown;
 };
 
 export type TrackerDay = {

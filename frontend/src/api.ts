@@ -49,11 +49,31 @@ export async function transcribeAudio(blob: Blob, filename: string): Promise<{ t
   return parseJson(res);
 }
 
-export async function extractLogs(transcript: string, logDate: string): Promise<ExtractLogsResponse> {
+/** Client local wall clock as HH:MM (24h) for present-tense timing hints during extraction. */
+export function localWallClockHHMM(): string {
+  const d = new Date();
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
+export async function extractLogs(
+  transcript: string,
+  logDate: string,
+  options?: { captureTimeLocal?: string | null },
+): Promise<ExtractLogsResponse> {
+  const capture_time_local =
+    options?.captureTimeLocal === undefined
+      ? localWallClockHHMM()
+      : options.captureTimeLocal === null
+        ? undefined
+        : options.captureTimeLocal;
+  const body: Record<string, unknown> = { transcript, log_date: logDate };
+  if (capture_time_local != null) {
+    body.capture_time_local = capture_time_local;
+  }
   const res = await fetch(`${base()}/extract-logs`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ transcript, log_date: logDate }),
+    body: JSON.stringify(body),
   });
   return parseJson(res);
 }
@@ -85,6 +105,65 @@ export async function fetchLogs(
     signal: options?.signal,
   });
   return parseJson(res);
+}
+
+export async function fetchLogsRange(
+  userId: number,
+  startDate: string,
+  endDate: string,
+  options?: UserScopedFetchOptions,
+): Promise<SavedLogEntry[]> {
+  if (!isReadyUserId(userId) || !startDate.trim() || !endDate.trim()) {
+    return [];
+  }
+  const q = new URLSearchParams({ start_date: startDate, end_date: endDate });
+  const res = await fetch(`${base()}/logs?${q.toString()}`, {
+    headers: { ...userScopedHeaders(userId) },
+    signal: options?.signal,
+  });
+  return parseJson(res);
+}
+
+export type LogEntryPatchBody = {
+  log_date?: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  event?: string | null;
+  energy_level?: number | null;
+  anxiety?: number | null;
+  contentment?: number | null;
+  focus?: number | null;
+  music?: string | null;
+  comments?: string | null;
+  source_type?: "manual" | "voice" | "text";
+};
+
+export async function patchLog(userId: number, entryId: number, body: LogEntryPatchBody): Promise<SavedLogEntry> {
+  const res = await fetch(`${base()}/logs/${entryId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...userScopedHeaders(userId) },
+    body: JSON.stringify(body),
+  });
+  return parseJson(res);
+}
+
+export async function deleteLog(userId: number, entryId: number): Promise<void> {
+  const res = await fetch(`${base()}/logs/${entryId}`, {
+    method: "DELETE",
+    headers: { ...userScopedHeaders(userId) },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    let detail = text;
+    try {
+      const j = JSON.parse(text) as { detail?: unknown };
+      if (typeof j.detail === "string") detail = j.detail;
+      else if (j.detail != null) detail = JSON.stringify(j.detail);
+    } catch {
+      /* keep text */
+    }
+    throw new Error(detail || res.statusText);
+  }
 }
 
 export async function fetchTrackerDay(

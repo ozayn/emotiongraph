@@ -15,3 +15,6 @@ dist/
 
 # Optional tracker export zips (default import looks in sample_data/)
 sample_data/*.zip
+
+# Local extraction harness (python scripts/test_extraction_cases.py)
+extraction_test_outputs/

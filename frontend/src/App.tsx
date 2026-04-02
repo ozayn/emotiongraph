@@ -5,6 +5,7 @@ import UserSwitcher from "./components/UserSwitcher";
 import AdminTrackerPage from "./pages/AdminTrackerPage";
 import InsightsPage from "./pages/InsightsPage";
 import LaunchPage from "./pages/LaunchPage";
+import LogsPage from "./pages/LogsPage";
 import TodayPage from "./pages/TodayPage";
 import type { User } from "./types";
 import { getSelectedUserId, setSelectedUserId } from "./userSession";
@@ -82,6 +83,11 @@ export default function App() {
                   Today
                 </Link>
               )}
+              {usersReady && userScopeReady && pathname !== "/entries" && (
+                <Link className="header-link" to="/entries">
+                  Entries
+                </Link>
+              )}
               {usersReady && userScopeReady && (
                 <Link className="header-link" to="/insights">
                   Insights
@@ -112,6 +118,12 @@ export default function App() {
             path="/today"
             element={
               userScopeReady ? <TodayPage key={userId} userId={userId} /> : <UsersGate usersReady={usersReady} users={users} />
+            }
+          />
+          <Route
+            path="/entries"
+            element={
+              userScopeReady ? <LogsPage key={userId} userId={userId} /> : <UsersGate usersReady={usersReady} users={users} />
             }
           />
           <Route
