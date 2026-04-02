@@ -55,11 +55,16 @@ upgrade_rdbms_schema_for_multiuser()
 
 
 def _cors_allow_origins() -> list[str]:
-    """Explicit origin list only: credentialed fetches are invalid with Access-Control-Allow-Origin: *."""
-    parts = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
-    if not parts:
-        parts = [o.strip() for o in DEFAULT_CORS_ORIGINS.split(",") if o.strip()]
-    return list(dict.fromkeys(parts))
+    """Explicit origin list only: credentialed fetches are invalid with Access-Control-Allow-Origin: *.
+
+    ``CORS_ORIGINS`` from the environment replaces the Settings default string, which often drops
+    the bundled production domain (e.g. a custom domain). We always union with ``DEFAULT_CORS_ORIGINS``
+    so ``https://emotiongraph.ozayn.com`` and local dev origins stay allowed unless you fork defaults.
+    """
+    from_env = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    from_default = [o.strip() for o in DEFAULT_CORS_ORIGINS.split(",") if o.strip()]
+    merged = list(dict.fromkeys(from_default + from_env))
+    return merged
 
 
 app = FastAPI(title="EmotionGraph API")
