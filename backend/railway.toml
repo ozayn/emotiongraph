@@ -1,8 +1,11 @@
 # Railway: set this service's root directory to `backend/` in the project settings.
 # Local dev still uses port 8100 via scripts; Railway sets PORT at runtime.
+#
+# python -u: unbuffered stdout/stderr so log lines appear in "live" deploy logs without delay.
+# --log-level info: uvicorn + access lines (helps confirm traffic on THIS service vs static "web").
 
 [build]
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+startCommand = "python -u -m uvicorn app.main:app --host 0.0.0.0 --port $PORT --log-level info"

@@ -1,4 +1,5 @@
 import logging
+from contextlib import asynccontextmanager
 from datetime import date
 from typing import Annotated
 
@@ -109,7 +110,30 @@ def _cors_allow_origins() -> list[str]:
     return merged
 
 
-app = FastAPI(title="EmotionGraph API")
+def _cors_headers_for_request(request: Request) -> dict[str, str]:
+    """Match CORSMiddleware for bodies produced in exception handlers (those responses skip middleware CORS)."""
+    origin = request.headers.get("origin")
+    if not origin or origin not in set(_cors_allow_origins()):
+        return {}
+    return {
+        "access-control-allow-origin": origin,
+        "access-control-allow-credentials": "true",
+        "vary": "Origin",
+    }
+
+
+@asynccontextmanager
+async def _app_lifespan(_app: FastAPI):
+    """Emit an unmistakable line once Uvicorn has loaded the app (confirms API vs static web service logs)."""
+    print(
+        "[emotiongraph-api] FastAPI startup complete — tail THIS service's Deploy Logs while hitting the API.",
+        flush=True,
+    )
+    logger.info("EmotionGraph API ready.")
+    yield
+
+
+app = FastAPI(title="EmotionGraph API", lifespan=_app_lifespan)
 
 # Apply CORS before registering routes so every path (/, /insights, /export/..., /tracker-config, …)
 # receives the same middleware stack; included routers are still wrapped by this app instance.
@@ -128,15 +152,12 @@ app.include_router(export_csv_router, prefix="/export", tags=["export"])
 
 @app.exception_handler(Exception)
 async def _unhandled_exception_cors_friendly(request: Request, exc: Exception) -> JSONResponse:
-    """Return a normal JSON 500 so CORSMiddleware can attach Access-Control-Allow-Origin.
-
-    Uncaught exceptions that bubble past the app become Starlette's plain-text 500; browsers then
-    report a CORS error even when the origin is allowed (preflight can still succeed).
-    """
+    """JSON 500 plus explicit CORS headers — Starlette does not run CORSMiddleware on handler responses."""
     logger.error("Unhandled exception path=%s", request.url.path, exc_info=exc)
     return JSONResponse(
         status_code=500,
         content={"detail": "Internal server error"},
+        headers=_cors_headers_for_request(request),
     )
 
 
