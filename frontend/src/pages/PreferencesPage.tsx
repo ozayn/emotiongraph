@@ -14,7 +14,7 @@ export default function PreferencesPage({ user, onUserUpdated }: Props) {
         <h1 className="preferences-page-title">Preferences</h1>
         <p className="muted small">
           Secondary settings for <strong>{user.name}</strong> —{" "}
-          <Link className="header-link" to="/today">
+          <Link className="header-link" to="/">
             back to Today
           </Link>
         </p>

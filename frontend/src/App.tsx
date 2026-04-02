@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, Route, Routes, useLocation, useNavigate } from "react-router-dom";
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { fetchUsers } from "./api";
 import ThemeToggle from "./components/ThemeToggle";
 import AdminTrackerPage from "./pages/AdminTrackerPage";
 import ChooseProfilePage from "./pages/ChooseProfilePage";
 import InsightsPage from "./pages/InsightsPage";
-import LaunchPage from "./pages/LaunchPage";
 import LogsPage from "./pages/LogsPage";
 import PreferencesPage from "./pages/PreferencesPage";
-import TodayPage from "./pages/TodayPage";
+import HomePage from "./pages/HomePage";
 import { effectiveUserTimeZone } from "./datesTz";
 import type { User } from "./types";
 import { clearSelectedUserId, getSelectedUserId, setSelectedUserId } from "./userSession";
@@ -77,7 +76,7 @@ export default function App() {
 
   const onProfileChosen = (id: number, mode: "first" | "switch") => {
     applyUser(id);
-    navigate(mode === "first" ? "/" : "/today", { replace: mode === "first" });
+    navigate("/", { replace: mode === "first" });
   };
 
   return (
@@ -86,8 +85,8 @@ export default function App() {
         <div className="app-header-inner">
           <Link
             className="brand"
-            to={userScopeReady ? "/today" : "/"}
-            aria-label={userScopeReady ? "EmotionGraph — open Today" : "EmotionGraph — home"}
+            to={userScopeReady ? "/" : "/"}
+            aria-label="EmotionGraph — home"
           >
             <img className="brand-mark" src="/logo-mark.svg" alt="" width="28" height="28" />
             <span className="logo">EmotionGraph</span>
@@ -99,9 +98,9 @@ export default function App() {
             {usersReady && userScopeReady && (
               <nav className="app-header-nav" aria-label="Main">
                 <div className="app-header-nav-primary">
-                  {pathname !== "/today" && pathname !== "/" && (
-                    <Link className="header-link" to="/today">
-                      Today
+                  {pathname !== "/" && (
+                    <Link className="header-link" to="/">
+                      Home
                     </Link>
                   )}
                   {pathname !== "/entries" && (
@@ -141,7 +140,7 @@ export default function App() {
               needsProfileChoice ? (
                 <ChooseProfilePage users={users} onChoose={(id) => onProfileChosen(id, "first")} />
               ) : userScopeReady ? (
-                <LaunchPage users={users} userId={userId as number} />
+                <HomePage key={userId} userId={userId as number} timeZone={userTimeZone} users={users} />
               ) : (
                 <UsersGate usersReady={usersReady} users={users} />
               )
@@ -163,18 +162,7 @@ export default function App() {
               )
             }
           />
-          <Route
-            path="/today"
-            element={
-              needsProfileChoice ? (
-                <ChooseProfilePage users={users} onChoose={(id) => onProfileChosen(id, "first")} />
-              ) : userScopeReady ? (
-                <TodayPage key={userId} userId={userId} timeZone={userTimeZone} />
-              ) : (
-                <UsersGate usersReady={usersReady} users={users} />
-              )
-            }
-          />
+          <Route path="/today" element={<Navigate to="/" replace />} />
           <Route
             path="/entries"
             element={
@@ -214,7 +202,7 @@ export default function App() {
           />
         </Routes>
       </main>
-      {pathname !== "/today" && (
+      {pathname !== "/" && (
         <footer className="app-footer">
           <nav className="app-footer-nav" aria-label="Secondary">
             <Link className="app-footer-link muted small" to="/">

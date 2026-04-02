@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { blobFailsMinimumSpeechEnergy } from "../audioSilence";
 import {
   deleteLog,
   extractLogs,
@@ -8,12 +7,11 @@ import {
   patchLog,
   saveLogs,
   saveTrackerDay,
-  transcribeAudio,
 } from "../api";
 import { todayIsoInTimeZone } from "../datesTz";
-import AudioRecorder from "../components/AudioRecorder";
-import CalmSelect from "../components/CalmSelect";
-import MetricSelect from "../components/MetricSelect";
+import CalmSelect from "./CalmSelect";
+import MetricSelect from "./MetricSelect";
+import ReviewExtractionModal from "./ReviewExtractionModal";
 import {
   compactMetricSummary,
   draftToPatch,
@@ -21,7 +19,6 @@ import {
   type EditDraft,
   LOG_EDIT_SOURCE_OPTIONS,
 } from "../logEditDraft";
-import ReviewExtractionModal from "../components/ReviewExtractionModal";
 import type { ExtractLogsResponse, LogRow, SavedLogEntry } from "../types";
 import { formatSleepQuality, optionsForMetricKey, SLEEP_QUALITY_OPTIONS } from "../trackerOptions";
 
@@ -78,34 +75,13 @@ function draftToLogRow(d: Record<keyof LogRow, string>): LogRow {
   };
 }
 
-function formatDateHeading(iso: string): string {
-  const parts = iso.split("-").map(Number);
-  const [y, m, d] = parts;
-  if (!y || !m || !d || parts.length !== 3) return iso;
-  const dt = new Date(y, m - 1, d);
-  const now = new Date();
-  const opts: Intl.DateTimeFormatOptions = {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  };
-  if (dt.getFullYear() !== now.getFullYear()) opts.year = "numeric";
-  return dt.toLocaleDateString(undefined, opts);
-}
-
-/** Saved-card time line: null when both missing; single time or en-dash range otherwise. */
-function todaySavedTimeDisplay(start: string | null | undefined, end: string | null | undefined): string | null {
+function daySavedTimeDisplay(start: string | null | undefined, end: string | null | undefined): string | null {
   const s = start?.trim() ?? "";
   const t = end?.trim() ?? "";
   if (!s && !t) return null;
   if (s && t) return `${s}–${t}`;
   return s || t;
 }
-
-type TodayPageProps = { userId: number; timeZone: string };
-
-/** Which input produced the current review session (sets saved `source_type`). */
-type ReviewOrigin = "voice" | "text";
 
 function isReadyUserId(id: number): boolean {
   return Number.isInteger(id) && id > 0;
@@ -116,23 +92,38 @@ function isAbortError(e: unknown): boolean {
   return e instanceof Error && e.name === "AbortError";
 }
 
-export default function TodayPage({ userId, timeZone }: TodayPageProps) {
-  const [logDate, setLogDate] = useState(() => todayIsoInTimeZone(timeZone));
+type Props = {
+  userId: number;
+  timeZone: string;
+  /** Refresh range list in parent after writes */
+  onMutate: () => void | Promise<void>;
+  /** When set (e.g. `?day=` from home), selects that date in the day panel */
+  focusLogDate?: string;
+};
 
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export default function EntriesDayPanel({ userId, timeZone, onMutate, focusLogDate }: Props) {
+  const textAreaId = useId();
+  const savedEditSourceLabelId = useId();
+  const savedEditTitleRef = useRef<HTMLHeadingElement>(null);
+  const dayContextFirstFieldRef = useRef<HTMLInputElement>(null);
+
+  const [logDate, setLogDate] = useState(() => todayIsoInTimeZone(timeZone));
   useEffect(() => {
     setLogDate(todayIsoInTimeZone(timeZone));
   }, [userId, timeZone]);
+
+  useEffect(() => {
+    if (focusLogDate && ISO_DATE_RE.test(focusLogDate)) {
+      setLogDate(focusLogDate);
+    }
+  }, [focusLogDate, userId]);
+
   const [saved, setSaved] = useState<SavedLogEntry[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const [blob, setBlob] = useState<Blob | null>(null);
-  const [pipelineLoading, setPipelineLoading] = useState(false);
-  const [pipelinePhase, setPipelinePhase] = useState<"transcribe" | "extract">("transcribe");
-  const [stepError, setStepError] = useState<string | null>(null);
-
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [reviewOrigin, setReviewOrigin] = useState<ReviewOrigin | null>(null);
-  const [transcript, setTranscript] = useState("");
   const [freeTextDraft, setFreeTextDraft] = useState("");
   const [extraction, setExtraction] = useState<ExtractLogsResponse | null>(null);
   const [extractionLoading, setExtractionLoading] = useState(false);
@@ -151,8 +142,6 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
   const [savedEditSaveError, setSavedEditSaveError] = useState<string | null>(null);
   const [savedEditSaving, setSavedEditSaving] = useState(false);
   const [savedActionError, setSavedActionError] = useState<string | null>(null);
-  const savedEditSourceLabelId = useId();
-  const savedEditTitleRef = useRef<HTMLHeadingElement>(null);
 
   const [dayDraft, setDayDraft] = useState({ cycle_day: "", sleep_hours: "", sleep_quality: "" });
   const [daySaving, setDaySaving] = useState(false);
@@ -160,7 +149,6 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
   const [daySavedBanner, setDaySavedBanner] = useState(false);
   const [dayContextOpen, setDayContextOpen] = useState(false);
   const [dayContextEditing, setDayContextEditing] = useState(false);
-  const dayContextFirstFieldRef = useRef<HTMLInputElement>(null);
 
   const refreshSaved = useCallback(async () => {
     if (!isReadyUserId(userId) || !logDate.trim()) return;
@@ -212,12 +200,13 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
       await patchLog(userId, savedEditEntry.id, draftToPatch(savedEditDraft));
       closeSavedEdit();
       await refreshSaved();
+      await onMutate();
     } catch (err) {
       setSavedEditSaveError(err instanceof Error ? err.message : "Save failed");
     } finally {
       setSavedEditSaving(false);
     }
-  }, [userId, savedEditEntry, savedEditDraft, closeSavedEdit, refreshSaved]);
+  }, [userId, savedEditEntry, savedEditDraft, closeSavedEdit, refreshSaved, onMutate]);
 
   const handleSavedDelete = useCallback(
     async (entry: SavedLogEntry) => {
@@ -226,11 +215,12 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
       try {
         await deleteLog(userId, entry.id);
         await refreshSaved();
+        await onMutate();
       } catch (err) {
         setSavedActionError(err instanceof Error ? err.message : "Could not delete entry");
       }
     },
-    [userId, refreshSaved],
+    [userId, refreshSaved, onMutate],
   );
 
   const setSavedEditDraftField = useCallback(<K extends keyof EditDraft>(key: K, value: EditDraft[K]) => {
@@ -259,7 +249,7 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
     if (savedMenuOpenId == null) return;
     const onPointerDown = (ev: PointerEvent) => {
       const t = ev.target;
-      if (t instanceof Element && t.closest("[data-today-saved-menu-root]")) return;
+      if (t instanceof Element && t.closest("[data-entries-day-saved-menu-root]")) return;
       setSavedMenuOpenId(null);
     };
     document.addEventListener("pointerdown", onPointerDown, true);
@@ -274,10 +264,8 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
 
   useEffect(() => {
     if (!isReadyUserId(userId) || !logDate.trim()) return;
-
     const ac = new AbortController();
     setLoadError(null);
-
     void (async () => {
       try {
         const rows = await fetchLogs(userId, logDate, { signal: ac.signal });
@@ -288,16 +276,13 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
         setLoadError(e instanceof Error ? e.message : "Failed to load logs");
       }
     })();
-
     return () => ac.abort();
   }, [userId, logDate]);
 
   useEffect(() => {
     if (!isReadyUserId(userId) || !logDate.trim()) return;
-
     const ac = new AbortController();
     setDayError(null);
-
     void (async () => {
       try {
         const d = await fetchTrackerDay(userId, logDate, { signal: ac.signal });
@@ -312,7 +297,6 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
         setDayError(e instanceof Error ? e.message : "Failed to load day info");
       }
     })();
-
     return () => ac.abort();
   }, [userId, logDate]);
 
@@ -371,6 +355,7 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
       setManualDraft(emptyManualDraft());
       setManualSavedBanner(true);
       await refreshSaved();
+      await onMutate();
     } catch (e) {
       setManualError(e instanceof Error ? e.message : "Could not save entry");
     } finally {
@@ -394,6 +379,7 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
       setDaySavedBanner(true);
       await refreshDay();
       setDayContextEditing(false);
+      await onMutate();
     } catch (e) {
       setDayError(e instanceof Error ? e.message : "Could not save day info");
     } finally {
@@ -401,73 +387,27 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
     }
   };
 
-  const handleRecordingComplete = async (recording: Blob) => {
-    setBlob(recording);
-    setStepError(null);
-    setPipelineLoading(true);
-    setPipelinePhase("transcribe");
-    const likelySilent = await blobFailsMinimumSpeechEnergy(recording);
-    if (likelySilent === true) {
-      setStepError("No usable speech detected.");
-      setPipelineLoading(false);
-      return;
-    }
-    try {
-      const { transcript: text } = await transcribeAudio(recording, "recording.webm");
-      setTranscript(text);
-      setReviewOrigin("voice");
-
-      setPipelinePhase("extract");
-      setExtractionLoading(true);
-      setExtractionError(null);
-      setExtraction(null);
-      try {
-        const res = await extractLogs(text, logDate, { timezone: timeZone });
-        setExtraction(res);
-      } catch (e) {
-        setExtractionError(e instanceof Error ? e.message : "Extraction failed");
-      } finally {
-        setExtractionLoading(false);
-      }
-
-      setReviewOpen(true);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : "";
-      if (msg.includes("No usable speech detected")) {
-        setStepError("No usable speech detected.");
-      } else {
-        setStepError(msg || "Transcription failed");
-      }
-    } finally {
-      setPipelineLoading(false);
-    }
-  };
-
   const closeReview = () => {
     setReviewOpen(false);
-    setReviewOrigin(null);
-    setTranscript("");
     setExtraction(null);
     setExtractionError(null);
     setExtractionLoading(false);
-    setBlob(null);
   };
 
   const handleSaveRows = async (rows: LogRow[]) => {
-    const st: LogRow["source_type"] = reviewOrigin === "text" ? "text" : "voice";
     await saveLogs(
       userId,
       logDate,
-      rows.map((r) => ({ ...r, source_type: st })),
+      rows.map((r) => ({ ...r, source_type: "text" as const })),
     );
     closeReview();
     await refreshSaved();
+    await onMutate();
   };
 
   const handleTextExtract = async () => {
     const t = freeTextDraft.trim();
     if (!t) return;
-    setReviewOrigin("text");
     setExtractionLoading(true);
     setExtractionError(null);
     setExtraction(null);
@@ -496,77 +436,25 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
         setExtractionLoading(false);
       }
     },
-    [logDate],
+    [logDate, timeZone],
   );
 
-  const recordingLocked = pipelineLoading || reviewOpen || extractionLoading;
-  const reviewSourceText = reviewOrigin === "text" ? freeTextDraft : transcript;
-  const [recordingActive, setRecordingActive] = useState(false);
-
-  const recordPanelClass = [
-    "today-record",
-    "today-record--primary",
-    "panel-elevated",
-    "record-panel",
-    recordingActive && "record-panel--live",
-    pipelineLoading && "record-panel--processing",
-    blob && !pipelineLoading && !reviewOpen && "record-panel--captured",
-  ]
-    .filter(Boolean)
-    .join(" ");
-
   return (
-    <div className="today-page">
-      {pipelineLoading && (
-        <div className="pipeline-overlay" aria-busy="true" aria-live="polite">
-          <div className="pipeline-card">
-            <div className="pipeline-spinner" aria-hidden="true" />
-            <p className="pipeline-title" key={pipelinePhase}>
-              {pipelinePhase === "transcribe" ? "Transcribing…" : "Extracting entries…"}
-            </p>
-          </div>
-        </div>
-      )}
+    <section className="entries-day-panel" id="entries-day-focus" aria-labelledby="entries-day-panel-title">
+      <h2 id="entries-day-panel-title" className="entries-day-panel-title">
+        Log by day
+      </h2>
+      <p className="entries-day-panel-lead muted small">
+        Choose a date for typed extraction, manual rows, day context, and the list below. Your range table still shows all entries in range.
+      </p>
+      <div className="entries-day-panel-date-row">
+        <label className="entries-day-panel-date-label">
+          <span className="sr-only">Log date</span>
+          <input className="date-input date-input--entries-day" type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} />
+        </label>
+      </div>
 
-      <header className="today-header">
-        <div className="today-header-bar">
-          <h1 className="today-title">
-            <time dateTime={logDate}>{formatDateHeading(logDate)}</time>
-          </h1>
-          <label className="today-date-label">
-            <span className="sr-only">Change log date</span>
-            <input className="date-input date-input--today-bar" type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} />
-          </label>
-        </div>
-      </header>
-
-      <section
-        className={recordPanelClass}
-        aria-label="Voice: speak naturally, then review extracted rows before saving"
-      >
-        <h2 className="today-voice-heading">Voice</h2>
-        <AudioRecorder
-          disabled={recordingLocked}
-          processing={pipelineLoading}
-          onRecorded={(b) => void handleRecordingComplete(b)}
-          onRecordingActiveChange={setRecordingActive}
-        />
-        {blob && !pipelineLoading && !reviewOpen && (
-          <div className="today-record-secondary">
-            {stepError && (
-              <button type="button" className="btn primary btn-retry" onClick={() => void handleRecordingComplete(blob)}>
-                Try again
-              </button>
-            )}
-            <button type="button" className="btn btn-text btn-clear-recording" onClick={() => { setBlob(null); setStepError(null); }}>
-              Discard recording
-            </button>
-          </div>
-        )}
-        {stepError && <p className="error-inline error-inline--spaced">{stepError}</p>}
-      </section>
-
-      <section className="today-text-shell" aria-label="Text extraction">
+      <section className="today-text-shell entries-day-sub" aria-label="Text extraction">
         <details
           className="today-text-disclosure today-secondary-disclosure"
           open={textSectionOpen}
@@ -574,7 +462,7 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
         >
           <summary className="today-text-summary">
             <span className="today-text-summary-stack">
-              <span className="today-text-summary-title" id="text-mode-heading">
+              <span className="today-text-summary-title" id={`text-mode-${textAreaId}`}>
                 Text
               </span>
               <span className="today-text-summary-hint muted">Typed note → extract</span>
@@ -586,33 +474,33 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
             </span>
           </summary>
           <div className="today-text-body">
-            <label className="sr-only" htmlFor="today-free-text">
+            <label className="sr-only" htmlFor={`entries-free-text-${textAreaId}`}>
               Natural-language log note for text extraction
             </label>
             <textarea
-              id="today-free-text"
+              id={`entries-free-text-${textAreaId}`}
               className="today-free-text-input today-free-text-input--compact"
               rows={3}
               placeholder="e.g. Rough morning, better after lunch…"
               value={freeTextDraft}
               onChange={(e) => setFreeTextDraft(e.target.value)}
-              disabled={pipelineLoading || reviewOpen || extractionLoading}
+              disabled={reviewOpen || extractionLoading}
             />
             <div className="today-text-extract-actions">
               <button
                 type="button"
                 className="btn primary small today-text-extract-btn"
-                disabled={!freeTextDraft.trim() || pipelineLoading || reviewOpen || extractionLoading}
+                disabled={!freeTextDraft.trim() || reviewOpen || extractionLoading}
                 onClick={() => void handleTextExtract()}
               >
-                {extractionLoading && !pipelineLoading && !reviewOpen ? "Extracting…" : "Extract"}
+                {extractionLoading && !reviewOpen ? "Extracting…" : "Extract"}
               </button>
             </div>
           </div>
         </details>
       </section>
 
-      <section className="today-manual-shell today-secondary-stack" aria-labelledby="manual-add-heading">
+      <section className="today-manual-shell today-secondary-stack entries-day-sub" aria-labelledby="manual-add-heading-entries">
         <details
           className="today-manual today-manual--secondary today-manual-disclosure today-secondary-disclosure"
           open={manualSectionOpen}
@@ -620,7 +508,7 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
         >
           <summary className="today-manual-summary">
             <span className="today-manual-summary-stack">
-              <span id="manual-add-heading" className="today-manual-summary-title">
+              <span id="manual-add-heading-entries" className="today-manual-summary-title">
                 Manual
               </span>
               <span className="today-manual-summary-hint muted">Field by field, direct save</span>
@@ -714,12 +602,12 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
         </details>
       </section>
 
-      <section className="today-day-context today-day-context--quiet" aria-labelledby="day-heading">
+      <section className="today-day-context today-day-context--quiet entries-day-sub" aria-labelledby="day-heading-entries">
         <button
           type="button"
           className="day-context-trigger"
           aria-expanded={dayContextOpen}
-          aria-controls="day-context-panel"
+          aria-controls="day-context-panel-entries"
           onClick={() => {
             setDayContextOpen((open) => {
               if (open) setDayContextEditing(false);
@@ -728,7 +616,7 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
           }}
         >
           <span className="day-context-trigger-text">
-            <span className="day-context-trigger-title" id="day-heading">
+            <span className="day-context-trigger-title" id="day-heading-entries">
               Day context
             </span>
             <span className="day-context-trigger-hint muted">Optional</span>
@@ -746,12 +634,7 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
               </svg>
             ) : (
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M12 5v14M5 12h14"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                />
+                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
               </svg>
             )}
           </span>
@@ -767,7 +650,7 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
         )}
 
         {dayContextOpen && (
-          <div id="day-context-panel" className="day-context-panel">
+          <div id="day-context-panel-entries" className="day-context-panel">
             <div className="day-context-top">
               <div className="day-context-top-text">
                 <p className="day-context-panel-lead muted">
@@ -779,7 +662,7 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
                   type="button"
                   className="btn ghost small day-context-edit-btn"
                   aria-expanded={false}
-                  aria-controls="day-context-editor"
+                  aria-controls="day-context-editor-entries"
                   onClick={() => setDayContextEditing(true)}
                 >
                   Edit
@@ -818,7 +701,7 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
               </div>
             )}
 
-            <div className="day-context-editor" id="day-context-editor" hidden={!dayContextEditing}>
+            <div className="day-context-editor" id="day-context-editor-entries" hidden={!dayContextEditing}>
               <div className="day-context-metrics" role="group" aria-label="Edit day context">
                 <label className="day-context-metric">
                   <span className="day-context-metric-label">Cycle day</span>
@@ -895,17 +778,19 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
         )}
       </section>
 
-      <section className="today-entries today-entries--integrated">
-        <h2 className="today-entries-heading">Saved</h2>
+      <section className="today-entries today-entries--integrated entries-day-sub" aria-labelledby="entries-day-saved-heading">
+        <h2 id="entries-day-saved-heading" className="today-entries-heading">
+          Saved for this date
+        </h2>
         {loadError && <p className="error-inline">{loadError}</p>}
         {savedActionError && <p className="error-inline today-saved-action-error">{savedActionError}</p>}
-        {!loadError && saved.length === 0 && <p className="muted today-entries-empty">Nothing saved yet.</p>}
+        {!loadError && saved.length === 0 && <p className="muted today-entries-empty">Nothing saved for this date.</p>}
         <ul className="saved-list today-saved-list">
           {saved.map((e) => {
             const metricsShort = compactMetricSummary(e);
-            const timeLine = todaySavedTimeDisplay(e.start_time, e.end_time);
+            const timeLine = daySavedTimeDisplay(e.start_time, e.end_time);
             const menuOpen = savedMenuOpenId === e.id;
-            const menuDomId = `today-saved-menu-${e.id}`;
+            const menuDomId = `entries-day-saved-menu-${e.id}`;
             return (
               <li key={e.id} className="saved-item today-saved-item">
                 <div className="today-saved-item-head">
@@ -926,7 +811,7 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
                       </p>
                     )}
                   </div>
-                  <div className="entries-item-menu-wrap" data-today-saved-menu-root>
+                  <div className="entries-item-menu-wrap" data-entries-day-saved-menu-root>
                     <button
                       type="button"
                       className="entries-item-menu-trigger"
@@ -943,12 +828,7 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
                     {menuOpen && (
                       <ul id={menuDomId} className="entries-item-menu" role="menu">
                         <li role="presentation">
-                          <button
-                            type="button"
-                            className="entries-item-menu-item"
-                            role="menuitem"
-                            onClick={() => openSavedEdit(e)}
-                          >
+                          <button type="button" className="entries-item-menu-item" role="menuitem" onClick={() => openSavedEdit(e)}>
                             Edit
                           </button>
                         </li>
@@ -982,12 +862,12 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
             className="log-edit-sheet"
             role="dialog"
             aria-modal="true"
-            aria-labelledby="today-log-edit-title"
+            aria-labelledby="entries-day-log-edit-title"
             onClick={(ev) => ev.stopPropagation()}
           >
             <div className="log-edit-sheet-scroll">
               <div className="log-edit-sheet-head">
-                <h2 id="today-log-edit-title" ref={savedEditTitleRef} tabIndex={-1}>
+                <h2 id="entries-day-log-edit-title" ref={savedEditTitleRef} tabIndex={-1}>
                   Edit entry #{savedEditEntry.id}
                 </h2>
                 <button type="button" className="btn btn-text log-edit-close" onClick={closeSavedEdit}>
@@ -1082,17 +962,17 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
 
       <ReviewExtractionModal
         open={reviewOpen}
-        transcript={reviewSourceText}
+        transcript={freeTextDraft}
         logDate={logDate}
         userId={userId}
-        extractSourceType={reviewOrigin === "text" ? "text" : "voice"}
+        extractSourceType="text"
         extraction={extraction}
         extractionLoading={extractionLoading}
         extractionError={extractionError}
-        onRetryExtract={() => void runExtraction(reviewSourceText)}
+        onRetryExtract={() => void runExtraction(freeTextDraft)}
         onSave={handleSaveRows}
         onDiscard={closeReview}
       />
-    </div>
+    </section>
   );
 }

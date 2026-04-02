@@ -152,7 +152,7 @@ export default function InsightsPage({ userId, timeZone }: Props) {
     <div className="insights-page">
       <header className="insights-header">
         <div className="insights-header-top">
-          <Link to="/today" className="insights-back muted small">
+          <Link to="/" className="insights-back muted small">
             ← Today
           </Link>
         </div>

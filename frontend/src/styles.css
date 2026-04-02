@@ -496,19 +496,28 @@ body {
   flex-shrink: 0;
   min-width: 0;
   border-radius: var(--radius);
-  margin: -0.2rem;
-  padding: 0.2rem;
+  margin: -0.15rem;
+  padding: 0.15rem 0.22rem;
   transition: opacity 0.2s var(--ease-soft), background 0.2s var(--ease-soft);
 }
 
-.brand:hover {
-  opacity: 0.92;
-  background: var(--frost-a32);
+/* Mouse/touch focus must not draw a persistent ring; keyboard keeps a quiet ring. */
+.brand:focus {
+  outline: none;
 }
 
 .brand:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline: 1px solid var(--ink-a18);
+  outline-offset: 3px;
+}
+
+.brand:hover {
+  opacity: 0.94;
+  background: var(--ink-a045);
+}
+
+.brand:hover:focus-visible {
+  outline-color: var(--ink-a28);
 }
 
 .brand-mark {
@@ -589,6 +598,158 @@ body {
   min-height: min(76dvh, 36rem);
   padding: 1.5rem 1.25rem 2.5rem;
   isolation: isolate;
+}
+
+/* Home: voice capture only — hero + quiet bottom link to today’s entries */
+.today-page.today-page--voice-home {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-height: min(72dvh, calc(100dvh - 6.5rem));
+  padding-bottom: max(0.35rem, env(safe-area-inset-bottom));
+}
+
+.today-page--voice-home .today-voice-home {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.today-voice-home {
+  position: relative;
+  isolation: isolate;
+  margin: 0;
+  padding: 0.35rem 0 0;
+  min-height: min(38dvh, 16rem);
+}
+
+.today-page--voice-home .launch-ambient {
+  opacity: 0.42;
+  animation: none;
+  transform: translateX(-50%);
+}
+
+.today-page--voice-home .launch-field {
+  opacity: 0.55;
+}
+
+.today-voice-home-stack {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1 1 auto;
+  gap: 0.85rem;
+  width: 100%;
+  min-height: 0;
+}
+
+.today-voice-home-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0;
+  width: 100%;
+  max-width: 22rem;
+  margin: 0 auto;
+}
+
+.today-voice-home-greeting {
+  margin: 0;
+  font-size: clamp(1.35rem, 5vw, 1.65rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  color: var(--text);
+}
+
+.today-record--voice-home.panel-elevated {
+  margin-top: 0;
+  width: 100%;
+  max-width: 22rem;
+  align-self: center;
+}
+
+/* Home recorder: calm surface, no heavy “card” glow */
+.today-record--voice-home.today-record--primary.panel-elevated {
+  padding: 1.05rem 0.95rem 1rem;
+  border-color: var(--ink-a08);
+  box-shadow: 0 1px 0 var(--frost-a38) inset;
+}
+
+@media (min-width: 480px) {
+  .today-record--voice-home.today-record--primary.panel-elevated {
+    padding: 1.1rem 1.05rem 1.02rem;
+  }
+}
+
+/* Home: secondary “Today” — text-style, not a tab bar */
+.home-today-strip {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  max-width: 22rem;
+  margin: 0 auto;
+  padding: 0.65rem 0.5rem 0.15rem;
+  border-top: 1px solid var(--ink-a07);
+}
+
+.home-today-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.65rem;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  text-decoration: none;
+  border-radius: var(--radius);
+  transition:
+    color 0.2s var(--ease-soft),
+    background 0.2s var(--ease-soft);
+}
+
+.home-today-link:hover {
+  color: var(--accent-blue-mid);
+  background: var(--ink-a04);
+}
+
+.home-today-link:focus {
+  outline: none;
+}
+
+.home-today-link:focus-visible {
+  outline: 1px solid var(--ink-a18);
+  outline-offset: 2px;
+}
+
+.home-today-label {
+  font-weight: 600;
+  color: var(--ink-a52);
+}
+
+.home-today-link:hover .home-today-label {
+  color: var(--accent-blue-mid);
+}
+
+.home-today-count {
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+  min-width: 1.15rem;
+  padding: 0.2rem 0.38rem;
+  border-radius: 999px;
+  color: var(--muted);
+  background: var(--ink-a05);
+  border: 1px solid var(--ink-a08);
 }
 
 .launch-backdrop {
@@ -2088,6 +2249,55 @@ body {
 .entries-lead {
   margin: 0;
   line-height: 1.45;
+}
+
+.entries-day-panel {
+  padding: 0.85rem 0 0;
+  margin: 0 0 0.25rem;
+  border-top: 1px solid var(--ink-a08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.entries-day-panel-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.entries-day-panel-lead {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.entries-day-panel-date-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.entries-day-panel-date-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-a72);
+}
+
+.date-input--entries-day {
+  min-height: 40px;
+  padding: 0.35rem 0.55rem;
+  font-size: 0.85rem;
+  border-radius: var(--radius);
+  max-width: 12rem;
+}
+
+.entries-day-sub {
+  margin-top: 0.15rem;
 }
 
 .entries-actions {

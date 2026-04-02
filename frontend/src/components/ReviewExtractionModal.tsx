@@ -159,7 +159,7 @@ export default function ReviewExtractionModal({
     }
   };
 
-  /** Same row payload as handleSaveRows in TodayPage (source_type from extract path). TEMP debug. */
+  /** Same row payload as handleSaveRows on voice/text flows (source_type from extract path). TEMP debug. */
   const rowsForSavePayload = (): LogRow[] =>
     rows.map((r) => ({ ...r, source_type: extractSourceType }));
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import {
   commitLogsImport,
   deleteLog,
@@ -9,6 +9,7 @@ import {
   saveLogs,
 } from "../api";
 import CalmSelect from "../components/CalmSelect";
+import EntriesDayPanel from "../components/EntriesDayPanel";
 import MetricSelect from "../components/MetricSelect";
 import type { LogImportRow, LogsImportPreviewResponse, SavedLogEntry } from "../types";
 import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
@@ -56,7 +57,14 @@ function shortDate(iso: string): string {
 
 type Props = { userId: number; timeZone: string };
 
+function parseDayQueryParam(raw: string | null): string | undefined {
+  if (!raw || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return undefined;
+  return raw;
+}
+
 export default function LogsPage({ userId, timeZone }: Props) {
+  const [searchParams] = useSearchParams();
+  const focusLogDate = parseDayQueryParam(searchParams.get("day"));
   const addSourceLabelId = useId();
   const editSourceLabelId = useId();
   const [startDate, setStartDate] = useState(() => addCalendarDaysToIso(todayIsoInTimeZone(timeZone), -60));
@@ -121,6 +129,22 @@ export default function LogsPage({ userId, timeZone }: Props) {
   useEffect(() => {
     void applyRange();
   }, [applyRange]);
+
+  const scrolledToDayPanelKey = useRef<string>("");
+  useEffect(() => {
+    if (!focusLogDate) {
+      scrolledToDayPanelKey.current = "";
+      return;
+    }
+    if (loading) return;
+    const key = `${focusLogDate}-${userId}`;
+    if (scrolledToDayPanelKey.current === key) return;
+    scrolledToDayPanelKey.current = key;
+    const id = window.requestAnimationFrame(() => {
+      document.getElementById("entries-day-focus")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [focusLogDate, loading, userId]);
 
   useEffect(() => {
     setVisibleCount(ENTRIES_LIST_INITIAL);
@@ -306,8 +330,8 @@ export default function LogsPage({ userId, timeZone }: Props) {
   return (
     <div className="entries-page">
       <nav className="entries-nav">
-        <Link className="linkish entries-back" to="/today">
-          ← Today
+        <Link className="linkish entries-back" to="/">
+          ← Home
         </Link>
       </nav>
       <header className="entries-header">
@@ -353,6 +377,13 @@ export default function LogsPage({ userId, timeZone }: Props) {
           </button>
         </div>
       </header>
+
+      <EntriesDayPanel
+        userId={userId}
+        timeZone={timeZone}
+        focusLogDate={focusLogDate}
+        onMutate={() => void applyRange()}
+      />
 
       <section className="entries-import" aria-labelledby="entries-import-title">
         <h2 id="entries-import-title" className="entries-subtitle">

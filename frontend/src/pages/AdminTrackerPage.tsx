@@ -85,7 +85,7 @@ export default function AdminTrackerPage() {
   return (
     <div className="admin-page">
       <nav className="admin-nav">
-        <Link className="linkish admin-back" to="/today">
+        <Link className="linkish admin-back" to="/">
           ← Today
         </Link>
       </nav>
