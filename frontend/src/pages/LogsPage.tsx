@@ -1,8 +1,12 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { deleteLog, fetchLogsRange, patchLog } from "../api";
+import { deleteLog, fetchLogsRange, patchLog, putLogEntryCustomValues } from "../api";
 import CalmSelect from "../components/CalmSelect";
+import CustomFieldsForm from "../components/CustomFieldsForm";
 import MetricSelect from "../components/MetricSelect";
+import { buildCustomValuesPayload, customValuesToDraft, filterCustomFormFields } from "../customFieldValues";
+import { fetchTrackerConfig } from "../trackerConfigApi";
+import type { TrackerFieldDefinitionDTO } from "../trackerConfigTypes";
 import type { SavedLogEntry } from "../types";
 import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
 import { compactMetricSummary, draftToPatch, entryToDraft, type EditDraft, LOG_EDIT_SOURCE_OPTIONS } from "../logEditDraft";
@@ -77,6 +81,9 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [trackerFields, setTrackerFields] = useState<TrackerFieldDefinitionDTO[]>([]);
+  const [editCustomDraft, setEditCustomDraft] = useState<Record<number, string>>({});
+  const customEntryFields = useMemo(() => filterCustomFormFields(trackerFields, "entry"), [trackerFields]);
   const rangeRef = useRef({ start: startDate, end: endDate });
   rangeRef.current = { start: startDate, end: endDate };
 
@@ -112,6 +119,15 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
   useEffect(() => {
     void applyRange();
   }, [applyRange]);
+
+  useEffect(() => {
+    if (!Number.isInteger(userId) || userId < 1) return;
+    void fetchTrackerConfig(userId)
+      .then((c) => setTrackerFields(c.fields))
+      .catch(() => {
+        /* optional */
+      });
+  }, [userId]);
 
   const scrolledHistoryKey = useRef<string>("");
   useEffect(() => {
@@ -184,11 +200,13 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
     setActionError(null);
     setEditing(e);
     setDraft(entryToDraft(e));
+    setEditCustomDraft(customValuesToDraft(e.custom_values, filterCustomFormFields(trackerFields, "entry")));
   };
 
   const closeEdit = () => {
     setEditing(null);
     setDraft(null);
+    setEditCustomDraft({});
     setSaveError(null);
   };
 
@@ -198,6 +216,13 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
     setSaving(true);
     try {
       await patchLog(userId, editing.id, draftToPatch(draft));
+      if (customEntryFields.length > 0) {
+        await putLogEntryCustomValues(
+          userId,
+          editing.id,
+          buildCustomValuesPayload(editCustomDraft, customEntryFields),
+        );
+      }
       closeEdit();
       await applyRange();
     } catch (e) {
@@ -608,6 +633,18 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
                     onChange={(ev) => setDraftField("comments", ev.target.value)}
                   />
                 </label>
+                {customEntryFields.length > 0 && (
+                  <details className="log-edit-custom-disclosure">
+                    <summary className="log-edit-custom-summary muted small">Optional team fields</summary>
+                    <CustomFieldsForm
+                      fields={customEntryFields}
+                      draft={editCustomDraft}
+                      onChange={(fid, v) => setEditCustomDraft((p) => ({ ...p, [fid]: v }))}
+                      disabled={saving}
+                      variant="nested"
+                    />
+                  </details>
+                )}
               </div>
               {saveError && <p className="error-inline log-edit-error">{saveError}</p>}
             </div>

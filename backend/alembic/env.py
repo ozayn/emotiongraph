@@ -19,6 +19,7 @@ from app.db import Base, engine_kwargs_for_url, normalize_database_url  # noqa: 
 
 import app.models  # noqa: E402, F401
 import app.tracker_config_models  # noqa: E402, F401
+import app.tracker_custom_value_models  # noqa: E402, F401
 
 config = context.config
 

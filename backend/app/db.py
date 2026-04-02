@@ -497,3 +497,4 @@ def get_db():
 
 # Register optional models on the same Base metadata (Alembic autogenerate / migrations).
 import app.tracker_config_models  # noqa: E402, F401
+import app.tracker_custom_value_models  # noqa: E402, F401

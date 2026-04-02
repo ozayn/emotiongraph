@@ -29,12 +29,14 @@ from app.services.user_seed import DEMO_SANDBOX_EMAIL, seed_users_if_empty
 from app.schemas import (
     ExtractLogsRequest,
     ExtractLogsResponse,
+    LogEntryCustomValuesPut,
     LogEntryPatch,
     LogEntryRead,
     DebugLogsSaveResponse,
     LogsImportCommitRequest,
     LogsImportPreviewResponse,
     SaveLogsRequest,
+    TrackerDayCustomValuesPut,
     TrackerDayRead,
     TrackerDayUpsert,
     UserDisplayNameUpdate,
@@ -42,6 +44,13 @@ from app.schemas import (
     UserTimezoneUpdate,
 )
 from app.services.extraction import extract_logs_from_transcript, extraction_service_configured
+from app.services.tracker_custom_values import (
+    CustomValuesError,
+    apply_log_entry_custom_values_put,
+    apply_tracker_day_custom_values_put,
+    load_custom_values_for_log_entries,
+    load_custom_values_for_tracker_day,
+)
 from app.services.logs_csv_import import (
     MAX_IMPORT_BYTES,
     execute_log_import,
@@ -56,6 +65,34 @@ from app.services.transcription import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _log_entries_read_with_custom(db: Session, rows: list[LogEntry]) -> list[LogEntryRead]:
+    if not rows:
+        return []
+    cmap = load_custom_values_for_log_entries(db, [r.id for r in rows])
+    out: list[LogEntryRead] = []
+    for r in rows:
+        payload = LogEntryRead.model_validate(r).model_dump()
+        payload["custom_values"] = cmap.get(r.id, [])
+        out.append(LogEntryRead(**payload))
+    return out
+
+
+def _tracker_day_read_with_custom(db: Session, user_id: int, log_date: date, row: TrackerDay | None) -> TrackerDayRead:
+    customs = load_custom_values_for_tracker_day(db, user_id, log_date)
+    if row is None:
+        return TrackerDayRead(
+            user_id=user_id,
+            log_date=log_date,
+            cycle_day=None,
+            sleep_hours=None,
+            sleep_quality=None,
+            custom_values=customs,
+        )
+    payload = TrackerDayRead.model_validate(row).model_dump()
+    payload["custom_values"] = customs
+    return TrackerDayRead(**payload)
 
 
 def _pending_log_entry_snapshot(entry: LogEntry) -> dict:
@@ -280,15 +317,7 @@ def get_tracker_day(
         .filter(TrackerDay.user_id == user_id, TrackerDay.log_date == log_date)
         .one_or_none()
     )
-    if row is None:
-        return TrackerDayRead(
-            user_id=user_id,
-            log_date=log_date,
-            cycle_day=None,
-            sleep_hours=None,
-            sleep_quality=None,
-        )
-    return row
+    return _tracker_day_read_with_custom(db, user_id, log_date, row)
 
 
 @app.put("/tracker-day", response_model=TrackerDayRead)
@@ -310,7 +339,28 @@ def put_tracker_day(
     row.sleep_quality = body.sleep_quality
     db.commit()
     db.refresh(row)
-    return row
+    return _tracker_day_read_with_custom(db, user_id, row.log_date, row)
+
+
+@app.put("/tracker-day/custom-values", response_model=TrackerDayRead)
+def put_tracker_day_custom_values(
+    body: TrackerDayCustomValuesPut,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(require_user_id),
+):
+    try:
+        apply_tracker_day_custom_values_put(db, user_id, body.log_date, body.values)
+        db.commit()
+    except CustomValuesError as e:
+        db.rollback()
+        status = 404 if e.code == "not_found" else 422
+        raise HTTPException(status_code=status, detail=e.detail) from e
+    row = (
+        db.query(TrackerDay)
+        .filter(TrackerDay.user_id == user_id, TrackerDay.log_date == body.log_date)
+        .one_or_none()
+    )
+    return _tracker_day_read_with_custom(db, user_id, body.log_date, row)
 
 
 @app.get("/logs", response_model=list[LogEntryRead])
@@ -327,12 +377,13 @@ def list_logs(
                 status_code=400,
                 detail="Use either log_date or both start_date and end_date, not both",
             )
-        return (
+        rows = (
             db.query(LogEntry)
             .filter(LogEntry.user_id == user_id, LogEntry.log_date == log_date)
             .order_by(LogEntry.id.asc())
             .all()
         )
+        return _log_entries_read_with_custom(db, rows)
     if start_date is None or end_date is None:
         raise HTTPException(
             status_code=400,
@@ -340,7 +391,7 @@ def list_logs(
         )
     if end_date < start_date:
         raise HTTPException(status_code=400, detail="end_date must be on or after start_date")
-    return (
+    rows = (
         db.query(LogEntry)
         .filter(
             LogEntry.user_id == user_id,
@@ -350,6 +401,27 @@ def list_logs(
         .order_by(LogEntry.log_date.desc(), LogEntry.id.desc())
         .all()
     )
+    return _log_entries_read_with_custom(db, rows)
+
+
+@app.put("/logs/{entry_id}/custom-values", response_model=LogEntryRead)
+def put_log_entry_custom_values(
+    entry_id: int,
+    body: LogEntryCustomValuesPut,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(require_user_id),
+):
+    try:
+        apply_log_entry_custom_values_put(db, user_id, entry_id, body.values)
+        db.commit()
+    except CustomValuesError as e:
+        db.rollback()
+        status = 404 if e.code == "not_found" else 422
+        raise HTTPException(status_code=status, detail=e.detail) from e
+    row = db.get(LogEntry, entry_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Log entry not found")
+    return _log_entries_read_with_custom(db, [row])[0]
 
 
 @app.patch("/logs/{entry_id}", response_model=LogEntryRead)
@@ -375,7 +447,7 @@ def patch_log_entry(
         setattr(row, key, value)
     db.commit()
     db.refresh(row)
-    return row
+    return _log_entries_read_with_custom(db, [row])[0]
 
 
 @app.delete("/logs/{entry_id}", status_code=204)
@@ -500,7 +572,7 @@ def save_logs(
             )
             raise
 
-    return created
+    return _log_entries_read_with_custom(db, created)
 
 
 @app.post("/debug/logs", response_model=DebugLogsSaveResponse)
@@ -560,4 +632,4 @@ def logs_import_commit(
         created = execute_log_import(db, user_id, body.rows)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
-    return created
+    return _log_entries_read_with_custom(db, created)

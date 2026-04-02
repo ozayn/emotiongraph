@@ -272,11 +272,37 @@ class LogsImportCommitRequest(BaseModel):
         return v
 
 
+class CustomValueRead(BaseModel):
+    """One EAV cell for a non-builtin tracker field (Phase 1)."""
+
+    field_definition_id: int
+    value_text: str | None = None
+    value_number: float | None = None
+    select_option_id: int | None = None
+
+
+class CustomValueUpsert(BaseModel):
+    field_definition_id: int
+    value_text: str | None = None
+    value_number: float | None = None
+    select_option_id: int | None = None
+
+
+class LogEntryCustomValuesPut(BaseModel):
+    values: list[CustomValueUpsert]
+
+
+class TrackerDayCustomValuesPut(BaseModel):
+    log_date: date
+    values: list[CustomValueUpsert]
+
+
 class LogEntryRead(LogRowBase):
     id: int
     user_id: int
     log_date: date
     created_at: datetime
+    custom_values: list[CustomValueRead] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 
@@ -358,6 +384,7 @@ class TrackerDayRead(BaseModel):
     cycle_day: int | None = None
     sleep_hours: float | None = None
     sleep_quality: int | None = None
+    custom_values: list[CustomValueRead] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 

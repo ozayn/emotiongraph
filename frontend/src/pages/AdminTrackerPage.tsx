@@ -1,6 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { fetchTrackerConfig, patchTrackerField, patchTrackerOption } from "../trackerConfigApi";
+import {
+  createTrackerField,
+  createTrackerSelectOption,
+  fetchTrackerConfig,
+  patchTrackerField,
+  patchTrackerOption,
+} from "../trackerConfigApi";
 import { useSession } from "../session/SessionContext";
 import type {
   TrackerFieldDefinitionDTO,
@@ -75,12 +81,22 @@ export default function AdminTrackerPage() {
     setLoadError(null);
     try {
       if (userId == null) return;
-      await patchTrackerField(userId, f.id, {
+      const body: {
+        label: string;
+        is_active: boolean;
+        display_order: number;
+        is_required?: boolean;
+      } = {
         label: f.label,
-        is_required: f.is_required,
         is_active: f.is_active,
         display_order: f.display_order,
-      });
+      };
+      if (f.is_builtin) {
+        body.is_required = f.is_required;
+      } else {
+        body.is_required = false;
+      }
+      await patchTrackerField(userId, f.id, body);
       setStatus(`Saved “${f.label.trim() || f.key}”`);
       await load();
     } catch (e) {
@@ -107,6 +123,52 @@ export default function AdminTrackerPage() {
   const entryFields = fields.filter((f) => f.scope === "entry");
   const dayFields = fields.filter((f) => f.scope === "day");
 
+  const [createScope, setCreateScope] = useState<TrackerFieldScope>("entry");
+  const [createType, setCreateType] = useState<"text" | "number" | "select">("text");
+  const [createLabel, setCreateLabel] = useState("");
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createOptRows, setCreateOptRows] = useState<{ value: string; label: string }[]>([
+    { value: "1", label: "First choice" },
+  ]);
+  const [createFieldError, setCreateFieldError] = useState<string | null>(null);
+
+  const submitCreateField = async () => {
+    const lab = createLabel.trim();
+    if (!lab || userId == null) return;
+    setCreateFieldError(null);
+    setCreateBusy(true);
+    try {
+      const initial_options =
+        createType === "select"
+          ? createOptRows
+              .map((r, i) => ({
+                value: r.value.trim(),
+                label: r.label.trim(),
+                display_order: (i + 1) * 10,
+              }))
+              .filter((r) => r.value && r.label)
+          : [];
+      if (createType === "select" && initial_options.length === 0) {
+        setCreateFieldError("Add at least one choice (value + label) for a dropdown field.");
+        return;
+      }
+      await createTrackerField(userId, {
+        scope: createScope,
+        field_type: createType,
+        label: lab,
+        initial_options: createType === "select" ? initial_options : undefined,
+      });
+      setStatus(`Added custom field “${lab}”`);
+      setCreateLabel("");
+      setCreateOptRows([{ value: "1", label: "First choice" }]);
+      await load();
+    } catch (e) {
+      setCreateFieldError(e instanceof Error ? e.message : "Could not create field");
+    } finally {
+      setCreateBusy(false);
+    }
+  };
+
   return (
     <div className="admin-page">
       <nav className="admin-nav">
@@ -118,14 +180,19 @@ export default function AdminTrackerPage() {
       <header className="admin-header">
         <h1 className="admin-title">Log fields</h1>
         <p className="muted small admin-lead">
-          Rename labels and save each field. Technical notes stay in “Technical reference” below.
+          Adjust labels and visibility for built-in fields, or add optional custom fields (text, number, or dropdown). Custom
+          fields are safe add-ons—they do not create new database columns.
         </p>
         <details className="admin-doc-disclosure">
           <summary className="admin-doc-disclosure-summary">Technical reference</summary>
           <div className="admin-doc-disclosure-body muted small">
             <p>
-              Internal keys (e.g. <span className="mono">start_time</span>) map to database columns. Rename labels freely; do not change keys
-              here without a developer.
+              Built-in fields use fixed internal keys (e.g. <span className="mono">start_time</span>) tied to core storage.
+              Rename labels freely; do not change those keys here without a developer.
+            </p>
+            <p>
+              Custom fields get a system-generated key and store values separately—adding them from this page is supported and
+              does not require schema migrations.
             </p>
           </div>
         </details>
@@ -141,6 +208,101 @@ export default function AdminTrackerPage() {
 
       {!loading && (
         <>
+          <section className="admin-section admin-section--create" aria-labelledby="admin-create-heading">
+            <h2 id="admin-create-heading" className="admin-section-title">
+              Add custom field
+            </h2>
+            <p className="admin-section-hint muted small">
+              Appears in manual day log flows for everyone. Use text, number, or dropdown. Turn off Visible to hide without
+              losing data.
+            </p>
+            <div className="admin-create-custom">
+              {createFieldError && <p className="error-inline admin-create-error">{createFieldError}</p>}
+              <label className="field field--stacked admin-create-row">
+                <span className="admin-field-inline-label">Scope</span>
+                <select
+                  className="admin-field-label-input admin-field-label-input--dense"
+                  value={createScope}
+                  onChange={(e) => setCreateScope(e.target.value as TrackerFieldScope)}
+                >
+                  <option value="entry">Log entry</option>
+                  <option value="day">Day</option>
+                </select>
+              </label>
+              <label className="field field--stacked admin-create-row">
+                <span className="admin-field-inline-label">Type</span>
+                <select
+                  className="admin-field-label-input admin-field-label-input--dense"
+                  value={createType}
+                  onChange={(e) => setCreateType(e.target.value as "text" | "number" | "select")}
+                >
+                  <option value="text">Text</option>
+                  <option value="number">Number</option>
+                  <option value="select">Dropdown</option>
+                </select>
+              </label>
+              <label className="field field--stacked admin-create-row admin-create-row--grow">
+                <span className="admin-field-inline-label">Label</span>
+                <input
+                  className="admin-field-label-input admin-field-label-input--dense"
+                  value={createLabel}
+                  onChange={(e) => setCreateLabel(e.target.value)}
+                  placeholder="Shown in the app"
+                  autoComplete="off"
+                />
+              </label>
+              {createType === "select" && (
+                <div className="admin-create-options">
+                  <span className="admin-field-inline-label">Choices</span>
+                  <p className="muted small admin-create-options-hint">
+                    Internal code + label shown in the app (like built-in dropdowns).
+                  </p>
+                  {createOptRows.map((row, idx) => (
+                    <div key={idx} className="admin-create-option-pair">
+                      <input
+                        className="admin-field-label-input admin-field-label-input--dense"
+                        placeholder="Code (stable)"
+                        value={row.value}
+                        onChange={(e) =>
+                          setCreateOptRows((rows) =>
+                            rows.map((r, i) => (i === idx ? { ...r, value: e.target.value } : r)),
+                          )
+                        }
+                      />
+                      <input
+                        className="admin-field-label-input admin-field-label-input--dense"
+                        placeholder="Label shown to people"
+                        value={row.label}
+                        onChange={(e) =>
+                          setCreateOptRows((rows) =>
+                            rows.map((r, i) => (i === idx ? { ...r, label: e.target.value } : r)),
+                          )
+                        }
+                      />
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="btn ghost small"
+                    onClick={() => setCreateOptRows((rows) => [...rows, { value: "", label: "" }])}
+                  >
+                    Add choice row
+                  </button>
+                </div>
+              )}
+              <div className="admin-create-actions">
+                <button
+                  type="button"
+                  className="btn primary small"
+                  disabled={createBusy || !createLabel.trim() || userId == null}
+                  onClick={() => void submitCreateField()}
+                >
+                  {createBusy ? "Creating…" : "Create field"}
+                </button>
+              </div>
+            </div>
+          </section>
+
           <section className="admin-section" aria-labelledby="admin-entry-heading">
             <div className="admin-section-head">
               <h2 id="admin-entry-heading" className="admin-section-title">
@@ -153,6 +315,8 @@ export default function AdminTrackerPage() {
                 <FieldEditorRow
                   key={f.id}
                   f={f}
+                  userId={userId}
+                  onReload={() => void load()}
                   onChange={updateFieldLocal}
                   onOptionChange={updateOptionLocal}
                   onSaveField={() => void saveField(f)}
@@ -174,6 +338,8 @@ export default function AdminTrackerPage() {
                 <FieldEditorRow
                   key={f.id}
                   f={f}
+                  userId={userId}
+                  onReload={() => void load()}
                   onChange={updateFieldLocal}
                   onOptionChange={updateOptionLocal}
                   onSaveField={() => void saveField(f)}
@@ -190,15 +356,39 @@ export default function AdminTrackerPage() {
 
 type RowProps = {
   f: TrackerFieldDefinitionDTO;
+  userId: number | null;
+  onReload: () => void;
   onChange: (id: number, patch: Partial<TrackerFieldDefinitionDTO>) => void;
   onOptionChange: (fieldId: number, optionId: number, patch: Partial<TrackerSelectOptionDTO>) => void;
   onSaveField: () => void;
   onSaveOption: (fieldId: number, o: TrackerSelectOptionDTO) => void;
 };
 
-function FieldEditorRow({ f, onChange, onOptionChange, onSaveField, onSaveOption }: RowProps) {
+function FieldEditorRow({ f, userId, onReload, onChange, onOptionChange, onSaveField, onSaveOption }: RowProps) {
   const choiceGroupName = `admin-choices-${f.id}`;
   const inactiveCount = f.field_type === "select" ? f.options.filter((o) => !o.is_active).length : 0;
+  const [newOptValue, setNewOptValue] = useState("");
+  const [newOptLabel, setNewOptLabel] = useState("");
+  const [newOptBusy, setNewOptBusy] = useState(false);
+
+  const addCustomOption = async () => {
+    const v = newOptValue.trim();
+    const lab = newOptLabel.trim();
+    if (!v || !lab || userId == null) return;
+    setNewOptBusy(true);
+    try {
+      await createTrackerSelectOption(userId, f.id, {
+        value: v,
+        label: lab,
+        display_order: (f.options.reduce((m, o) => Math.max(m, o.display_order), 0) || 0) + 10,
+      });
+      setNewOptValue("");
+      setNewOptLabel("");
+      onReload();
+    } finally {
+      setNewOptBusy(false);
+    }
+  };
 
   return (
     <article className="admin-field-slab">
@@ -219,6 +409,7 @@ function FieldEditorRow({ f, onChange, onOptionChange, onSaveField, onSaveOption
 
         <div className="admin-field-slab-meta">
           <span className="admin-type-tag" title={typeDescription(f.field_type)}>
+            {!f.is_builtin ? "Custom · " : ""}
             {typeDescription(f.field_type)}
           </span>
           <details className="admin-field-tech admin-field-tech--inline">
@@ -260,20 +451,50 @@ function FieldEditorRow({ f, onChange, onOptionChange, onSaveField, onSaveOption
             <input type="checkbox" checked={f.is_active} onChange={(e) => onChange(f.id, { is_active: e.target.checked })} />
             <span>Visible</span>
           </label>
-          <label className="admin-check admin-check--dense">
-            <input type="checkbox" checked={f.is_required} onChange={(e) => onChange(f.id, { is_required: e.target.checked })} />
-            <span>Required</span>
-          </label>
+          {f.is_builtin && (
+            <label className="admin-check admin-check--dense">
+              <input type="checkbox" checked={f.is_required} onChange={(e) => onChange(f.id, { is_required: e.target.checked })} />
+              <span>Required</span>
+            </label>
+          )}
           <button type="button" className="btn primary small admin-slab-save" onClick={onSaveField}>
             Save
           </button>
         </div>
       </div>
 
-      {f.field_type === "select" && f.options.length > 0 && (
+      {f.field_type === "select" && !f.is_builtin && (
+        <div className="admin-add-option-bar muted small">
+          <span className="admin-field-inline-label">Quick add choice</span>
+          <input
+            className="admin-field-label-input admin-field-label-input--dense"
+            placeholder="Code (stable)"
+            value={newOptValue}
+            onChange={(e) => setNewOptValue(e.target.value)}
+            disabled={newOptBusy}
+          />
+          <input
+            className="admin-field-label-input admin-field-label-input--dense"
+            placeholder="Label shown to people"
+            value={newOptLabel}
+            onChange={(e) => setNewOptLabel(e.target.value)}
+            disabled={newOptBusy}
+          />
+          <button
+            type="button"
+            className="btn secondary small"
+            disabled={newOptBusy || !newOptValue.trim() || !newOptLabel.trim()}
+            onClick={() => void addCustomOption()}
+          >
+            Add
+          </button>
+        </div>
+      )}
+
+      {f.field_type === "select" && (f.options.length > 0 || !f.is_builtin) && (
         <details className="admin-options admin-options--nested">
           <summary className="admin-options-summary">
-            Edit dropdown choices
+            Edit existing choices
             <span className="admin-options-count">
               {" "}
               ({f.options.length}
@@ -302,8 +523,8 @@ function FieldEditorRow({ f, onChange, onOptionChange, onSaveField, onSaveOption
                           onChange={(e) => onOptionChange(f.id, o.id, { label: e.target.value })}
                         />
                       </div>
-                      <p className="admin-option-stored muted small admin-option-stored--fold" title="Stored value for exports">
-                        Stored: <code className="admin-option-stored-code">{o.value === "" ? "—" : o.value}</code>
+                      <p className="admin-option-stored muted small admin-option-stored--fold" title="Internal code for this choice">
+                        Code: <code className="admin-option-stored-code">{o.value === "" ? "—" : o.value}</code>
                       </p>
                       <div className="admin-option-fold-tools">
                         <div className="admin-tool-ord" title="Choice order">

@@ -19,6 +19,7 @@ def seed_tracker_config_if_empty(session: Session) -> None:
 
     seed_fields: list[dict] = [
         {
+            "is_builtin": True,
             "key": "start_time",
             "label": "Start",
             "scope": "entry",
@@ -29,6 +30,7 @@ def seed_tracker_config_if_empty(session: Session) -> None:
             "options": [],
         },
         {
+            "is_builtin": True,
             "key": "end_time",
             "label": "End",
             "scope": "entry",
@@ -39,6 +41,7 @@ def seed_tracker_config_if_empty(session: Session) -> None:
             "options": [],
         },
         {
+            "is_builtin": True,
             "key": "event",
             "label": "What happened",
             "scope": "entry",
@@ -49,6 +52,7 @@ def seed_tracker_config_if_empty(session: Session) -> None:
             "options": [],
         },
         {
+            "is_builtin": True,
             "key": "energy_level",
             "label": "Energy",
             "scope": "entry",
@@ -66,6 +70,7 @@ def seed_tracker_config_if_empty(session: Session) -> None:
             ),
         },
         {
+            "is_builtin": True,
             "key": "anxiety",
             "label": "Anxiety",
             "scope": "entry",
@@ -84,6 +89,7 @@ def seed_tracker_config_if_empty(session: Session) -> None:
             ),
         },
         {
+            "is_builtin": True,
             "key": "contentment",
             "label": "Contentment",
             "scope": "entry",
@@ -101,6 +107,7 @@ def seed_tracker_config_if_empty(session: Session) -> None:
             ),
         },
         {
+            "is_builtin": True,
             "key": "focus",
             "label": "Focus",
             "scope": "entry",
@@ -120,6 +127,7 @@ def seed_tracker_config_if_empty(session: Session) -> None:
             ),
         },
         {
+            "is_builtin": True,
             "key": "music",
             "label": "Music",
             "scope": "entry",
@@ -138,6 +146,7 @@ def seed_tracker_config_if_empty(session: Session) -> None:
             ),
         },
         {
+            "is_builtin": True,
             "key": "comments",
             "label": "Comments",
             "scope": "entry",
@@ -148,6 +157,7 @@ def seed_tracker_config_if_empty(session: Session) -> None:
             "options": [],
         },
         {
+            "is_builtin": True,
             "key": "cycle_day",
             "label": "Cycle day",
             "scope": "day",
@@ -158,6 +168,7 @@ def seed_tracker_config_if_empty(session: Session) -> None:
             "options": [],
         },
         {
+            "is_builtin": True,
             "key": "sleep_hours",
             "label": "Sleep (hours)",
             "scope": "day",
@@ -168,6 +179,7 @@ def seed_tracker_config_if_empty(session: Session) -> None:
             "options": [],
         },
         {
+            "is_builtin": True,
             "key": "sleep_quality",
             "label": "Sleep quality",
             "scope": "day",

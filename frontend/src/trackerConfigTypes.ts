@@ -13,6 +13,8 @@ export type TrackerSelectOptionDTO = {
 
 export type TrackerFieldDefinitionDTO = {
   id: number;
+  /** Built-in fields map to fixed DB columns; custom fields use EAV storage. */
+  is_builtin: boolean;
   key: string;
   label: string;
   scope: TrackerFieldScope;

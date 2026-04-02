@@ -3,6 +3,7 @@ import type {
   DebugLogsSaveResponse,
   ExtractLogsResponse,
   InsightsPayload,
+  LogCustomValue,
   LogImportRow,
   LogRow,
   LogsImportPreviewResponse,
@@ -341,6 +342,32 @@ export async function saveTrackerDay(userId: number, body: TrackerDay): Promise<
     method: "PUT",
     headers: { "Content-Type": "application/json", ...scopedAuthHeaders(userId) },
     body: JSON.stringify(body),
+  });
+  return parseJson(res);
+}
+
+export async function putLogEntryCustomValues(
+  userId: number,
+  entryId: number,
+  values: LogCustomValue[],
+): Promise<SavedLogEntry> {
+  const res = await fetch(`${base()}/logs/${entryId}/custom-values`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...scopedAuthHeaders(userId) },
+    body: JSON.stringify({ values }),
+  });
+  return parseJson(res);
+}
+
+export async function putTrackerDayCustomValues(
+  userId: number,
+  logDate: string,
+  values: LogCustomValue[],
+): Promise<TrackerDay> {
+  const res = await fetch(`${base()}/tracker-day/custom-values`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...scopedAuthHeaders(userId) },
+    body: JSON.stringify({ log_date: logDate, values }),
   });
   return parseJson(res);
 }

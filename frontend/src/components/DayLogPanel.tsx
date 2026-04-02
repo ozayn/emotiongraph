@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
   deleteLog,
   extractLogs,
   fetchLogs,
   fetchTrackerDay,
   patchLog,
+  putLogEntryCustomValues,
+  putTrackerDayCustomValues,
   saveLogs,
   saveTrackerDay,
 } from "../api";
@@ -19,6 +21,16 @@ import {
   type EditDraft,
   LOG_EDIT_SOURCE_OPTIONS,
 } from "../logEditDraft";
+import CustomFieldsForm from "./CustomFieldsForm";
+import {
+  buildCustomValuesPayload,
+  countFilledCustomDraft,
+  customValuesToDraft,
+  filterCustomFormFields,
+  formatCustomFieldDisplay,
+} from "../customFieldValues";
+import { fetchTrackerConfig } from "../trackerConfigApi";
+import type { TrackerFieldDefinitionDTO } from "../trackerConfigTypes";
 import type { ExtractLogsResponse, LogRow, SavedLogEntry } from "../types";
 import { formatSleepQuality, optionsForMetricKey, SLEEP_QUALITY_OPTIONS } from "../trackerOptions";
 
@@ -143,12 +155,39 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
   const [savedEditSaving, setSavedEditSaving] = useState(false);
   const [savedActionError, setSavedActionError] = useState<string | null>(null);
 
+  const [trackerFields, setTrackerFields] = useState<TrackerFieldDefinitionDTO[]>([]);
+  const [manualCustomDraft, setManualCustomDraft] = useState<Record<number, string>>({});
+  const [savedEditCustomDraft, setSavedEditCustomDraft] = useState<Record<number, string>>({});
+  const [dayCustomDraft, setDayCustomDraft] = useState<Record<number, string>>({});
+
   const [dayDraft, setDayDraft] = useState({ cycle_day: "", sleep_hours: "", sleep_quality: "" });
   const [daySaving, setDaySaving] = useState(false);
   const [dayError, setDayError] = useState<string | null>(null);
   const [daySavedBanner, setDaySavedBanner] = useState(false);
   const [dayContextOpen, setDayContextOpen] = useState(false);
   const [dayContextEditing, setDayContextEditing] = useState(false);
+
+  const customEntryFields = useMemo(() => filterCustomFormFields(trackerFields, "entry"), [trackerFields]);
+  const customDayFields = useMemo(() => filterCustomFormFields(trackerFields, "day"), [trackerFields]);
+  const filledDayCustomCount = useMemo(
+    () => countFilledCustomDraft(customDayFields, dayCustomDraft),
+    [customDayFields, dayCustomDraft],
+  );
+
+  useEffect(() => {
+    if (!isReadyUserId(userId)) return;
+    void fetchTrackerConfig(userId)
+      .then((c) => setTrackerFields(c.fields))
+      .catch(() => {
+        /* optional config */
+      });
+  }, [userId]);
+
+  useEffect(() => {
+    const o: Record<number, string> = {};
+    for (const f of customEntryFields) o[f.id] = "";
+    setManualCustomDraft(o);
+  }, [logDate, customEntryFields]);
 
   const refreshSaved = useCallback(async () => {
     if (!isReadyUserId(userId) || !logDate.trim()) return;
@@ -172,25 +211,31 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
         sleep_hours: d.sleep_hours != null ? String(d.sleep_hours) : "",
         sleep_quality: d.sleep_quality != null ? String(d.sleep_quality) : "",
       });
+      setDayCustomDraft(customValuesToDraft(d.custom_values, filterCustomFormFields(trackerFields, "day")));
     } catch (e) {
       if (isAbortError(e)) return;
       setDayError(e instanceof Error ? e.message : "Failed to load day info");
     }
-  }, [userId, logDate]);
+  }, [userId, logDate, trackerFields]);
 
   const closeSavedEdit = useCallback(() => {
     setSavedEditEntry(null);
     setSavedEditDraft(null);
+    setSavedEditCustomDraft({});
     setSavedEditSaveError(null);
   }, []);
 
-  const openSavedEdit = useCallback((entry: SavedLogEntry) => {
-    setSavedMenuOpenId(null);
-    setSavedEditSaveError(null);
-    setSavedActionError(null);
-    setSavedEditEntry(entry);
-    setSavedEditDraft(entryToDraft(entry));
-  }, []);
+  const openSavedEdit = useCallback(
+    (entry: SavedLogEntry) => {
+      setSavedMenuOpenId(null);
+      setSavedEditSaveError(null);
+      setSavedActionError(null);
+      setSavedEditEntry(entry);
+      setSavedEditDraft(entryToDraft(entry));
+      setSavedEditCustomDraft(customValuesToDraft(entry.custom_values, filterCustomFormFields(trackerFields, "entry")));
+    },
+    [trackerFields],
+  );
 
   const handleSavedEditSave = useCallback(async () => {
     if (!savedEditEntry || !savedEditDraft) return;
@@ -198,6 +243,13 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
     setSavedEditSaving(true);
     try {
       await patchLog(userId, savedEditEntry.id, draftToPatch(savedEditDraft));
+      if (customEntryFields.length > 0) {
+        await putLogEntryCustomValues(
+          userId,
+          savedEditEntry.id,
+          buildCustomValuesPayload(savedEditCustomDraft, customEntryFields),
+        );
+      }
       closeSavedEdit();
       await refreshSaved();
       await onMutate?.();
@@ -206,7 +258,16 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
     } finally {
       setSavedEditSaving(false);
     }
-  }, [userId, savedEditEntry, savedEditDraft, closeSavedEdit, refreshSaved, onMutate]);
+  }, [
+    userId,
+    savedEditEntry,
+    savedEditDraft,
+    savedEditCustomDraft,
+    customEntryFields,
+    closeSavedEdit,
+    refreshSaved,
+    onMutate,
+  ]);
 
   const handleSavedDelete = useCallback(
     async (entry: SavedLogEntry) => {
@@ -292,13 +353,14 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
           sleep_hours: d.sleep_hours != null ? String(d.sleep_hours) : "",
           sleep_quality: d.sleep_quality != null ? String(d.sleep_quality) : "",
         });
+        setDayCustomDraft(customValuesToDraft(d.custom_values, filterCustomFormFields(trackerFields, "day")));
       } catch (e) {
         if (ac.signal.aborted || isAbortError(e)) return;
         setDayError(e instanceof Error ? e.message : "Failed to load day info");
       }
     })();
     return () => ac.abort();
-  }, [userId, logDate]);
+  }, [userId, logDate, trackerFields]);
 
   useEffect(() => {
     setDayContextEditing(false);
@@ -351,8 +413,18 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
     }
     setManualSaving(true);
     try {
-      await saveLogs(userId, logDate, [row]);
+      const created = await saveLogs(userId, logDate, [row]);
+      if (customEntryFields.length > 0 && created[0]) {
+        await putLogEntryCustomValues(
+          userId,
+          created[0].id,
+          buildCustomValuesPayload(manualCustomDraft, customEntryFields),
+        );
+      }
       setManualDraft(emptyManualDraft());
+      const o: Record<number, string> = {};
+      for (const f of customEntryFields) o[f.id] = "";
+      setManualCustomDraft(o);
       setManualSavedBanner(true);
       await refreshSaved();
       await onMutate?.();
@@ -361,6 +433,11 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
     } finally {
       setManualSaving(false);
     }
+  };
+
+  const setManualCustomField = (fieldId: number, value: string) => {
+    setManualSavedBanner(false);
+    setManualCustomDraft((prev) => ({ ...prev, [fieldId]: value }));
   };
 
   const handleSaveDay = async () => {
@@ -376,6 +453,9 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
         sleep_hours: sleepH != null && Number.isFinite(sleepH) ? sleepH : null,
         sleep_quality: sleepQ != null && Number.isFinite(sleepQ) ? sleepQ : null,
       });
+      if (customDayFields.length > 0) {
+        await putTrackerDayCustomValues(userId, logDate, buildCustomValuesPayload(dayCustomDraft, customDayFields));
+      }
       setDaySavedBanner(true);
       await refreshDay();
       setDayContextEditing(false);
@@ -557,8 +637,9 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
                 </label>
               </div>
               <details className="manual-add-more">
-                <summary className="manual-add-more-summary">More fields</summary>
+                <summary className="manual-add-more-summary">More fields (optional extras)</summary>
                 <div className="manual-add-more-fields">
+                  <p className="muted small manual-add-more-lead">Standard metrics and notes.</p>
                   {MANUAL_MORE_KEYS.map(({ key, label }) => {
                     const opts = optionsForMetricKey(key);
                     if (opts) {
@@ -579,6 +660,18 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
                       </label>
                     );
                   })}
+                  {customEntryFields.length > 0 && (
+                    <div className="manual-add-custom-nested">
+                      <p className="muted small manual-add-custom-nested-lead">Team-added fields (all optional).</p>
+                      <CustomFieldsForm
+                        fields={customEntryFields}
+                        draft={manualCustomDraft}
+                        onChange={setManualCustomField}
+                        disabled={manualSaving}
+                        variant="nested"
+                      />
+                    </div>
+                  )}
                 </div>
               </details>
             </div>
@@ -619,7 +712,12 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
             <span className="day-context-trigger-title" id="day-heading-entries">
               Day context
             </span>
-            <span className="day-context-trigger-hint muted">Optional</span>
+            <span className="day-context-trigger-hint muted">
+              Optional
+              {customDayFields.length > 0 && filledDayCustomCount > 0
+                ? ` · ${filledDayCustomCount} team field${filledDayCustomCount === 1 ? "" : "s"}`
+                : ""}
+            </span>
           </span>
           <span className="day-context-trigger-icon" aria-hidden="true">
             {dayContextOpen ? (
@@ -698,6 +796,23 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
                     })()}
                   </span>
                 </div>
+                {customDayFields.length > 0 && (
+                  <div className="day-context-custom-summary" role="group" aria-label="Team-added day fields">
+                    <p className="day-context-custom-summary-label muted small">Team-added</p>
+                    {filledDayCustomCount === 0 ? (
+                      <p className="day-context-custom-empty muted small">None filled for this date.</p>
+                    ) : (
+                      customDayFields.map((f) => (
+                        <div key={f.id} className="day-context-stat day-context-stat--custom">
+                          <span className="day-context-stat-label">{f.label}</span>
+                          <span className="day-context-stat-value day-context-stat-value--custom">
+                            {formatCustomFieldDisplay(f, dayCustomDraft[f.id])}
+                          </span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -739,6 +854,16 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
                     onChange={(v) => setDayDraft((d) => ({ ...d, sleep_quality: v }))}
                     options={SLEEP_QUALITY_OPTIONS}
                     density="dense"
+                  />
+                </div>
+                <div className="day-context-editor-custom">
+                  <p className="muted small day-context-editor-custom-lead">Team-added day fields (optional).</p>
+                  <CustomFieldsForm
+                    fields={customDayFields}
+                    draft={dayCustomDraft}
+                    onChange={(fid, v) => setDayCustomDraft((p) => ({ ...p, [fid]: v }))}
+                    disabled={daySaving}
+                    variant="nested"
                   />
                 </div>
               </div>
@@ -945,6 +1070,18 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
                     onChange={(ev) => setSavedEditDraftField("comments", ev.target.value)}
                   />
                 </label>
+                {customEntryFields.length > 0 && (
+                  <details className="log-edit-custom-disclosure">
+                    <summary className="log-edit-custom-summary muted small">Optional team fields</summary>
+                    <CustomFieldsForm
+                      fields={customEntryFields}
+                      draft={savedEditCustomDraft}
+                      onChange={(fid, v) => setSavedEditCustomDraft((p) => ({ ...p, [fid]: v }))}
+                      disabled={savedEditSaving}
+                      variant="nested"
+                    />
+                  </details>
+                )}
               </div>
               {savedEditSaveError && <p className="error-inline log-edit-error">{savedEditSaveError}</p>}
             </div>

@@ -18,6 +18,7 @@ class FieldDefinitionRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    is_builtin: bool
     key: str
     label: str
     scope: Literal["entry", "day"]
@@ -45,3 +46,28 @@ class SelectOptionPatch(BaseModel):
     label: str | None = None
     display_order: int | None = None
     is_active: bool | None = None
+
+
+class SelectOptionInitial(BaseModel):
+    value: str = Field(..., max_length=256)
+    label: str = Field(..., max_length=512)
+    display_order: int = 0
+
+
+class FieldDefinitionCreate(BaseModel):
+    """Admin-created custom field (Phase 1: text, number, select only)."""
+
+    scope: Literal["entry", "day"]
+    field_type: Literal["text", "number", "select"]
+    label: str = Field(..., min_length=1, max_length=256)
+    is_required: bool = False
+    is_active: bool = True
+    display_order: int | None = None
+    initial_options: list[SelectOptionInitial] = Field(default_factory=list)
+
+
+class SelectOptionCreate(BaseModel):
+    value: str = Field(..., max_length=256)
+    label: str = Field(..., max_length=512)
+    display_order: int = 0
+    is_active: bool = True

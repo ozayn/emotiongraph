@@ -11,6 +11,7 @@ class TrackerFieldDefinition(Base):
     __table_args__ = (UniqueConstraint("scope", "key", name="uq_tracker_field_scope_key"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    is_builtin: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     key: Mapped[str] = mapped_column(String(64), nullable=False)
     label: Mapped[str] = mapped_column(String(256), nullable=False)
     scope: Mapped[str] = mapped_column(String(16), nullable=False, index=True)

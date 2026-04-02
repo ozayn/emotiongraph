@@ -5271,6 +5271,156 @@ button.profile-account-secondary {
   gap: 0.4rem 0.55rem;
 }
 
+.admin-create-custom {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  max-width: 32rem;
+}
+
+.admin-create-row--grow {
+  width: 100%;
+}
+
+.admin-create-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.admin-create-option-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.35rem;
+}
+
+@media (max-width: 520px) {
+  .admin-create-option-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
+.admin-create-actions {
+  margin-top: 0.15rem;
+}
+
+.admin-add-option-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-top: 1px solid var(--ink-a07);
+  background: color-mix(in srgb, var(--surface) 96%, var(--ink-a04) 4%);
+}
+
+.admin-add-option-bar .admin-field-label-input {
+  flex: 1 1 7rem;
+  min-width: 0;
+}
+
+.custom-fields-form-title {
+  margin: 0 0 0.15rem;
+}
+
+.custom-fields-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.custom-fields-form--nested .custom-fields-form-title {
+  font-size: 0.72rem;
+  margin-bottom: 0.05rem;
+}
+
+.custom-fields-form--nested .custom-fields-form-fields {
+  gap: 0.4rem;
+}
+
+.admin-create-options-hint {
+  margin: -0.15rem 0 0.25rem;
+}
+
+.admin-create-error {
+  margin-bottom: 0.35rem;
+}
+
+.manual-add-more-lead {
+  margin: 0 0 0.45rem;
+}
+
+.manual-add-custom-nested {
+  margin-top: 0.65rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--ink-a08);
+}
+
+.manual-add-custom-nested-lead {
+  margin: 0 0 0.4rem;
+}
+
+.day-context-custom-summary {
+  margin-top: 0.55rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--ink-a10);
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.day-context-custom-summary-label {
+  margin: 0;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.day-context-custom-empty {
+  margin: 0;
+}
+
+.day-context-stat--custom {
+  padding-top: 0.1rem;
+}
+
+.day-context-stat-value--custom {
+  font-weight: 500;
+}
+
+.day-context-editor-custom {
+  margin-top: 0.35rem;
+  padding-top: 0.45rem;
+  border-top: 1px dashed var(--ink-a10);
+  grid-column: 1 / -1;
+}
+
+.day-context-editor-custom-lead {
+  margin: 0 0 0.4rem;
+}
+
+.log-edit-custom-disclosure {
+  margin-top: 0.35rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--ink-a08);
+}
+
+.log-edit-custom-summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 0.2rem 0;
+  user-select: none;
+}
+
+.log-edit-custom-summary::-webkit-details-marker {
+  display: none;
+}
+
+.log-edit-custom-disclosure[open] .log-edit-custom-summary {
+  margin-bottom: 0.35rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pipeline-overlay,
   .pipeline-card,

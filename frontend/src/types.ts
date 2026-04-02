@@ -11,6 +11,14 @@ export type User = {
   is_admin?: boolean;
 };
 
+/** Phase 1 custom tracker values (manual-only); not used in CSV/extraction/insights. */
+export type LogCustomValue = {
+  field_definition_id: number;
+  value_text: string | null;
+  value_number: number | null;
+  select_option_id: number | null;
+};
+
 export type LogRow = {
   start_time: string | null;
   end_time: string | null;
@@ -32,6 +40,7 @@ export type SavedLogEntry = LogRow & {
   log_date: string;
   created_at: string;
   source_type: "manual" | "voice" | "text" | "import";
+  custom_values?: LogCustomValue[];
 };
 
 /** Response from POST /debug/logs (dry-run save diagnostics). TEMP: remove when debugging is done. */
@@ -79,6 +88,7 @@ export type TrackerDay = {
   cycle_day: number | null;
   sleep_hours: number | null;
   sleep_quality: number | null;
+  custom_values?: LogCustomValue[];
 };
 
 export type InsightsSummary = {

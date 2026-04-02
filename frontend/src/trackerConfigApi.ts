@@ -1,5 +1,5 @@
 import { headersForAuthenticatedUser } from "./api";
-import type { TrackerConfigResponse } from "./trackerConfigTypes";
+import type { TrackerConfigResponse, TrackerFieldDefinitionDTO, TrackerFieldScope } from "./trackerConfigTypes";
 
 const base = () => import.meta.env.VITE_API_BASE ?? "";
 
@@ -46,6 +46,38 @@ export async function patchTrackerOption(
 ): Promise<void> {
   const res = await fetch(`${base()}/tracker-config/options/${id}`, {
     method: "PATCH",
+    headers: { "Content-Type": "application/json", ...headersForAuthenticatedUser(userId) },
+    body: JSON.stringify(body),
+  });
+  await parseJson(res);
+}
+
+export type CreateCustomFieldBody = {
+  scope: TrackerFieldScope;
+  field_type: "text" | "number" | "select";
+  label: string;
+  is_required?: boolean;
+  is_active?: boolean;
+  display_order?: number | null;
+  initial_options?: { value: string; label: string; display_order?: number }[];
+};
+
+export async function createTrackerField(userId: number, body: CreateCustomFieldBody): Promise<TrackerFieldDefinitionDTO> {
+  const res = await fetch(`${base()}/tracker-config/fields`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headersForAuthenticatedUser(userId) },
+    body: JSON.stringify(body),
+  });
+  return parseJson(res);
+}
+
+export async function createTrackerSelectOption(
+  userId: number,
+  fieldId: number,
+  body: { value: string; label: string; display_order?: number; is_active?: boolean },
+): Promise<void> {
+  const res = await fetch(`${base()}/tracker-config/fields/${fieldId}/options`, {
+    method: "POST",
     headers: { "Content-Type": "application/json", ...headersForAuthenticatedUser(userId) },
     body: JSON.stringify(body),
   });
