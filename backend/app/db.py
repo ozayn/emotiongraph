@@ -234,8 +234,29 @@ def _pg_first_user_id(conn) -> int | None:
 
 def _pg_align_log_entries_id_sequence(conn) -> None:
     """If rows were inserted with explicit ids (import/restore), the SERIAL sequence can lag and the next INSERT fails with duplicate key (500 on POST /logs)."""
-    seq = conn.execute(text("SELECT pg_get_serial_sequence('log_entries', 'id')")).scalar_one_or_none()
+    seq: str | None = None
+    for qualified in ("public.log_entries", "log_entries"):
+        seq = conn.execute(
+            text(f"SELECT pg_get_serial_sequence('{qualified}', 'id')")
+        ).scalar_one_or_none()
+        if seq:
+            break
     if not seq:
+        seq = conn.execute(
+            text(
+                """
+                SELECT quote_ident(schemaname) || '.' || quote_ident(sequencename)
+                FROM pg_sequences
+                WHERE sequencename = 'log_entries_id_seq'
+                LIMIT 1
+                """
+            )
+        ).scalar_one_or_none()
+    if not seq:
+        logger.warning(
+            "Could not resolve log_entries id sequence (pg_get_serial_sequence NULL); "
+            "POST /logs may fail with duplicate key until setval is run manually"
+        )
         return
     conn.execute(
         text(
@@ -252,6 +273,7 @@ def _pg_align_log_entries_id_sequence(conn) -> None:
         ),
         {"seq": seq},
     )
+    logger.info("Aligned log_entries id sequence %s to MAX(id)", seq)
 
 
 def _pg_drop_tracker_days_unique_on_log_date_only(conn) -> None:
