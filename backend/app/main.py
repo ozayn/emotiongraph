@@ -1,3 +1,4 @@
+import logging
 from datetime import date
 from typing import Annotated
 
@@ -40,6 +41,8 @@ from app.services.logs_csv_import import (
     parse_logs_import_csv,
 )
 from app.services.transcription import is_transcript_usable, transcribe_audio_bytes
+
+logger = logging.getLogger(__name__)
 
 ensure_schema_via_alembic()
 ensure_users_timezone_column()
@@ -279,28 +282,47 @@ def save_logs(
     db: Session = Depends(get_db),
     user_id: int = Depends(require_user_id),
 ):
+    row_count = len(body.rows)
     created: list[LogEntry] = []
-    for r in body.rows:
-        entry = LogEntry(
-            user_id=user_id,
-            log_date=body.log_date,
-            start_time=r.start_time,
-            end_time=r.end_time,
-            event=r.event,
-            energy_level=r.energy_level,
-            anxiety=r.anxiety,
-            contentment=r.contentment,
-            focus=r.focus,
-            music=r.music,
-            comments=r.comments,
-            source_type=r.source_type,
+    try:
+        for r in body.rows:
+            entry = LogEntry(
+                user_id=user_id,
+                log_date=body.log_date,
+                start_time=r.start_time,
+                end_time=r.end_time,
+                event=r.event,
+                energy_level=r.energy_level,
+                anxiety=r.anxiety,
+                contentment=r.contentment,
+                focus=r.focus,
+                music=r.music,
+                comments=r.comments,
+                source_type=r.source_type,
+            )
+            db.add(entry)
+            created.append(entry)
+        logger.info(
+            "POST /logs committing user_id=%s log_date=%s row_count=%s",
+            user_id,
+            body.log_date,
+            row_count,
         )
-        db.add(entry)
-        created.append(entry)
-    db.commit()
-    for e in created:
-        db.refresh(e)
-    return created
+        db.commit()
+        for e in created:
+            db.refresh(e)
+        return created
+    except Exception as e:
+        logger.error(
+            "POST /logs failed: exception_type=%s exception_message=%s user_id=%s log_date=%s row_count=%s",
+            type(e).__name__,
+            e,
+            user_id,
+            body.log_date,
+            row_count,
+            exc_info=True,
+        )
+        raise
 
 
 @app.post("/logs/import-csv/preview", response_model=LogsImportPreviewResponse)
