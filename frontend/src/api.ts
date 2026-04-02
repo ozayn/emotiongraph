@@ -30,6 +30,15 @@ export function authHeaders(): Record<string, string> {
   return t ? { Authorization: `Bearer ${t}` } : {};
 }
 
+/** Private (non-demo) calls that must identify the current user (e.g. /tracker-config). */
+export function headersForAuthenticatedUser(userId: number): Record<string, string> {
+  const a = authHeaders();
+  if (a.Authorization) {
+    return { ...a };
+  }
+  return { "X-User-Id": String(userId) };
+}
+
 function userScopedHeaders(userId: number): Record<string, string> {
   if (!Number.isInteger(userId) || userId < 1) {
     throw new Error("Invalid user id for scoped request");

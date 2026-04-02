@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.exc import StatementError
 from sqlalchemy.orm import Session
 
+from app.admin_access import user_read_from_user
 from app.config import DEFAULT_CORS_ORIGINS, settings
 from app.db import (
     SessionLocal,
@@ -183,14 +184,14 @@ def list_users(
     bearer_uid = resolve_bearer_user_id(authorization, db)
     if bearer_uid is not None:
         row = db.get(User, bearer_uid)
-        return [row] if row is not None else []
+        return [user_read_from_user(row)] if row is not None else []
     if (x_public_demo or "").strip() == "1":
         if not settings.allow_public_demo_user_list:
             raise HTTPException(status_code=401, detail="Public demo user list is disabled")
         row = db.query(User).filter(User.email == DEMO_SANDBOX_EMAIL).order_by(User.id.asc()).first()
-        return [row] if row is not None else []
+        return [user_read_from_user(row)] if row is not None else []
     if settings.allow_unauthenticated_full_user_list:
-        return db.query(User).order_by(User.id.asc()).all()
+        return [user_read_from_user(r) for r in db.query(User).order_by(User.id.asc()).all()]
     raise HTTPException(status_code=401, detail="Authentication required")
 
 
@@ -206,7 +207,7 @@ def patch_user_timezone(
     row.timezone = body.timezone
     db.commit()
     db.refresh(row)
-    return row
+    return user_read_from_user(row)
 
 
 @app.post("/transcribe")

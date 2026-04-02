@@ -4,6 +4,7 @@ import jwt
 from fastapi import Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
+from app.admin_access import is_admin_email
 from app.config import settings
 from app.db import get_db
 from app.models import User
@@ -74,3 +75,18 @@ def require_user_id(
         status_code=401,
         detail="Use a signed-in session for this account (Bearer token required).",
     )
+
+
+def require_admin_user(
+    user_id: int = Depends(require_user_id),
+    db: Session = Depends(get_db),
+) -> int:
+    row = db.get(User, user_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not is_admin_email(row.email):
+        raise HTTPException(
+            status_code=403,
+            detail="Admin access is limited to allowlisted accounts.",
+        )
+    return user_id

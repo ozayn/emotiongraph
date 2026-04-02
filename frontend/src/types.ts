@@ -5,6 +5,8 @@ export type User = {
   /** Saved IANA override, or null to use the device/browser zone on the client. */
   timezone: string | null;
   created_at: string;
+  /** From server allowlist (ADMIN_EMAIL_ALLOWLIST); used to gate /admin UI. */
+  is_admin?: boolean;
 };
 
 export type LogRow = {

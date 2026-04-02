@@ -127,7 +127,7 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
                 Sign out
               </button>
             ) : null}
-            {realm === "private" ? (
+            {realm === "private" && user.is_admin ? (
               <>
                 {(authMode !== "google_oauth" || privateAuth) && (
                   <span className="profile-account-footer-sep muted small" aria-hidden="true">

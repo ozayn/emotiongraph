@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     # Accept X-User-Id for any existing user (insecure; local tooling only). Demo users work without this via @emotiongraph.local.
     allow_x_user_id_any: bool = False
 
+    # Comma-separated Google (or local) emails allowed to use /admin and /tracker-config. Empty = no admins.
+    admin_email_allowlist: str = ""
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def cors_origins_non_empty(cls, v: object) -> str:

@@ -10,7 +10,8 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db import get_db
 from app.models import User
-from app.schemas import AuthTokenResponse, GoogleAuthBody, UserRead
+from app.admin_access import user_read_from_user
+from app.schemas import AuthTokenResponse, GoogleAuthBody
 from app.services.auth_jwt import issue_access_token
 from app.services.google_id_token import verify_google_credential
 
@@ -88,4 +89,4 @@ def auth_google(body: GoogleAuthBody, db: Session = Depends(get_db)) -> AuthToke
     except RuntimeError as e:
         raise HTTPException(status_code=503, detail=str(e)) from e
 
-    return AuthTokenResponse(access_token=token, expires_in=ttl, user=UserRead.model_validate(user))
+    return AuthTokenResponse(access_token=token, expires_in=ttl, user=user_read_from_user(user))

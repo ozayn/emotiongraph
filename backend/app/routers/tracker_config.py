@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
+from app.deps import require_admin_user
 from app.db import get_db
 from app.schemas_tracker_config import (
     FieldDefinitionPatch,
@@ -11,7 +12,11 @@ from app.schemas_tracker_config import (
 )
 from app.tracker_config_models import TrackerFieldDefinition, TrackerSelectOption
 
-router = APIRouter(prefix="/tracker-config", tags=["tracker-config"])
+router = APIRouter(
+    prefix="/tracker-config",
+    tags=["tracker-config"],
+    dependencies=[Depends(require_admin_user)],
+)
 
 
 def _sort_field(f: TrackerFieldDefinition) -> tuple[str, int]:

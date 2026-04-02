@@ -5,24 +5,25 @@ import { useSession } from "../session/SessionContext";
 import type { TrackerFieldDefinitionDTO, TrackerSelectOptionDTO } from "../trackerConfigTypes";
 
 export default function AdminTrackerPage() {
-  const { pathFor } = useSession();
+  const { pathFor, userId } = useSession();
   const [fields, setFields] = useState<TrackerFieldDefinitionDTO[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (userId == null) return;
     setLoadError(null);
     setLoading(true);
     try {
-      const data = await fetchTrackerConfig();
+      const data = await fetchTrackerConfig(userId);
       setFields(data.fields);
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Failed to load config");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     void load();
@@ -53,7 +54,8 @@ export default function AdminTrackerPage() {
   const saveField = async (f: TrackerFieldDefinitionDTO) => {
     setLoadError(null);
     try {
-      await patchTrackerField(f.id, {
+      if (userId == null) return;
+      await patchTrackerField(userId, f.id, {
         label: f.label,
         is_required: f.is_required,
         is_active: f.is_active,
@@ -69,7 +71,8 @@ export default function AdminTrackerPage() {
   const saveOption = async (fieldId: number, o: TrackerSelectOptionDTO) => {
     setLoadError(null);
     try {
-      await patchTrackerOption(o.id, {
+      if (userId == null) return;
+      await patchTrackerOption(userId, o.id, {
         label: o.label,
         display_order: o.display_order,
         is_active: o.is_active,

@@ -368,6 +368,7 @@ class UserRead(BaseModel):
     email: str
     timezone: str | None
     created_at: datetime
+    is_admin: bool = False
 
     model_config = {"from_attributes": True}
 

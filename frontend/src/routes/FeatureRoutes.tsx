@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
+import AdminPrivateRoute from "../components/AdminPrivateRoute";
 import UsersGate from "../components/UsersGate";
 import { useSession } from "../session/SessionContext";
 import AddEntryPage from "../pages/AddEntryPage";
-import AdminTrackerPage from "../pages/AdminTrackerPage";
 import ChooseProfilePage from "../pages/ChooseProfilePage";
 import HomePage from "../pages/HomePage";
 import InsightsPage from "../pages/InsightsPage";
@@ -106,7 +106,7 @@ export default function FeatureRoutes() {
       <Route path="/add-entry" element={gate((uid) => <AddEntryPage key={uid} userId={uid} timeZone={userTimeZone} />)} />
       <Route path="/entries" element={gate((uid) => <LogsPage key={uid} userId={uid} timeZone={userTimeZone} />)} />
       <Route path="/insights" element={gate((uid) => <InsightsPage key={uid} userId={uid} timeZone={userTimeZone} />)} />
-      <Route path="/admin" element={<AdminTrackerPage />} />
+      <Route path="/admin" element={<AdminPrivateRoute />} />
       <Route path="/preferences" element={<PreferencesPage />} />
       <Route path="/profile" element={profileEl} />
     </Routes>
