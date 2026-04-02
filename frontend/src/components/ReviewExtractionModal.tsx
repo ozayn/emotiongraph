@@ -1,15 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import type { ExtractLogsResponse, LogRow } from "../types";
+import MetricSelect from "./MetricSelect";
+import { optionsForMetricKey } from "../trackerOptions";
 
-const FIELDS: { key: keyof LogRow; label: string; type?: "number" }[] = [
+const FIELDS: { key: keyof Omit<LogRow, "source_type">; label: string }[] = [
   { key: "start_time", label: "Start" },
   { key: "end_time", label: "End" },
   { key: "event", label: "Event" },
-  { key: "event_category", label: "Category" },
-  { key: "energy_level", label: "Energy", type: "number" },
-  { key: "anxiety", label: "Anxiety", type: "number" },
-  { key: "contentment", label: "Contentment", type: "number" },
-  { key: "focus", label: "Focus", type: "number" },
+  { key: "energy_level", label: "Energy" },
+  { key: "anxiety", label: "Anxiety" },
+  { key: "contentment", label: "Contentment" },
+  { key: "focus", label: "Focus" },
   { key: "music", label: "Music" },
   { key: "comments", label: "Comments" },
 ];
@@ -19,7 +20,6 @@ function emptyRow(): LogRow {
     start_time: null,
     end_time: null,
     event: null,
-    event_category: null,
     energy_level: null,
     anxiety: null,
     contentment: null,
@@ -82,7 +82,7 @@ export default function ReviewExtractionModal({
 
   if (!open) return null;
 
-  const updateCell = (i: number, field: keyof LogRow, raw: string) => {
+  const updateCell = (i: number, field: keyof Omit<LogRow, "source_type">, raw: string) => {
     rowsTouched.current = true;
     setRows((prev) => {
       const next = [...prev];
@@ -100,6 +100,9 @@ export default function ReviewExtractionModal({
           }
           break;
         }
+        case "music":
+          row.music = t === "" ? null : (t as LogRow["music"]);
+          break;
         default:
           row[field] = t === "" ? null : t;
       }
@@ -186,17 +189,30 @@ export default function ReviewExtractionModal({
                     </button>
                   </div>
                   <div className="entry-card-fields">
-                    {FIELDS.map(({ key, label, type }) => (
-                      <label key={key} className="field field--stacked">
-                        <span>{label}</span>
-                        <input
-                          type={type === "number" ? "number" : "text"}
-                          inputMode={type === "number" ? "numeric" : undefined}
-                          value={row[key] ?? ""}
-                          onChange={(e) => updateCell(i, key, e.target.value)}
-                        />
-                      </label>
-                    ))}
+                    {FIELDS.map(({ key, label }) => {
+                      const opts = optionsForMetricKey(key);
+                      if (opts) {
+                        return (
+                          <MetricSelect
+                            key={key}
+                            label={label}
+                            value={row[key] == null ? "" : String(row[key])}
+                            onChange={(v) => updateCell(i, key, v)}
+                            options={opts}
+                          />
+                        );
+                      }
+                      return (
+                        <label key={key} className="field field--stacked">
+                          <span>{label}</span>
+                          <input
+                            type="text"
+                            value={row[key] ?? ""}
+                            onChange={(e) => updateCell(i, key, e.target.value)}
+                          />
+                        </label>
+                      );
+                    })}
                   </div>
                 </article>
               ))}

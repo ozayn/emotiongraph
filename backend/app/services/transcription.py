@@ -7,7 +7,7 @@ from app.config import settings
 
 # Groq exposes Whisper-class STT via an OpenAI-compatible API:
 # https://console.groq.com/docs/speech-to-text
-
+# Whisper-class models transcribe many languages (e.g. English, Persian, Serbian) without a separate code path.
 
 def is_transcript_usable(text: str) -> bool:
     """True if transcript has at least one character that is not whitespace or Unicode punctuation."""

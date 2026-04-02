@@ -29,6 +29,11 @@ Or run **backend** and **frontend** in separate terminals:
 
 The Vite dev server proxies API routes to **`http://127.0.0.1:8100`**. For a custom API base, set `VITE_API_BASE` (for example `http://127.0.0.1:8100`).
 
+### Internal tracker config (admin)
+
+- **`/admin`** in the web UI — edit field labels, order, active/required flags, and select-option labels (values are fixed to match stored data).
+- **`GET /tracker-config`**, **`PATCH /tracker-config/fields/{id}`**, **`PATCH /tracker-config/options/{id}`** — JSON API for the same definitions (seeded on first startup from the current tracker layout). The Today flow still uses the existing hardcoded forms; wire them to this API when you implement dynamic rendering.
+
 ### Database (SQLite locally, Postgres in production)
 
 - **Local:** By default the API uses **SQLite** (`sqlite:///./emotiongraph.db` under the backend process working directory — with `./scripts/run_backend.sh` that is `backend/emotiongraph.db`). No extra setup.

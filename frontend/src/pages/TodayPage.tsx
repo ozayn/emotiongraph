@@ -1,18 +1,24 @@
-import { useCallback, useEffect, useState } from "react";
-import { extractLogs, fetchLogs, saveLogs, transcribeAudio } from "../api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { extractLogs, fetchLogs, fetchTrackerDay, saveLogs, saveTrackerDay, transcribeAudio } from "../api";
 import AudioRecorder from "../components/AudioRecorder";
+import MetricSelect from "../components/MetricSelect";
 import ReviewExtractionModal from "../components/ReviewExtractionModal";
 import type { ExtractLogsResponse, LogRow, SavedLogEntry } from "../types";
+import {
+  formatAnxiety,
+  formatContentment,
+  formatEnergy,
+  formatFocus,
+  formatSleepQuality,
+  optionsForMetricKey,
+  SLEEP_QUALITY_OPTIONS,
+} from "../trackerOptions";
 
-const MANUAL_FIELD_KEYS: { key: keyof LogRow; label: string; type?: "number" }[] = [
-  { key: "start_time", label: "Start" },
-  { key: "end_time", label: "End" },
-  { key: "event", label: "What happened" },
-  { key: "event_category", label: "Category" },
-  { key: "energy_level", label: "Energy", type: "number" },
-  { key: "anxiety", label: "Anxiety", type: "number" },
-  { key: "contentment", label: "Contentment", type: "number" },
-  { key: "focus", label: "Focus", type: "number" },
+const MANUAL_MORE_KEYS: { key: keyof Omit<LogRow, "source_type">; label: string }[] = [
+  { key: "energy_level", label: "Energy" },
+  { key: "anxiety", label: "Anxiety" },
+  { key: "contentment", label: "Contentment" },
+  { key: "focus", label: "Focus" },
   { key: "music", label: "Music" },
   { key: "comments", label: "Comments" },
 ];
@@ -22,14 +28,21 @@ function emptyManualDraft(): Record<keyof LogRow, string> {
     start_time: "",
     end_time: "",
     event: "",
-    event_category: "",
     energy_level: "",
     anxiety: "",
     contentment: "",
     focus: "",
     music: "",
     comments: "",
+    source_type: "",
   };
+}
+
+function parseMusicSelect(s: string): LogRow["music"] {
+  const t = s.trim();
+  if (!t) return null;
+  const allowed: LogRow["music"][] = ["No", "Yes, upbeat", "Yes, calm", "Yes, other"];
+  return allowed.includes(t as LogRow["music"]) ? (t as LogRow["music"]) : null;
 }
 
 function draftToLogRow(d: Record<keyof LogRow, string>): LogRow {
@@ -44,13 +57,13 @@ function draftToLogRow(d: Record<keyof LogRow, string>): LogRow {
     start_time: trim(d.start_time),
     end_time: trim(d.end_time),
     event: trim(d.event),
-    event_category: trim(d.event_category),
     energy_level: num(d.energy_level),
     anxiety: num(d.anxiety),
     contentment: num(d.contentment),
     focus: num(d.focus),
-    music: trim(d.music),
+    music: parseMusicSelect(d.music),
     comments: trim(d.comments),
+    source_type: "manual",
   };
 }
 
@@ -62,7 +75,18 @@ function todayIso(): string {
   return `${y}-${m}-${day}`;
 }
 
-export default function TodayPage() {
+type TodayPageProps = { userId: number };
+
+function isReadyUserId(id: number): boolean {
+  return Number.isInteger(id) && id > 0;
+}
+
+function isAbortError(e: unknown): boolean {
+  if (e instanceof DOMException && e.name === "AbortError") return true;
+  return e instanceof Error && e.name === "AbortError";
+}
+
+export default function TodayPage({ userId }: TodayPageProps) {
   const [logDate, setLogDate] = useState(todayIso);
   const [saved, setSaved] = useState<SavedLogEntry[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -83,25 +107,115 @@ export default function TodayPage() {
   const [manualError, setManualError] = useState<string | null>(null);
   const [manualSavedBanner, setManualSavedBanner] = useState(false);
 
+  const [dayDraft, setDayDraft] = useState({ cycle_day: "", sleep_hours: "", sleep_quality: "" });
+  const [daySaving, setDaySaving] = useState(false);
+  const [dayError, setDayError] = useState<string | null>(null);
+  const [daySavedBanner, setDaySavedBanner] = useState(false);
+  const [dayContextEditing, setDayContextEditing] = useState(false);
+  const dayContextFirstFieldRef = useRef<HTMLInputElement>(null);
+
   const refreshSaved = useCallback(async () => {
+    if (!isReadyUserId(userId) || !logDate.trim()) return;
     setLoadError(null);
     try {
-      const rows = await fetchLogs(logDate);
+      const rows = await fetchLogs(userId, logDate);
       setSaved(rows);
     } catch (e) {
+      if (isAbortError(e)) return;
       setLoadError(e instanceof Error ? e.message : "Failed to load logs");
     }
+  }, [userId, logDate]);
+
+  const refreshDay = useCallback(async () => {
+    if (!isReadyUserId(userId) || !logDate.trim()) return;
+    setDayError(null);
+    try {
+      const d = await fetchTrackerDay(userId, logDate);
+      setDayDraft({
+        cycle_day: d.cycle_day != null ? String(d.cycle_day) : "",
+        sleep_hours: d.sleep_hours != null ? String(d.sleep_hours) : "",
+        sleep_quality: d.sleep_quality != null ? String(d.sleep_quality) : "",
+      });
+    } catch (e) {
+      if (isAbortError(e)) return;
+      setDayError(e instanceof Error ? e.message : "Failed to load day info");
+    }
+  }, [userId, logDate]);
+
+  useEffect(() => {
+    if (!isReadyUserId(userId) || !logDate.trim()) return;
+
+    const ac = new AbortController();
+    setLoadError(null);
+
+    void (async () => {
+      try {
+        const rows = await fetchLogs(userId, logDate, { signal: ac.signal });
+        if (ac.signal.aborted) return;
+        setSaved(rows);
+      } catch (e) {
+        if (ac.signal.aborted || isAbortError(e)) return;
+        setLoadError(e instanceof Error ? e.message : "Failed to load logs");
+      }
+    })();
+
+    return () => ac.abort();
+  }, [userId, logDate]);
+
+  useEffect(() => {
+    if (!isReadyUserId(userId) || !logDate.trim()) return;
+
+    const ac = new AbortController();
+    setDayError(null);
+
+    void (async () => {
+      try {
+        const d = await fetchTrackerDay(userId, logDate, { signal: ac.signal });
+        if (ac.signal.aborted) return;
+        setDayDraft({
+          cycle_day: d.cycle_day != null ? String(d.cycle_day) : "",
+          sleep_hours: d.sleep_hours != null ? String(d.sleep_hours) : "",
+          sleep_quality: d.sleep_quality != null ? String(d.sleep_quality) : "",
+        });
+      } catch (e) {
+        if (ac.signal.aborted || isAbortError(e)) return;
+        setDayError(e instanceof Error ? e.message : "Failed to load day info");
+      }
+    })();
+
+    return () => ac.abort();
+  }, [userId, logDate]);
+
+  useEffect(() => {
+    setDayContextEditing(false);
   }, [logDate]);
 
   useEffect(() => {
-    void refreshSaved();
-  }, [refreshSaved]);
+    if (!dayContextEditing) return;
+    const t = window.setTimeout(() => dayContextFirstFieldRef.current?.focus(), 0);
+    return () => window.clearTimeout(t);
+  }, [dayContextEditing]);
+
+  useEffect(() => {
+    if (!dayContextEditing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setDayContextEditing(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [dayContextEditing]);
 
   useEffect(() => {
     if (!manualSavedBanner) return;
     const t = window.setTimeout(() => setManualSavedBanner(false), 5000);
     return () => window.clearTimeout(t);
   }, [manualSavedBanner]);
+
+  useEffect(() => {
+    if (!daySavedBanner) return;
+    const t = window.setTimeout(() => setDaySavedBanner(false), 4000);
+    return () => window.clearTimeout(t);
+  }, [daySavedBanner]);
 
   const setManualField = (key: keyof LogRow, value: string) => {
     setManualSavedBanner(false);
@@ -117,7 +231,7 @@ export default function TodayPage() {
     }
     setManualSaving(true);
     try {
-      await saveLogs(logDate, [row]);
+      await saveLogs(userId, logDate, [row]);
       setManualDraft(emptyManualDraft());
       setManualSavedBanner(true);
       await refreshSaved();
@@ -125,6 +239,29 @@ export default function TodayPage() {
       setManualError(e instanceof Error ? e.message : "Could not save entry");
     } finally {
       setManualSaving(false);
+    }
+  };
+
+  const handleSaveDay = async () => {
+    setDayError(null);
+    setDaySaving(true);
+    try {
+      const cycle = dayDraft.cycle_day.trim() === "" ? null : parseInt(dayDraft.cycle_day, 10);
+      const sleepH = dayDraft.sleep_hours.trim() === "" ? null : parseFloat(dayDraft.sleep_hours);
+      const sleepQ = dayDraft.sleep_quality.trim() === "" ? null : parseInt(dayDraft.sleep_quality, 10);
+      await saveTrackerDay(userId, {
+        log_date: logDate,
+        cycle_day: cycle != null && Number.isFinite(cycle) ? cycle : null,
+        sleep_hours: sleepH != null && Number.isFinite(sleepH) ? sleepH : null,
+        sleep_quality: sleepQ != null && Number.isFinite(sleepQ) ? sleepQ : null,
+      });
+      setDaySavedBanner(true);
+      await refreshDay();
+      setDayContextEditing(false);
+    } catch (e) {
+      setDayError(e instanceof Error ? e.message : "Could not save day info");
+    } finally {
+      setDaySaving(false);
     }
   };
 
@@ -173,7 +310,11 @@ export default function TodayPage() {
   };
 
   const handleSaveRows = async (rows: LogRow[]) => {
-    await saveLogs(logDate, rows);
+    await saveLogs(
+      userId,
+      logDate,
+      rows.map((r) => ({ ...r, source_type: "voice" as const })),
+    );
     closeReview();
     await refreshSaved();
   };
@@ -294,17 +435,26 @@ export default function TodayPage() {
           <details className="manual-add-more">
             <summary className="manual-add-more-summary">More fields (optional)</summary>
             <div className="manual-add-more-fields">
-              {MANUAL_FIELD_KEYS.filter((f) => !["event", "start_time", "end_time"].includes(f.key)).map(({ key, label, type }) => (
-                <label key={key} className="field field--stacked">
-                  <span>{label}</span>
-                  <input
-                    type={type === "number" ? "number" : "text"}
-                    inputMode={type === "number" ? "numeric" : undefined}
-                    value={manualDraft[key]}
-                    onChange={(e) => setManualField(key, e.target.value)}
-                  />
-                </label>
-              ))}
+              {MANUAL_MORE_KEYS.map(({ key, label }) => {
+                const opts = optionsForMetricKey(key);
+                if (opts) {
+                  return (
+                    <MetricSelect
+                      key={key}
+                      label={label}
+                      value={manualDraft[key]}
+                      onChange={(v) => setManualField(key, v)}
+                      options={opts}
+                    />
+                  );
+                }
+                return (
+                  <label key={key} className="field field--stacked">
+                    <span>{label}</span>
+                    <input type="text" value={manualDraft[key]} onChange={(e) => setManualField(key, e.target.value)} />
+                  </label>
+                );
+              })}
             </div>
           </details>
         </div>
@@ -319,6 +469,134 @@ export default function TodayPage() {
             {manualSaving ? "Saving…" : "Save entry"}
           </button>
         </div>
+      </section>
+
+      <section className="today-day-context" aria-labelledby="day-heading">
+        <div className="day-context-top">
+          <div className="day-context-top-text">
+            <p className="day-context-kicker" id="day-heading">
+              Day context
+            </p>
+            <p className="day-context-sub muted">
+              {dayContextEditing ? "Update cycle and sleep for this date." : "Daily signals — separate from your log entries."}
+            </p>
+          </div>
+          {!dayContextEditing && (
+            <button
+              type="button"
+              className="btn ghost small day-context-edit-btn"
+              aria-expanded={false}
+              aria-controls="day-context-editor"
+              onClick={() => setDayContextEditing(true)}
+            >
+              Edit
+            </button>
+          )}
+          {dayContextEditing && (
+            <span className="sr-only" aria-live="polite">
+              Editing day context
+            </span>
+          )}
+        </div>
+
+        {!dayContextEditing && (
+          <div className="day-context-summary" role="group" aria-label="Day context values">
+            <div className="day-context-stat">
+              <span className="day-context-stat-label">Cycle day</span>
+              <span className="day-context-stat-value mono">{dayDraft.cycle_day.trim() || "—"}</span>
+            </div>
+            <div className="day-context-stat">
+              <span className="day-context-stat-label">Sleep</span>
+              <span className="day-context-stat-value mono">
+                {dayDraft.sleep_hours.trim() ? `${dayDraft.sleep_hours.trim()} h` : "—"}
+              </span>
+            </div>
+            <div className="day-context-stat">
+              <span className="day-context-stat-label">Sleep quality</span>
+              <span className="day-context-stat-value day-context-stat-value--quality">
+                {(() => {
+                  const q = dayDraft.sleep_quality.trim();
+                  if (!q) return "—";
+                  const n = Number.parseInt(q, 10);
+                  return Number.isFinite(n) ? formatSleepQuality(n) : "—";
+                })()}
+              </span>
+            </div>
+          </div>
+        )}
+
+        <div className="day-context-editor" id="day-context-editor" hidden={!dayContextEditing}>
+            <div className="day-context-metrics" role="group" aria-label="Edit day context">
+              <label className="day-context-metric">
+                <span className="day-context-metric-label">Cycle day</span>
+                <input
+                  ref={dayContextFirstFieldRef}
+                  className="day-context-input"
+                  type="number"
+                  inputMode="numeric"
+                  min={1}
+                  max={366}
+                  placeholder="optional"
+                  value={dayDraft.cycle_day}
+                  onChange={(e) => setDayDraft((d) => ({ ...d, cycle_day: e.target.value }))}
+                />
+              </label>
+              <label className="day-context-metric">
+                <span className="day-context-metric-label">Sleep</span>
+                <span className="day-context-metric-unit muted">hours</span>
+                <input
+                  className="day-context-input"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  max={24}
+                  step={0.25}
+                  placeholder="optional"
+                  value={dayDraft.sleep_hours}
+                  onChange={(e) => setDayDraft((d) => ({ ...d, sleep_hours: e.target.value }))}
+                />
+              </label>
+              <div className="day-context-metric day-context-metric--quality">
+                <MetricSelect
+                  label="Sleep quality"
+                  value={dayDraft.sleep_quality}
+                  onChange={(v) => setDayDraft((d) => ({ ...d, sleep_quality: v }))}
+                  options={SLEEP_QUALITY_OPTIONS}
+                />
+              </div>
+            </div>
+            {dayError && <p className="error-inline manual-add-error day-context-inline-msg">{dayError}</p>}
+            {daySavedBanner && (
+              <p className="manual-add-success day-context-inline-msg" role="status">
+                Day info saved.
+              </p>
+            )}
+            <div className="day-context-edit-footer">
+              <button
+                type="button"
+                className="btn ghost small day-context-footer-btn"
+                disabled={daySaving}
+                onClick={() => setDayContextEditing(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn primary small day-context-footer-btn day-context-footer-save"
+                disabled={daySaving}
+                onClick={() => void handleSaveDay()}
+              >
+                {daySaving ? "Saving…" : "Save day info"}
+              </button>
+            </div>
+        </div>
+
+        {!dayContextEditing && dayError && <p className="error-inline manual-add-error day-context-inline-msg">{dayError}</p>}
+        {!dayContextEditing && daySavedBanner && (
+          <p className="manual-add-success day-context-inline-msg" role="status">
+            Day info saved.
+          </p>
+        )}
       </section>
 
       <section className="today-entries">
@@ -337,17 +615,16 @@ export default function TodayPage() {
                 </span>
               </div>
               <div className="saved-item-body">{e.event ?? "(no event)"}</div>
-              {e.event_category && <div className="saved-item-category muted small">{e.event_category}</div>}
               {(e.energy_level != null ||
                 e.anxiety != null ||
                 e.contentment != null ||
                 e.focus != null) && (
-                <div className="saved-item-metrics mono muted small">
+                <div className="saved-item-metrics muted small">
                   {[
-                    e.energy_level != null ? `E ${e.energy_level}` : null,
-                    e.anxiety != null ? `A ${e.anxiety}` : null,
-                    e.contentment != null ? `C ${e.contentment}` : null,
-                    e.focus != null ? `F ${e.focus}` : null,
+                    e.energy_level != null ? `Energy · ${formatEnergy(e.energy_level)}` : null,
+                    e.anxiety != null ? `Anxiety · ${formatAnxiety(e.anxiety)}` : null,
+                    e.contentment != null ? `Contentment · ${formatContentment(e.contentment)}` : null,
+                    e.focus != null ? `Focus · ${formatFocus(e.focus)}` : null,
                   ]
                     .filter((x): x is string => x != null)
                     .join(" · ")}
@@ -355,7 +632,7 @@ export default function TodayPage() {
               )}
               {(e.comments || e.music) && (
                 <div className="saved-item-meta muted small">
-                  {[e.music && `Music: ${e.music}`, e.comments].filter(Boolean).join(" · ")}
+                  {[e.music && `Music · ${e.music}`, e.comments].filter(Boolean).join(" · ")}
                 </div>
               )}
             </li>

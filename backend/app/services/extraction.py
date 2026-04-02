@@ -1,3 +1,13 @@
+"""
+Log extraction from voice transcripts.
+
+Multilingual support (English, Persian/Farsi, Serbian, and mixed/code-switched
+speech across them): the LLM understands all listed languages, preserves the
+speaker’s language(s) in free-text fields (event, comments, transcript_summary),
+and maps structured fields into the fixed app schema without translating for
+normalization.
+"""
+
 import json
 import logging
 import re
@@ -21,21 +31,31 @@ EXTRACTION_JSON_SCHEMA_HINT = """
 Return a single JSON object with exactly these keys:
 - "transcript_summary": string, a short neutral summary of what was said.
 - "rows": array of objects. Each object may include only these keys (omit a key or use null if unknown):
-  "start_time", "end_time", "event", "event_category", "energy_level", "anxiety",
-  "contentment", "focus", "music", "comments"
+  "start_time", "end_time", "event", "energy_level", "anxiety", "contentment", "focus", "music", "comments"
+
+Language (explicitly multilingual; robust to code-switching):
+- Transcripts may be in English, Persian (Farsi), Serbian (Latin or Cyrillic script as transcribed), or any mix of these in the same utterance (code-switching). Interpret meaning across all of them; do not require English input.
+- Speakers may switch languages mid-sentence or mid-story—follow the thread and merge related details into rows without dropping content because of language boundaries.
+- For "event", "comments", and "transcript_summary": preserve the original language(s) exactly as expressed (English, Persian, Serbian, or natural mixed wording). Do not translate these fields into a single target language for normalization.
+- Do not translate or rewrite the transcript; only extract and summarize in the source language(s).
 
 Rules:
 - Use null for any field you cannot infer with high confidence from the transcript.
 - Prefer fewer, broader rows over guessing fine-grained times.
-- start_time and end_time should be strings like "09:30" or "14:00" if mentioned; otherwise null.
-- energy_level, anxiety, contentment, focus are integers 1-10 only if clearly stated; otherwise null.
-- event is the main activity or feeling described; use null only if there is no usable line.
-- Do not invent music or metrics.
+- start_time and end_time: strings "HH:MM" in 24-hour form using Western digits (0-9), e.g. "09:30" or "14:00", if mentioned; map from Persian/Arabic/Cyrillic digit forms if the transcript uses them; otherwise null.
+- energy_level: integer 1 (low energy), 2 (neutral), or 3 (high energy) only if clearly stated (in any language); otherwise null.
+- anxiety: integer 0 (not at all), 1 (a little), 2 (moderately), or 3 (very much); otherwise null.
+- contentment: integer 1 (a little), 2 (moderately), or 3 (very much); otherwise null.
+- focus: integer 1 (distracted) through 5 (deep focus): 1 distracted, 2 mostly distracted, 3 mixed, 4 mostly focused, 5 deep focus; otherwise null.
+- music: map what the speaker said (any language) to one of exactly these English strings if clearly stated, otherwise null: "No", "Yes, upbeat", "Yes, calm", "Yes, other".
+- event and comments are free text in the speaker’s language(s). Do not invent music or numeric ratings.
 - Output must be valid JSON only, no markdown fences.
 """
 
 SYSTEM_PROMPT = """You extract structured daily log rows from a voice transcript.
+The transcript is explicitly multilingual: it may be English, Persian (Farsi), Serbian, or mixed—including frequent code-switching between these languages in one recording. Understand all of it; preserve the original language(s) in free-text fields (event, comments, transcript_summary); map structured fields to the fixed numeric scales and allowed music strings described in the user message.
 Be conservative. Never fabricate specifics. Use null for unknown fields.
+Do not translate the transcript or user-facing free text for uniformity—only extract and summarize in the source language(s), including natural mixed-language phrasing.
 The user will review and edit before anything is saved."""
 
 
@@ -125,6 +145,8 @@ def extract_logs_from_transcript(transcript: str, log_date_iso: str) -> ExtractL
        fall back to Groq only when GROQ_API_KEY is set (log: groq_fallback).
     3. If ANTHROPIC_API_KEY is missing and GROQ_API_KEY is set → Groq only (log: groq_only).
     4. If neither key is set → RuntimeError (caller maps to 503).
+
+    Prompts assume transcripts may be English, Farsi, Serbian, or mixed/code-switched; response shape is unchanged.
 
     Never writes to the database.
     """

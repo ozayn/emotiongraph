@@ -12,3 +12,6 @@ dist/
 !.env.example
 **/.env.example
 .DS_Store
+
+# Optional tracker export zips (default import looks in sample_data/)
+sample_data/*.zip
