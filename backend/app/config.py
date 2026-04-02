@@ -37,6 +37,19 @@ class Settings(BaseSettings):
     use_outbound_proxy: bool = False
     outbound_proxy_url: str = ""
 
+    # Google Sign-In (GIS): Web client ID from Google Cloud Console (OAuth 2.0 Client IDs).
+    google_oauth_client_id: str = ""
+    # HS256 secret for API access JWTs issued after Google sign-in. Use a long random string in production.
+    auth_jwt_secret: str = ""
+    auth_jwt_exp_seconds: int = 604800  # 7 days
+
+    # GET /users with X-Public-Demo: 1 (demo frontend only): list @emotiongraph.local seed users.
+    allow_public_demo_user_list: bool = True
+    # GET /users with no Bearer and no demo header: list all users (local / legacy private picker). Disable in locked-down production.
+    allow_unauthenticated_full_user_list: bool = True
+    # Accept X-User-Id for any existing user (insecure; local tooling only). Demo users work without this via @emotiongraph.local.
+    allow_x_user_id_any: bool = False
+
     @field_validator("cors_origins", mode="before")
     @classmethod
     def cors_origins_non_empty(cls, v: object) -> str:

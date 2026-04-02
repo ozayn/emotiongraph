@@ -8,6 +8,9 @@ USER_SEED_SPECS: tuple[tuple[str, str], ...] = (
     ("Test", "test@emotiongraph.local"),
 )
 
+# Public `/demo` API (`X-Public-Demo: 1`) only lists and allows this seeded user.
+DEMO_SANDBOX_EMAIL = "test@emotiongraph.local"
+
 
 def seed_users_if_empty(session: Session) -> None:
     """Ensure Azin, Zahra, and Test exist (adds any missing users by email)."""

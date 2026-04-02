@@ -21,6 +21,9 @@ export default defineConfig({
       "/tracker-day": { target: "http://127.0.0.1:8100", changeOrigin: true },
       "/health": { target: "http://127.0.0.1:8100", changeOrigin: true },
       "/users": { target: "http://127.0.0.1:8100", changeOrigin: true },
+      "/user": { target: "http://127.0.0.1:8100", changeOrigin: true },
+      "/auth": { target: "http://127.0.0.1:8100", changeOrigin: true },
+      "/debug": { target: "http://127.0.0.1:8100", changeOrigin: true },
       "/tracker-config": { target: "http://127.0.0.1:8100", changeOrigin: true },
       "/insights": {
         target: "http://127.0.0.1:8100",

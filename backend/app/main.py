@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from datetime import date
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, File, HTTPException, Query, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Header, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.exc import StatementError
@@ -17,13 +17,14 @@ from app.db import (
     get_db,
     upgrade_rdbms_schema_for_multiuser,
 )
-from app.deps import require_user_id
+from app.deps import require_user_id, resolve_bearer_user_id
 from app.models import LogEntry, TrackerDay, User
+from app.routers.auth_google import router as auth_google_router
 from app.routers.export_csv import router as export_csv_router
 from app.routers.insights import router as insights_router
 from app.routers.tracker_config import router as tracker_config_router
 from app.services.tracker_config_seed import seed_tracker_config_if_empty
-from app.services.user_seed import seed_users_if_empty
+from app.services.user_seed import DEMO_SANDBOX_EMAIL, seed_users_if_empty
 from app.schemas import (
     ExtractLogsRequest,
     ExtractLogsResponse,
@@ -154,6 +155,7 @@ app.add_middleware(
 app.include_router(tracker_config_router)
 app.include_router(insights_router, prefix="/insights", tags=["insights"])
 app.include_router(export_csv_router, prefix="/export", tags=["export"])
+app.include_router(auth_google_router, prefix="/auth", tags=["auth"])
 
 
 @app.exception_handler(Exception)
@@ -173,8 +175,23 @@ def health():
 
 
 @app.get("/users", response_model=list[UserRead])
-def list_users(db: Session = Depends(get_db)):
-    return db.query(User).order_by(User.id.asc()).all()
+def list_users(
+    authorization: str | None = Header(None),
+    x_public_demo: str | None = Header(None, alias="X-Public-Demo"),
+    db: Session = Depends(get_db),
+):
+    bearer_uid = resolve_bearer_user_id(authorization, db)
+    if bearer_uid is not None:
+        row = db.get(User, bearer_uid)
+        return [row] if row is not None else []
+    if (x_public_demo or "").strip() == "1":
+        if not settings.allow_public_demo_user_list:
+            raise HTTPException(status_code=401, detail="Public demo user list is disabled")
+        row = db.query(User).filter(User.email == DEMO_SANDBOX_EMAIL).order_by(User.id.asc()).first()
+        return [row] if row is not None else []
+    if settings.allow_unauthenticated_full_user_list:
+        return db.query(User).order_by(User.id.asc()).all()
+    raise HTTPException(status_code=401, detail="Authentication required")
 
 
 @app.patch("/user/timezone", response_model=UserRead)

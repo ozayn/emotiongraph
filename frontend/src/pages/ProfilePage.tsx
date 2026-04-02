@@ -6,6 +6,7 @@ import InlineHelp from "../components/InlineHelp";
 import ProfileCsvImport from "../components/ProfileCsvImport";
 import UserTimezonePreferences from "../components/UserTimezonePreferences";
 import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
+import { usePrivateAuthOptional } from "../auth/privateAuthContext";
 import { useSession } from "../session/SessionContext";
 import type { User } from "../types";
 
@@ -17,7 +18,8 @@ type Props = {
 };
 
 export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: Props) {
-  const { pathFor, realm } = useSession();
+  const { pathFor, realm, authMode } = useSession();
+  const privateAuth = usePrivateAuthOptional();
   const { hash } = useLocation();
   const [exportStart, setExportStart] = useState(() => addCalendarDaysToIso(todayIsoInTimeZone(timeZone), -60));
   const [exportEnd, setExportEnd] = useState(() => todayIsoInTimeZone(timeZone));
@@ -87,7 +89,7 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
                 {" "}
                 ·{" "}
               </span>
-              <span>local session</span>
+              <span>{authMode === "google_oauth" ? "Google account" : "local session"}</span>
             </p>
           </div>
 
@@ -97,8 +99,10 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
             </Link>
             <InlineHelp label="This profile">
               <p>Voice capture and daily review live in the top bar.</p>
-              {realm === "private" ? (
-                <p>Google sign-in will link this profile to your account when it ships — not in this build.</p>
+              {realm === "private" && authMode === "google_oauth" ? (
+                <p>This profile is tied to the Google account you signed in with.</p>
+              ) : realm === "private" ? (
+                <p>Local profile on this device — use sign-in when your workspace enables Google.</p>
               ) : (
                 <p>This is the public demo: use only non-sensitive sample data.</p>
               )}
@@ -106,14 +110,30 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
           </div>
 
           <div className="profile-account-footer">
-            <Link className="profile-account-secondary" to={pathFor("/switch-profile")}>
-              Use a different profile
-            </Link>
+            {authMode !== "google_oauth" ? (
+              <Link className="profile-account-secondary" to={pathFor("/switch-profile")}>
+                Use a different profile
+              </Link>
+            ) : null}
+            {realm === "private" && authMode === "google_oauth" && privateAuth ? (
+              <button
+                type="button"
+                className="profile-account-secondary profile-account-signout"
+                onClick={() => {
+                  privateAuth.setAccessToken(null);
+                  window.location.assign("/");
+                }}
+              >
+                Sign out
+              </button>
+            ) : null}
             {realm === "private" ? (
               <>
-                <span className="profile-account-footer-sep muted small" aria-hidden="true">
-                  ·
-                </span>
+                {(authMode !== "google_oauth" || privateAuth) && (
+                  <span className="profile-account-footer-sep muted small" aria-hidden="true">
+                    ·
+                  </span>
+                )}
                 <Link className="profile-account-secondary" to={pathFor("/admin")}>
                   Tracker config
                 </Link>

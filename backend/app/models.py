@@ -12,6 +12,8 @@ class User(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     name: Mapped[str] = mapped_column(String(128), nullable=False)
     email: Mapped[str] = mapped_column(String(256), nullable=False, unique=True)
+    # Stable Google subject (`sub` claim); NULL for seeded demo users (@emotiongraph.local).
+    google_sub: Mapped[str | None] = mapped_column(String(255), nullable=True, unique=True)
     # NULL = client uses browser/device IANA zone; non-null = saved override.
     timezone: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(

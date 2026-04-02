@@ -372,6 +372,19 @@ class UserRead(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class GoogleAuthBody(BaseModel):
+    """GIS credential JWT from the browser (response.credential)."""
+
+    credential: str = Field(..., min_length=20)
+
+
+class AuthTokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
+    user: UserRead
+
+
 class UserTimezoneUpdate(BaseModel):
     """``timezone`` null clears the saved override (client uses device/browser zone)."""
 

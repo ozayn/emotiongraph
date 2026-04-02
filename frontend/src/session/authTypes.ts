@@ -11,7 +11,7 @@ export type AppRealm = "private" | "demo";
  * How the app resolves “who is using this device”.
  *
  * - `local_profile`: pick a user (demo realm or dev); persist `X-User-Id` client-side.
- * - `google_oauth`: private realm with Google session + backend user binding (wired when backend is ready).
+ * - `google_oauth`: private realm with Google GIS + backend JWT (Bearer on API calls).
  * - `unauthenticated`: private realm, Google required, no session yet (login screen).
  */
 export type AuthMode = "local_profile" | "google_oauth" | "unauthenticated";

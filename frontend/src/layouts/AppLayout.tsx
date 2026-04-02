@@ -11,7 +11,7 @@ type Props = { children: React.ReactNode };
  */
 export default function AppLayout({ children }: Props) {
   const { pathname } = useLocation();
-  const { usersReady, userScopeReady, usersError, realm, pathFor, homePath } = useSession();
+  const { usersReady, userScopeReady, usersError, realm, pathFor, homePath, authMode, users } = useSession();
   const switchProfilePath = pathFor("/switch-profile");
 
   return (
@@ -34,7 +34,9 @@ export default function AppLayout({ children }: Props) {
             {usersReady && userScopeReady && (
               <nav className="app-header-nav" aria-label="Main">
                 <MainNav />
-                {pathname !== switchProfilePath && (
+                {authMode !== "google_oauth" &&
+                  !(realm === "demo" && users.length === 1) &&
+                  pathname !== switchProfilePath && (
                   <>
                     <span className="app-header-nav-rule" aria-hidden="true" />
                     <Link className="app-header-secondary-link" to={switchProfilePath}>

@@ -13,11 +13,53 @@ import type {
 
 const base = () => import.meta.env.VITE_API_BASE ?? "";
 
+const PRIVATE_TOKEN_KEY = "emotiongraph_private_access_token";
+
+function privateAccessToken(): string | null {
+  try {
+    const t = localStorage.getItem(PRIVATE_TOKEN_KEY);
+    return t && t.trim() ? t.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Authorization header when the private app has stored a JWT (same key as PrivateAuthProvider). */
+export function authHeaders(): Record<string, string> {
+  const t = privateAccessToken();
+  return t ? { Authorization: `Bearer ${t}` } : {};
+}
+
 function userScopedHeaders(userId: number): Record<string, string> {
   if (!Number.isInteger(userId) || userId < 1) {
     throw new Error("Invalid user id for scoped request");
   }
   return { "X-User-Id": String(userId) };
+}
+
+/** Mark requests from the `/demo/*` UI so the API can restrict user scope to the Test sandbox. */
+function demoPublicHeaders(): Record<string, string> {
+  if (typeof window !== "undefined" && window.location.pathname.startsWith("/demo")) {
+    return { "X-Public-Demo": "1" };
+  }
+  return {};
+}
+
+/** Prefer Bearer (private signed-in); otherwise demo / dev X-User-Id + demo marker when on `/demo`. */
+function scopedAuthHeaders(userId: number): Record<string, string> {
+  const a = authHeaders();
+  if (a.Authorization) {
+    return a;
+  }
+  return { ...userScopedHeaders(userId), ...demoPublicHeaders() };
+}
+
+export class ApiUnauthorizedError extends Error {
+  readonly status = 401;
+  constructor(message = "Unauthorized") {
+    super(message);
+    this.name = "ApiUnauthorizedError";
+  }
 }
 
 /** Positive integer ids from the server; avoids user-scoped HTTP calls before selection is ready. */
@@ -41,15 +83,38 @@ async function parseJson<T>(res: Response): Promise<T> {
   return text ? (JSON.parse(text) as T) : ({} as T);
 }
 
-export async function fetchUsers(): Promise<User[]> {
-  const res = await fetch(`${base()}/users`);
+export async function fetchUsers(isDemoRealm = false): Promise<User[]> {
+  const headers: Record<string, string> = { ...authHeaders() };
+  if (isDemoRealm) {
+    headers["X-Public-Demo"] = "1";
+  }
+  const res = await fetch(`${base()}/users`, { headers });
+  if (res.status === 401) {
+    throw new ApiUnauthorizedError();
+  }
+  return parseJson(res);
+}
+
+export type GoogleAuthResponse = {
+  access_token: string;
+  token_type: string;
+  expires_in: number;
+  user: User;
+};
+
+export async function postGoogleAuth(credential: string): Promise<GoogleAuthResponse> {
+  const res = await fetch(`${base()}/auth/google`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ credential }),
+  });
   return parseJson(res);
 }
 
 export async function patchUserTimezone(userId: number, timezone: string | null): Promise<User> {
   const res = await fetch(`${base()}/user/timezone`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...userScopedHeaders(userId) },
+    headers: { "Content-Type": "application/json", ...scopedAuthHeaders(userId) },
     body: JSON.stringify({ timezone }),
   });
   return parseJson(res);
@@ -101,7 +166,7 @@ export async function extractLogs(
 export async function saveLogs(userId: number, logDate: string, rows: LogRow[]): Promise<SavedLogEntry[]> {
   const res = await fetch(`${base()}/logs`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...userScopedHeaders(userId) },
+    headers: { "Content-Type": "application/json", ...scopedAuthHeaders(userId) },
     body: JSON.stringify({ log_date: logDate, rows }),
   });
   return parseJson(res);
@@ -115,7 +180,7 @@ export async function debugSaveLogsPayload(
 ): Promise<DebugLogsSaveResponse> {
   const res = await fetch(`${base()}/debug/logs`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...userScopedHeaders(userId) },
+    headers: { "Content-Type": "application/json", ...scopedAuthHeaders(userId) },
     body: JSON.stringify({ log_date: logDate, rows }),
   });
   return parseJson(res);
@@ -126,7 +191,7 @@ export async function previewLogsImportCsv(userId: number, file: File): Promise<
   fd.append("file", file, file.name);
   const res = await fetch(`${base()}/logs/import-csv/preview`, {
     method: "POST",
-    headers: { ...userScopedHeaders(userId) },
+    headers: { ...scopedAuthHeaders(userId) },
     body: fd,
   });
   return parseJson(res);
@@ -135,7 +200,7 @@ export async function previewLogsImportCsv(userId: number, file: File): Promise<
 export async function commitLogsImport(userId: number, rows: LogImportRow[]): Promise<SavedLogEntry[]> {
   const res = await fetch(`${base()}/logs/import-rows`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...userScopedHeaders(userId) },
+    headers: { "Content-Type": "application/json", ...scopedAuthHeaders(userId) },
     body: JSON.stringify({ rows }),
   });
   return parseJson(res);
@@ -155,7 +220,7 @@ export async function fetchLogs(
   }
   const q = new URLSearchParams({ log_date: logDate });
   const res = await fetch(`${base()}/logs?${q.toString()}`, {
-    headers: { ...userScopedHeaders(userId) },
+    headers: { ...scopedAuthHeaders(userId) },
     signal: options?.signal,
   });
   return parseJson(res);
@@ -172,7 +237,7 @@ export async function fetchLogsRange(
   }
   const q = new URLSearchParams({ start_date: startDate, end_date: endDate });
   const res = await fetch(`${base()}/logs?${q.toString()}`, {
-    headers: { ...userScopedHeaders(userId) },
+    headers: { ...scopedAuthHeaders(userId) },
     signal: options?.signal,
   });
   return parseJson(res);
@@ -195,7 +260,7 @@ export type LogEntryPatchBody = {
 export async function patchLog(userId: number, entryId: number, body: LogEntryPatchBody): Promise<SavedLogEntry> {
   const res = await fetch(`${base()}/logs/${entryId}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json", ...userScopedHeaders(userId) },
+    headers: { "Content-Type": "application/json", ...scopedAuthHeaders(userId) },
     body: JSON.stringify(body),
   });
   return parseJson(res);
@@ -204,7 +269,7 @@ export async function patchLog(userId: number, entryId: number, body: LogEntryPa
 export async function deleteLog(userId: number, entryId: number): Promise<void> {
   const res = await fetch(`${base()}/logs/${entryId}`, {
     method: "DELETE",
-    headers: { ...userScopedHeaders(userId) },
+    headers: { ...scopedAuthHeaders(userId) },
   });
   if (!res.ok) {
     const text = await res.text();
@@ -235,7 +300,7 @@ export async function fetchTrackerDay(
   }
   const q = new URLSearchParams({ log_date: logDate });
   const res = await fetch(`${base()}/tracker-day?${q.toString()}`, {
-    headers: { ...userScopedHeaders(userId) },
+    headers: { ...scopedAuthHeaders(userId) },
     signal: options?.signal,
   });
   return parseJson(res);
@@ -244,7 +309,7 @@ export async function fetchTrackerDay(
 export async function saveTrackerDay(userId: number, body: TrackerDay): Promise<TrackerDay> {
   const res = await fetch(`${base()}/tracker-day`, {
     method: "PUT",
-    headers: { "Content-Type": "application/json", ...userScopedHeaders(userId) },
+    headers: { "Content-Type": "application/json", ...scopedAuthHeaders(userId) },
     body: JSON.stringify(body),
   });
   return parseJson(res);
@@ -261,7 +326,7 @@ export async function fetchInsights(
   }
   const q = new URLSearchParams({ start_date: startDate, end_date: endDate });
   const res = await fetch(`${base()}/insights?${q.toString()}`, {
-    headers: { ...userScopedHeaders(userId) },
+    headers: { ...scopedAuthHeaders(userId) },
     signal: options?.signal,
   });
   return parseJson(res);
@@ -291,7 +356,7 @@ export async function downloadLogsCsvExport(userId: number, startDate: string, e
   }
   const q = new URLSearchParams({ start_date: startDate, end_date: endDate });
   const res = await fetch(`${base()}/export/logs-csv?${q.toString()}`, {
-    headers: { ...userScopedHeaders(userId) },
+    headers: { ...scopedAuthHeaders(userId) },
   });
   if (!res.ok) {
     const text = await res.text();

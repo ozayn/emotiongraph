@@ -548,11 +548,34 @@ body {
   line-height: 1.5;
 }
 
-.login-google-btn {
+.login-google-host {
   margin-top: 0.35rem;
   align-self: stretch;
   width: 100%;
+  min-height: 2.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.login-google-host--busy {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.login-google-btn-mount {
+  width: 100%;
+  display: flex;
   justify-content: center;
+}
+
+.login-google-btn-mount > div {
+  width: 100% !important;
+}
+
+.login-google-busy {
+  margin: 0;
+  text-align: center;
 }
 
 .login-footnote {
@@ -2699,6 +2722,14 @@ body {
 
 .profile-account-secondary:hover {
   color: var(--accent-blue-mid);
+}
+
+button.profile-account-secondary {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
 }
 
 .profile-data-panel {

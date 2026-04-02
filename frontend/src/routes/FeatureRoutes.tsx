@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Route, Routes, useNavigate } from "react-router-dom";
+import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import UsersGate from "../components/UsersGate";
 import { useSession } from "../session/SessionContext";
 import AddEntryPage from "../pages/AddEntryPage";
@@ -28,9 +28,11 @@ export default function FeatureRoutes() {
     userTimeZone,
     applyUser,
     mergeUser,
+    authMode,
   } = useSession();
 
   const isDemo = realm === "demo";
+  const demoSingleSandbox = isDemo && users.length === 1;
 
   const onProfileChosen = (id: number, mode: "first" | "switch") => {
     applyUser(id);
@@ -55,7 +57,11 @@ export default function FeatureRoutes() {
     );
 
   const switchProfileEl =
-    needsProfileChoice ? chooseFirst : usersReady && users.length > 0 ? (
+    authMode === "google_oauth" || demoSingleSandbox ? (
+      <Navigate to={homePath} replace />
+    ) : needsProfileChoice ? (
+      chooseFirst
+    ) : usersReady && users.length > 0 ? (
       <ChooseProfilePage users={users} switching onChoose={(id) => onProfileChosen(id, "switch")} />
     ) : (
       <UsersGate usersReady={usersReady} users={users} />

@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import { fetchUsers } from "../api";
+import { ApiUnauthorizedError, fetchUsers } from "../api";
+import { usePrivateAuthOptional } from "../auth/privateAuthContext";
 import { allowLocalPrivateDev, getDemoUserIdFilter, googleAuthDevBypass, isGoogleAuthRequired } from "../config/realmConfig";
 import { effectiveUserTimeZone } from "../datesTz";
 import type { User } from "../types";
@@ -35,6 +36,10 @@ type ProviderProps = {
 };
 
 export function SessionProvider({ realm, children }: ProviderProps) {
+  const privateAuth = usePrivateAuthOptional();
+  const accessToken = realm === "private" ? (privateAuth?.accessToken?.trim() ?? null) : null;
+  const hasPrivateToken = Boolean(accessToken);
+
   const [users, setUsers] = useState<User[]>([]);
   const [userId, setUserId] = useState<number | null>(null);
   const [usersError, setUsersError] = useState<string | null>(null);
@@ -51,14 +56,18 @@ export function SessionProvider({ realm, children }: ProviderProps) {
   );
 
   const skipUserFetch =
-    realm === "private" && isGoogleAuthRequired() && !allowLocalPrivateDev() && !googleAuthDevBypass();
+    realm === "private" &&
+    isGoogleAuthRequired() &&
+    !allowLocalPrivateDev() &&
+    !googleAuthDevBypass() &&
+    !hasPrivateToken;
 
   const authMode: AuthMode = useMemo(() => {
     if (realm === "demo") return "local_profile";
     if (!isGoogleAuthRequired()) return "local_profile";
     if (allowLocalPrivateDev() || googleAuthDevBypass()) return "local_profile";
-    return "unauthenticated";
-  }, [realm]);
+    return hasPrivateToken ? "google_oauth" : "unauthenticated";
+  }, [realm, hasPrivateToken]);
 
   const applyUser = useCallback(
     (id: number) => {
@@ -81,7 +90,7 @@ export function SessionProvider({ realm, children }: ProviderProps) {
     let cancelled = false;
     setUsersError(null);
     setUsersReady(false);
-    void fetchUsers()
+    void fetchUsers(realm === "demo")
       .then((list) => {
         if (cancelled) return;
         let next = list;
@@ -90,11 +99,45 @@ export function SessionProvider({ realm, children }: ProviderProps) {
           next = list.filter((u) => u.id === demoFilter);
           if (next.length === 0) {
             setUsersError(
-              "This preview isn’t available right now. Try again later, or open the full app if you already use it.",
+              "The public demo uses the Test sample profile only. Remove VITE_DEMO_USER_ID or set it to Test’s numeric id from your server.",
             );
           }
         }
         setUsers(next);
+
+        // Demo: API returns only Test — skip the chooser when there is a single sandbox user.
+        if (realm === "demo" && next.length === 1) {
+          const u = next[0];
+          setSelectedUserId(String(u.id), realm);
+          setUserId(u.id);
+          setUsersReady(true);
+          return;
+        }
+        if (realm === "demo" && next.length === 0) {
+          setUserId(null);
+          setUsersReady(true);
+          return;
+        }
+
+        // Private Google session: API returns only the signed-in user — bind immediately (no local picker).
+        if (authMode === "google_oauth") {
+          if (next.length === 1) {
+            const u = next[0];
+            setSelectedUserId(String(u.id), realm);
+            setUserId(u.id);
+          } else if (next.length > 1) {
+            const stored = getSelectedUserId(realm);
+            const sid = stored ? Number.parseInt(stored, 10) : NaN;
+            const pick = next.find((x) => x.id === sid) ?? next[0];
+            setSelectedUserId(String(pick.id), realm);
+            setUserId(pick.id);
+          } else {
+            setUserId(null);
+          }
+          setUsersReady(true);
+          return;
+        }
+
         const stored = getSelectedUserId(realm);
         const sid = stored ? Number.parseInt(stored, 10) : NaN;
         const match = next.find((u) => u.id === sid);
@@ -109,13 +152,16 @@ export function SessionProvider({ realm, children }: ProviderProps) {
       })
       .catch((e) => {
         if (cancelled) return;
+        if (e instanceof ApiUnauthorizedError) {
+          privateAuth?.setAccessToken(null);
+        }
         setUsersError(e instanceof Error ? e.message : "Could not load users");
         setUsersReady(true);
       });
     return () => {
       cancelled = true;
     };
-  }, [realm, skipUserFetch, authMode]);
+  }, [realm, skipUserFetch, authMode, privateAuth]);
 
   const mergeUser = useCallback((u: User) => {
     setUsers((prev) => prev.map((x) => (x.id === u.id ? u : x)));
@@ -135,7 +181,12 @@ export function SessionProvider({ realm, children }: ProviderProps) {
     users.some((u) => u.id === userId);
 
   const needsProfileChoice =
-    !skipUserFetch && authMode !== "unauthenticated" && usersReady && users.length > 0 && userId == null;
+    !skipUserFetch &&
+    authMode !== "unauthenticated" &&
+    authMode !== "google_oauth" &&
+    usersReady &&
+    users.length > 0 &&
+    userId == null;
 
   const value = useMemo<SessionValue>(
     () => ({

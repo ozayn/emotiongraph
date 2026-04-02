@@ -3,6 +3,7 @@
  * See `frontend/.env.example`.
  */
 
+/** Optional pin for `/demo` when the Test user’s id is known; must match the seeded Test row or the list is empty. */
 export function getDemoUserIdFilter(): number | null {
   const raw = import.meta.env.VITE_DEMO_USER_ID as string | undefined;
   if (raw == null || String(raw).trim() === "") return null;

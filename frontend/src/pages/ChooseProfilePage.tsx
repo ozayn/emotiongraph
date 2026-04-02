@@ -1,11 +1,14 @@
 import { useSession } from "../session/SessionContext";
 import type { User } from "../types";
 
-/** Matches backend seed order for a stable, predictable first-run list. */
+/** Private app: stable ordering for the local profile list. */
 const PROFILE_ORDER = ["Azin", "Zahra", "Test"];
 
-function sortForChooser(users: User[]): User[] {
+function sortForChooser(users: User[], isDemo: boolean): User[] {
   return [...users].sort((a, b) => {
+    if (isDemo) {
+      return a.name.localeCompare(b.name);
+    }
     const ia = PROFILE_ORDER.indexOf(a.name);
     const ib = PROFILE_ORDER.indexOf(b.name);
     if (ia === -1 && ib === -1) return a.name.localeCompare(b.name);
@@ -25,18 +28,18 @@ type Props = {
 export default function ChooseProfilePage({ users, switching = false, onChoose }: Props) {
   const { realm } = useSession();
   const isDemo = realm === "demo";
-  const ordered = sortForChooser(users);
+  const ordered = sortForChooser(users, isDemo);
 
   const title = (() => {
-    if (isDemo) return switching ? "Switch profile" : "Pick a profile";
+    if (isDemo) return switching ? "Switch sandbox" : "Sample demo";
     return switching ? "Switch profile" : "Who’s logging today?";
   })();
 
   const subtitle = (() => {
     if (isDemo) {
       return switching
-        ? "Browse as someone else — still sample data only."
-        : "Sample stories and entries for exploring the app. Nothing here is your private log.";
+        ? "Same Test sandbox — sample data only, not your private log."
+        : "You’re in the Test sandbox: sample entries for exploring the app, not your private log.";
     }
     return switching
       ? "Choose who is using this device. No password — this only sets local preferences."
