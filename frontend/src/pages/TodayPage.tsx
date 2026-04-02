@@ -121,6 +121,7 @@ export default function TodayPage({ userId }: TodayPageProps) {
   const [manualSaving, setManualSaving] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
   const [manualSavedBanner, setManualSavedBanner] = useState(false);
+  const [manualSectionOpen, setManualSectionOpen] = useState(false);
 
   const [dayDraft, setDayDraft] = useState({ cycle_day: "", sleep_hours: "", sleep_quality: "" });
   const [daySaving, setDaySaving] = useState(false);
@@ -206,6 +207,10 @@ export default function TodayPage({ userId }: TodayPageProps) {
     setDayContextEditing(false);
     setDayContextOpen(false);
   }, [logDate]);
+
+  useEffect(() => {
+    if (manualError || manualSavedBanner) setManualSectionOpen(true);
+  }, [manualError, manualSavedBanner]);
 
   useEffect(() => {
     if (!dayContextEditing) return;
@@ -382,13 +387,15 @@ export default function TodayPage({ userId }: TodayPageProps) {
       )}
 
       <header className="today-header">
-        <h1 className="today-title">
-          <time dateTime={logDate}>{formatDateHeading(logDate)}</time>
-        </h1>
-        <label className="today-date-label">
-          <span className="sr-only">Change log date</span>
-          <input className="date-input date-input--compact" type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} />
-        </label>
+        <div className="today-header-bar">
+          <h1 className="today-title">
+            <time dateTime={logDate}>{formatDateHeading(logDate)}</time>
+          </h1>
+          <label className="today-date-label">
+            <span className="sr-only">Change log date</span>
+            <input className="date-input date-input--today-bar" type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} />
+          </label>
+        </div>
       </header>
 
       <section className={recordPanelClass} aria-label="Voice log">
@@ -412,80 +419,100 @@ export default function TodayPage({ userId }: TodayPageProps) {
         {stepError && <p className="error-inline error-inline--spaced">{stepError}</p>}
       </section>
 
-      <section className="today-manual today-manual--secondary" aria-labelledby="manual-add-heading">
-        <h2 className="today-manual-heading" id="manual-add-heading">
-          Type instead
-        </h2>
-        <div className="manual-add-fields">
-          <label className="field field--stacked">
-            <span>What happened</span>
-            <input
-              type="text"
-              autoComplete="off"
-              placeholder="e.g. Morning walk"
-              value={manualDraft.event}
-              onChange={(e) => setManualField("event", e.target.value)}
-            />
-          </label>
-          <div className="manual-add-time-row">
-            <label className="field field--stacked">
-              <span>Start</span>
-              <input
-                type="text"
-                inputMode="text"
-                placeholder="optional"
-                value={manualDraft.start_time}
-                onChange={(e) => setManualField("start_time", e.target.value)}
-              />
-            </label>
-            <label className="field field--stacked">
-              <span>End</span>
-              <input
-                type="text"
-                inputMode="text"
-                placeholder="optional"
-                value={manualDraft.end_time}
-                onChange={(e) => setManualField("end_time", e.target.value)}
-              />
-            </label>
-          </div>
-          <details className="manual-add-more">
-            <summary className="manual-add-more-summary">More fields (optional)</summary>
-            <div className="manual-add-more-fields">
-              {MANUAL_MORE_KEYS.map(({ key, label }) => {
-                const opts = optionsForMetricKey(key);
-                if (opts) {
-                  return (
-                    <MetricSelect
-                      key={key}
-                      label={label}
-                      value={manualDraft[key]}
-                      onChange={(v) => setManualField(key, v)}
-                      options={opts}
-                    />
-                  );
-                }
-                return (
-                  <label key={key} className="field field--stacked">
-                    <span>{label}</span>
-                    <input type="text" value={manualDraft[key]} onChange={(e) => setManualField(key, e.target.value)} />
-                  </label>
-                );
-              })}
+      <section className="today-manual-shell" aria-labelledby="manual-add-heading">
+        <details
+          className="today-manual today-manual--secondary today-manual-disclosure"
+          open={manualSectionOpen}
+          onToggle={(e) => setManualSectionOpen(e.currentTarget.open)}
+        >
+          <summary className="today-manual-summary">
+            <span id="manual-add-heading" className="today-manual-summary-title">
+              Type instead
+            </span>
+            <span className="today-manual-summary-chevron" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+          </summary>
+          <div className="today-manual-body">
+            <div className="manual-add-fields">
+              <label className="field field--stacked">
+                <span>What happened</span>
+                <input
+                  type="text"
+                  autoComplete="off"
+                  placeholder="e.g. Morning walk"
+                  value={manualDraft.event}
+                  onChange={(e) => setManualField("event", e.target.value)}
+                />
+              </label>
+              <div className="manual-add-time-row">
+                <label className="field field--stacked">
+                  <span>Start</span>
+                  <input
+                    type="text"
+                    inputMode="text"
+                    placeholder="optional"
+                    value={manualDraft.start_time}
+                    onChange={(e) => setManualField("start_time", e.target.value)}
+                  />
+                </label>
+                <label className="field field--stacked">
+                  <span>End</span>
+                  <input
+                    type="text"
+                    inputMode="text"
+                    placeholder="optional"
+                    value={manualDraft.end_time}
+                    onChange={(e) => setManualField("end_time", e.target.value)}
+                  />
+                </label>
+              </div>
+              <details className="manual-add-more">
+                <summary className="manual-add-more-summary">More fields</summary>
+                <div className="manual-add-more-fields">
+                  {MANUAL_MORE_KEYS.map(({ key, label }) => {
+                    const opts = optionsForMetricKey(key);
+                    if (opts) {
+                      return (
+                        <MetricSelect
+                          key={key}
+                          label={label}
+                          value={manualDraft[key]}
+                          onChange={(v) => setManualField(key, v)}
+                          options={opts}
+                        />
+                      );
+                    }
+                    return (
+                      <label key={key} className="field field--stacked">
+                        <span>{label}</span>
+                        <input type="text" value={manualDraft[key]} onChange={(e) => setManualField(key, e.target.value)} />
+                      </label>
+                    );
+                  })}
+                </div>
+              </details>
             </div>
-          </details>
-        </div>
-        {manualError && <p className="error-inline manual-add-error">{manualError}</p>}
-        {manualSavedBanner && (
-          <p className="manual-add-success" role="status">
-            Saved.
-          </p>
-        )}
-        <div className="manual-add-actions">
-          <button type="button" className="btn primary manual-add-save" disabled={manualSaving} onClick={() => void handleManualSave()}>
-            {manualSaving ? "Saving…" : "Save entry"}
-          </button>
-        </div>
+            {manualError && <p className="error-inline manual-add-error">{manualError}</p>}
+            {manualSavedBanner && (
+              <p className="manual-add-success manual-add-success--compact" role="status">
+                Saved.
+              </p>
+            )}
+            <div className="manual-add-actions">
+              <button
+                type="button"
+                className="btn primary small manual-add-save"
+                disabled={manualSaving}
+                onClick={() => void handleManualSave()}
+              >
+                {manualSaving ? "Saving…" : "Save entry"}
+              </button>
+            </div>
+          </div>
+        </details>
       </section>
 
       <section className="today-day-context" aria-labelledby="day-heading">
@@ -668,7 +695,7 @@ export default function TodayPage({ userId }: TodayPageProps) {
         )}
       </section>
 
-      <section className="today-entries">
+      <section className="today-entries today-entries--integrated">
         <h2 className="today-entries-heading">Saved</h2>
         {loadError && <p className="error-inline">{loadError}</p>}
         {!loadError && saved.length === 0 && <p className="muted today-entries-empty">Nothing saved yet.</p>}

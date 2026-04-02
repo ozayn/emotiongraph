@@ -123,19 +123,21 @@ export default function App() {
           <Route path="/admin" element={<AdminTrackerPage />} />
         </Routes>
       </main>
-      <footer className="app-footer">
-        <nav className="app-footer-nav" aria-label="Secondary">
-          <Link className="app-footer-link muted small" to="/">
-            Start
-          </Link>
-          <span className="app-footer-sep muted small" aria-hidden="true">
-            ·
-          </span>
-          <Link className="app-footer-link muted small" to="/admin">
-            Config
-          </Link>
-        </nav>
-      </footer>
+      {pathname !== "/today" && (
+        <footer className="app-footer">
+          <nav className="app-footer-nav" aria-label="Secondary">
+            <Link className="app-footer-link muted small" to="/">
+              Start
+            </Link>
+            <span className="app-footer-sep muted small" aria-hidden="true">
+              ·
+            </span>
+            <Link className="app-footer-link muted small" to="/admin">
+              Config
+            </Link>
+          </nav>
+        </footer>
+      )}
     </div>
   );
 }
