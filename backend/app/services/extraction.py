@@ -17,7 +17,7 @@ import httpx
 from openai import OpenAI
 
 from app.config import settings
-from app.schemas import ExtractLogsResponse, ExtractLogsRow
+from app.schemas import ExtractDayContext, ExtractLogsResponse, ExtractLogsRow
 
 logger = logging.getLogger(__name__)
 
@@ -29,50 +29,156 @@ def extraction_service_configured() -> bool:
 
 EXTRACTION_JSON_SCHEMA_HINT = """
 Return a single JSON object with exactly these keys:
-- "transcript_summary": string, a short neutral summary of what was said.
-- "rows": array of objects. Each object may include only these keys (omit a key or use null if unknown):
+- "transcript_summary": string, optional brief neutral recap. Lower priority than accurate rows and day_context; keep it short. Prefer the same language mix as the transcript (do not force full translation into one language).
+- "day_context": optional object for whole-day facts that are NOT timed activities. Include only when clearly stated; otherwise omit the key or set fields to null. Keys (all optional): "cycle_day" (integer 1–366 menstrual/tracking day), "sleep_hours" (number 0–24), "sleep_quality" (integer 1–5). Never put cycle day, sleep duration, or sleep quality into "rows" as if they were events—only here.
+- "rows": array of objects for discrete activities, intervals, or present-state check-ins with situational context. Each object may include only these keys (omit a key or use null if unknown):
   "start_time", "end_time", "event", "energy_level", "anxiety", "contentment", "focus", "music", "comments"
 - Do not include "source_type" or any other keys in row objects.
+
+Day-level vs rows (critical):
+- Cycle day (e.g. "cycle day 13"), how many hours slept, and sleep quality/poor sleep are day_context only. Do not create rows whose main purpose is only to record those facts.
+- Rows are for activities, meetings, work blocks, moods tied to a situation, or clear present-moment states—not for standalone sleep/cycle metadata.
 
 Language (explicitly multilingual; robust to code-switching):
 - Transcripts may be in English, Persian (Farsi), Serbian (Latin or Cyrillic script as transcribed), or any mix of these in the same utterance (code-switching). Interpret meaning across all of them; do not require English input.
 - Speakers may switch languages mid-sentence or mid-story—follow the thread and merge related details into rows without dropping content because of language boundaries.
-- For "event", "comments", and "transcript_summary": preserve the original language(s) exactly as expressed (English, Persian, Serbian, or natural mixed wording). Do not translate these fields into a single target language for normalization.
-- Do not translate or rewrite the transcript; only extract and summarize in the source language(s).
+- For "event" and "comments": preserve the speaker’s original language(s) and natural phrasing. Do not merge languages into awkward hybrids unless the speaker did. Do not translate for normalization.
+- "transcript_summary" is secondary; keep it concise and faithful to the source language(s) when possible.
+
+Event vs comments (critical):
+- "event": a short, human-readable label for what was going on (a few words to a short phrase in the speaker’s language). Never paste the full narrative sentence into "event".
+- Put emotional arcs, nuance, secondary details, and mixed feelings in "comments", not in a bloated "event".
+
+Affect mapping (conservative):
+- energy_level (1 low … 3 high): use only when the text clearly refers to physical energy, alertness, fatigue, exhaustion, or vitality—not general mood or happiness.
+- contentment / relief / feeling better / lighter / at peace / glad things improved: map to "contentment" first when the wording is about mood or satisfaction, not energy. If both energy and mood are explicit, set both scales appropriately; otherwise prefer the scale that matches the wording.
+- anxiety and focus: only when clearly supported; otherwise null.
 
 Rules:
-- Use null for any field you cannot infer with high confidence from the transcript.
-- Prefer fewer, broader rows over guessing fine-grained times.
+- Use null for any field you cannot infer with high confidence from the transcript. Do not invent times or ratings.
+- Prefer fewer, broader rows over guessing fine-grained times. Split into multiple rows only when the transcript clearly describes distinct time-bounded episodes or clearly separable situations.
 - start_time and end_time: strings "HH:MM" in 24-hour form using Western digits (0-9), e.g. "09:30" or "14:00", if mentioned; map from Persian/Arabic/Cyrillic digit forms if the transcript uses them; otherwise null.
 - energy_level: integer 1 (low energy), 2 (neutral), or 3 (high energy) only if clearly stated (in any language); otherwise null.
 - anxiety: integer 0 (not at all), 1 (a little), 2 (moderately), or 3 (very much); otherwise null.
 - contentment: integer 1 (a little), 2 (moderately), or 3 (very much); otherwise null.
 - focus: integer 1 (distracted) through 5 (deep focus): 1 distracted, 2 mostly distracted, 3 mixed, 4 mostly focused, 5 deep focus; otherwise null.
 - music: map what the speaker said (any language) to one of exactly these English strings if clearly stated, otherwise null: "No", "Yes, upbeat", "Yes, calm", "Yes, other".
-- event and comments are free text in the speaker’s language(s). Do not invent music or numeric ratings.
+- Do not invent music or numeric ratings.
 - Output must be valid JSON only, no markdown fences.
 """
 
 PRESENT_TIMING_HINT = """
-Present / immediate timing (conservative):
-- The request may include capture_time_local: the user's local wall-clock time when they submitted, as "HH:MM" (24-hour form, Western digits). It is a submission hint, not the time of events in a remembered story unless the rules below apply.
+capture_time_local (submission wall clock, "HH:MM", Western digits) is optional context. It is NOT the time of past memories, habits, or vague routines unless the rules below are satisfied.
 
-For a given row, set start_time to exactly capture_time_local only if ALL of the following are true:
-  (1) The text clearly describes the present moment, a current state, or something starting now or imminently—not a recalled or narrated past event (in any supported language).
-  (2) No explicit clock time for that row can be read from the text (otherwise use that time or null).
-  (3) The passage is not a vague generalization, habit, or unclear timing—when in doubt, leave start_time null.
+Use start_time = capture_time_local for a row ONLY when ALL hold:
+  (1) The transcript clearly signals the present moment or something immediate/imminent—not a remembered or habitual story. Treat as qualifying cues (any language, including natural equivalents): e.g. English "now", "right now", "currently", "at the moment", "about to", "going now", "starting now", "heading to", "on my way"; Serbian e.g. "sada", "trenutno", "upravo", "idem na …"; Persian e.g. "الان", "دارم میرم …", "همین الان".
+  (2) The passage is not framed as habitual or generic: if the speaker uses "usually", "often", "typically", "generally", or close equivalents (e.g. "معمولا", "обично", "često"), do NOT anchor to capture_time_local unless a separate clearly present-tense segment also qualifies that row.
+  (3) The row is not about a recalled interval with its own stated or implied past timing.
+  (4) No explicit clock time in the text applies to that row (if it does, use that time or null, not capture_time_local).
 
-If you set start_time from capture_time_local for a row, set end_time to null. Never infer end_time from capture_time_local.
+If you use capture_time_local as start_time for a row, set end_time to null. Never infer end_time from capture_time_local.
 
-If capture_time_local is not provided in the request, do not invent clock times from "now" alone; use null unless the text states a time clearly.
+If capture_time_local is absent, do not invent clock times from "now" alone; use null unless the text states a time clearly.
+
+When in doubt, leave start_time null instead of using capture_time_local.
 """
 
-SYSTEM_PROMPT = """You extract structured daily log rows from spoken or written narrative text (voice transcripts or typed notes).
-The input is explicitly multilingual: it may be English, Persian (Farsi), Serbian, or mixed—including frequent code-switching between these languages. Understand all of it; preserve the original language(s) in free-text fields (event, comments, transcript_summary); map structured fields to the fixed numeric scales and allowed music strings described in the user message.
+SYSTEM_PROMPT = """You extract structured daily log data from spoken or written narrative text (voice transcripts or typed notes).
+The input may be English, Persian (Farsi), Serbian, or mixed—including code-switching. Understand all of it. Put cycle/sleep day metadata in day_context, not rows. Use rows for timed or situational episodes and justified present-state check-ins.
+Preserve the speaker’s original language(s) in "event" and "comments" naturally; do not normalize mixed speech into awkward single-language paraphrases. transcript_summary is optional flavor—accuracy of rows and day_context matters more.
 Be conservative. Never fabricate specifics. Use null for unknown fields.
-Do not translate the input or user-facing free text for uniformity—only extract and summarize in the source language(s), including natural mixed-language phrasing.
 The user will review and edit before anything is saved.
-Do not output source_type on rows; only the schema fields listed in the user message."""
+Do not output source_type on rows; only the schema keys listed in the user message."""
+
+
+def _normalize_hhmm(value: str | None) -> str | None:
+    if not value or not isinstance(value, str):
+        return None
+    s = value.strip()
+    m = re.match(r"^([01]?\d|2[0-3]):([0-5]\d)$", s)
+    if not m:
+        return s
+    h, mm = int(m.group(1)), m.group(2)
+    return f"{h:02d}:{mm}"
+
+
+def _transcript_allows_capture_time_anchor(text: str) -> bool:
+    """
+    True when the transcript clearly signals present or imminent experience (not only past/habitual).
+    Used to drop over-aggressive start_time == capture_time_local after model output.
+    """
+    if not text or not text.strip():
+        return False
+    lower = text.lower()
+    ascii_markers = (
+        "right now",
+        "currently",
+        "at the moment",
+        "about to",
+        "starting now",
+        "going now",
+        "presently",
+        "as we speak",
+        "this moment",
+        "at present",
+        "i'm going to",
+        "im going to",
+        "i am going to",
+        "going to a meeting",
+        "going to the meeting",
+        "going to a ",
+        "going to the ",
+        "heading to",
+        "on my way",
+    )
+    if any(m in lower for m in ascii_markers):
+        return True
+    if re.search(r"(?:^|[\s,.;:!?\"'(\[\{])now(?:[\s,.;:!?\"')\]\}]|$)", lower):
+        return True
+    if re.search(r"\bsada\b", lower) or re.search(r"\btrenutno\b", lower) or re.search(r"\bupravo\b", lower):
+        return True
+    if "idem na" in lower:
+        return True
+    for frag in ("الان", "دارم میرم", "همین الان", "هم اکنون", "همین لحظه"):
+        if frag in text:
+            return True
+    return False
+
+
+def _maybe_strip_capture_time_rows(
+    rows: list[ExtractLogsRow],
+    transcript: str,
+    capture_time_local: str | None,
+) -> list[ExtractLogsRow]:
+    """If the transcript does not justify anchoring to capture_time_local, clear matching start_time."""
+    if not capture_time_local:
+        return rows
+    cap = _normalize_hhmm(capture_time_local)
+    if not cap:
+        return rows
+    if _transcript_allows_capture_time_anchor(transcript):
+        return rows
+    out: list[ExtractLogsRow] = []
+    changed = False
+    for row in rows:
+        st = _normalize_hhmm(row.start_time)
+        if st == cap:
+            out.append(row.model_copy(update={"start_time": None}))
+            changed = True
+        else:
+            out.append(row)
+    return out if changed else rows
+
+
+def _postprocess_extraction(
+    result: ExtractLogsResponse,
+    transcript: str,
+    capture_time_local: str | None,
+) -> ExtractLogsResponse:
+    new_rows = _maybe_strip_capture_time_rows(result.rows, transcript, capture_time_local)
+    if new_rows is result.rows:
+        return result
+    return result.model_copy(update={"rows": new_rows})
 
 
 def _user_content(transcript: str, log_date_iso: str, capture_time_local: str | None) -> str:
@@ -108,7 +214,18 @@ def _parse_extract_response(raw: str) -> ExtractLogsResponse:
             continue
         clean = {k: v for k, v in item.items() if k != "source_type"}
         rows.append(ExtractLogsRow.model_validate(clean))
-    return ExtractLogsResponse(transcript_summary=summary, rows=rows)
+
+    day_context: ExtractDayContext | None = None
+    day_raw = data.get("day_context")
+    if isinstance(day_raw, dict):
+        try:
+            dc = ExtractDayContext.model_validate(day_raw)
+            if dc.cycle_day is not None or dc.sleep_hours is not None or dc.sleep_quality is not None:
+                day_context = dc
+        except Exception:
+            day_context = None
+
+    return ExtractLogsResponse(transcript_summary=summary, rows=rows, day_context=day_context)
 
 
 def _claude_raw_response(transcript: str, log_date_iso: str, capture_time_local: str | None) -> str:
@@ -174,7 +291,8 @@ def extract_logs_from_transcript(
     3. If ANTHROPIC_API_KEY is missing and GROQ_API_KEY is set → Groq only (log: groq_only).
     4. If neither key is set → RuntimeError (caller maps to 503).
 
-    Prompts assume transcripts may be English, Farsi, Serbian, or mixed/code-switched; response shape is unchanged.
+    Prompts assume transcripts may be English, Farsi, Serbian, or mixed/code-switched.
+    Response includes optional ``day_context`` (cycle/sleep fields) plus ``rows`` and ``transcript_summary``.
 
     Never writes to the database.
     """
@@ -189,7 +307,11 @@ def extract_logs_from_transcript(
     if use_anthropic:
         try:
             raw = _claude_raw_response(transcript, log_date_iso, capture_time_local)
-            parsed = _parse_extract_response(raw)
+            parsed = _postprocess_extraction(
+                _parse_extract_response(raw),
+                transcript,
+                capture_time_local,
+            )
             logger.info("extraction provider: anthropic")
             return parsed
         except Exception as e:
@@ -201,7 +323,11 @@ def extract_logs_from_transcript(
     if use_groq:
         try:
             raw = _groq_raw_response(transcript, log_date_iso, capture_time_local)
-            parsed = _parse_extract_response(raw)
+            parsed = _postprocess_extraction(
+                _parse_extract_response(raw),
+                transcript,
+                capture_time_local,
+            )
             if claude_err is not None:
                 logger.info("extraction provider: groq_fallback")
             else:

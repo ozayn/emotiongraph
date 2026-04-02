@@ -10,7 +10,8 @@ How to run
        python scripts/test_extraction_cases.py
 
    Outputs are written under ``./extraction_test_outputs/`` (override with
-   ``EMOTIONGRAPH_EXTRACTION_TEST_OUT``).
+   ``EMOTIONGRAPH_EXTRACTION_TEST_OUT``): one ``{case_id}.json`` per case,
+   ``all_cases.json`` (full run bundle), and ``summary.json``.
 
 Environment (optional)
 ----------------------
@@ -264,8 +265,25 @@ def main() -> int:
     summary_path = OUTPUT_DIR / "summary.json"
     summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    all_cases = {
+        "run_started": run_started,
+        "run_finished": run_finished,
+        "api_base": API_BASE,
+        "log_date": LOG_DATE,
+        "capture_time_local": CAPTURE_TIME_LOCAL,
+        "case_count": len(results),
+        "ok_count": ok_n,
+        "error_count": err_n,
+        "cases": results,
+    }
+    all_cases_path = OUTPUT_DIR / "all_cases.json"
+    all_cases_path.write_text(json.dumps(all_cases, ensure_ascii=False, indent=2), encoding="utf-8")
+
     print()
-    print(f"Done: {ok_n} ok, {err_n} errors — summary: {summary_path}")
+    print(
+        f"Done: {ok_n} ok, {err_n} errors — "
+        f"combined: {all_cases_path.name}, summary: {summary_path.name}"
+    )
     return 0 if err_n == 0 else 1
 
 

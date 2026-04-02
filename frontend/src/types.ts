@@ -17,7 +17,7 @@ export type LogRow = {
   music: string | null;
   comments: string | null;
   /** Sent on save; omitted or empty defaults to "manual" on the server. */
-  source_type?: "manual" | "voice" | "text";
+  source_type?: "manual" | "voice" | "text" | "import";
 };
 
 export type SavedLogEntry = LogRow & {
@@ -25,7 +25,30 @@ export type SavedLogEntry = LogRow & {
   user_id: number;
   log_date: string;
   created_at: string;
-  source_type: "manual" | "voice" | "text";
+  source_type: "manual" | "voice" | "text" | "import";
+};
+
+/** One row from CSV import preview / commit (matches backend LogImportRowIn). */
+export type LogImportRow = {
+  log_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  event: string | null;
+  energy_level: number | null;
+  anxiety: number | null;
+  contentment: number | null;
+  focus: number | null;
+  music: string | null;
+  comments: string | null;
+  cycle_day: number | null;
+  sleep_hours: number | null;
+  sleep_quality: number | null;
+};
+
+export type LogsImportPreviewResponse = {
+  rows: LogImportRow[];
+  parse_errors: string[];
+  row_count: number;
 };
 
 export type ExtractLogsResponse = {

@@ -1,4 +1,5 @@
 from datetime import date
+from typing import Annotated
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,12 +19,19 @@ from app.schemas import (
     ExtractLogsResponse,
     LogEntryPatch,
     LogEntryRead,
+    LogsImportCommitRequest,
+    LogsImportPreviewResponse,
     SaveLogsRequest,
     TrackerDayRead,
     TrackerDayUpsert,
     UserRead,
 )
 from app.services.extraction import extract_logs_from_transcript, extraction_service_configured
+from app.services.logs_csv_import import (
+    MAX_IMPORT_BYTES,
+    execute_log_import,
+    parse_logs_import_csv,
+)
 from app.services.transcription import is_transcript_usable, transcribe_audio_bytes
 
 Base.metadata.create_all(bind=engine)
@@ -263,4 +271,35 @@ def save_logs(
     db.commit()
     for e in created:
         db.refresh(e)
+    return created
+
+
+@app.post("/logs/import-csv/preview", response_model=LogsImportPreviewResponse)
+async def logs_import_csv_preview(
+    _: Annotated[int, Depends(require_user_id)],
+    file: UploadFile = File(...),
+):
+    """Parse a UTF-8 CSV for bulk import; does not write to the database."""
+    raw = await file.read()
+    if len(raw) > MAX_IMPORT_BYTES:
+        raise HTTPException(status_code=400, detail="File too large (max 2MB)")
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeError as e:
+        raise HTTPException(status_code=400, detail="File must be UTF-8 text") from e
+    rows, parse_errors = parse_logs_import_csv(text)
+    return LogsImportPreviewResponse(rows=rows, parse_errors=parse_errors, row_count=len(rows))
+
+
+@app.post("/logs/import-rows", response_model=list[LogEntryRead])
+def logs_import_commit(
+    body: LogsImportCommitRequest,
+    db: Session = Depends(get_db),
+    user_id: int = Depends(require_user_id),
+):
+    """Persist previewed rows with source_type import (and upsert tracker fields when present)."""
+    try:
+        created = execute_log_import(db, user_id, body.rows)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     return created

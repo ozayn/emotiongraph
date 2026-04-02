@@ -20,6 +20,7 @@ from app.models import LogEntry, TrackerDay, User
 MAX_EXPORT_RANGE_DAYS = 400
 
 _CSV_COLUMNS = [
+    "log_date",
     "start time",
     "end time",
     "event",
@@ -128,6 +129,7 @@ def build_logs_csv(db: Session, user_id: int, start: date, end: date) -> str:
 
         writer.writerow(
             {
+                "log_date": e.log_date.isoformat(),
                 "start time": _fmt_time(e.start_time),
                 "end time": _fmt_time(e.end_time),
                 "event": e.event or "",

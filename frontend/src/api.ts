@@ -1,7 +1,9 @@
 import type {
   ExtractLogsResponse,
   InsightsPayload,
+  LogImportRow,
   LogRow,
+  LogsImportPreviewResponse,
   SavedLogEntry,
   TrackerDay,
   User,
@@ -87,6 +89,26 @@ export async function saveLogs(userId: number, logDate: string, rows: LogRow[]):
   return parseJson(res);
 }
 
+export async function previewLogsImportCsv(userId: number, file: File): Promise<LogsImportPreviewResponse> {
+  const fd = new FormData();
+  fd.append("file", file, file.name);
+  const res = await fetch(`${base()}/logs/import-csv/preview`, {
+    method: "POST",
+    headers: { ...userScopedHeaders(userId) },
+    body: fd,
+  });
+  return parseJson(res);
+}
+
+export async function commitLogsImport(userId: number, rows: LogImportRow[]): Promise<SavedLogEntry[]> {
+  const res = await fetch(`${base()}/logs/import-rows`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...userScopedHeaders(userId) },
+    body: JSON.stringify({ rows }),
+  });
+  return parseJson(res);
+}
+
 export type UserScopedFetchOptions = {
   signal?: AbortSignal;
 };
@@ -135,7 +157,7 @@ export type LogEntryPatchBody = {
   focus?: number | null;
   music?: string | null;
   comments?: string | null;
-  source_type?: "manual" | "voice" | "text";
+  source_type?: "manual" | "voice" | "text" | "import";
 };
 
 export async function patchLog(userId: number, entryId: number, body: LogEntryPatchBody): Promise<SavedLogEntry> {
