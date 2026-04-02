@@ -120,6 +120,10 @@
   --import-focus-border: rgb(90 111 125 / 0.4);
   --import-focus-ring: rgb(90 111 125 / 0.1);
   --accent-focus-fill: rgb(90 111 125 / 0.12);
+  /* Login hero — soft spots only, no extra imagery */
+  --login-hero-spot-a: rgb(90 111 125 / 0.09);
+  --login-hero-spot-b: rgb(122 107 143 / 0.055);
+  --login-hero-spot-c: rgb(90 122 104 / 0.045);
   --danger-item-hover-bg: rgb(220 53 69 / 0.07);
   --danger-btn-hover-bg: #f7f4f3;
   --danger-btn-hover-border: rgb(133 85 80 / 0.38);
@@ -262,6 +266,9 @@
   --chart-focus: #a898c4;
   --chart-sleep: #6a9ab0;
   --chart-cycle: #b8a878;
+  --login-hero-spot-a: rgb(140 165 185 / 0.14);
+  --login-hero-spot-b: rgb(168 152 196 / 0.08);
+  --login-hero-spot-c: rgb(122 171 146 / 0.08);
 }
 
 *,
@@ -473,6 +480,16 @@ body {
   min-height: 100dvh;
 }
 
+.app-header--login-only {
+  position: relative;
+  z-index: 2;
+  background: color-mix(in srgb, var(--bg) 82%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: none;
+  border-bottom: 1px solid var(--ink-a06);
+}
+
 .app-header-inner--login {
   justify-content: space-between;
   align-items: center;
@@ -509,21 +526,102 @@ body {
   letter-spacing: 0.02em;
 }
 
-.login-page {
+.login-main {
   flex: 1;
+  position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem 1rem 2rem;
+  padding: clamp(0.75rem, 2.5vw, 1.25rem) max(1rem, env(safe-area-inset-left))
+    clamp(1.25rem, 7vh, 3.25rem) max(1rem, env(safe-area-inset-right));
+  overflow: hidden;
+}
+
+.login-backdrop {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 125% 75% at 50% -25%, var(--login-hero-spot-a), transparent 58%),
+    radial-gradient(ellipse 58% 48% at 100% 32%, var(--login-hero-spot-b), transparent 52%),
+    radial-gradient(ellipse 48% 38% at 0% 72%, var(--login-hero-spot-c), transparent 48%);
+}
+
+.login-stage {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 26rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: clamp(1.35rem, 4vh, 2.35rem);
+}
+
+.login-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 1rem;
+}
+
+@media (min-width: 420px) {
+  .login-intro {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+.login-intro-accent {
+  display: block;
+  width: 2.65rem;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 28%, transparent));
+  opacity: 0.5;
+}
+
+.login-intro-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  max-width: 24rem;
+  margin-inline: auto;
+}
+
+@media (min-width: 420px) {
+  .login-intro-text {
+    margin-inline: 0;
+  }
+}
+
+.login-intro-title {
+  margin: 0;
+  font-size: clamp(1.32rem, 4.5vw, 1.62rem);
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
+  color: var(--text);
+}
+
+.login-intro-lead {
+  margin: 0;
+  font-size: 0.94rem;
+  line-height: 1.55;
+  color: var(--muted);
 }
 
 .login-card {
   width: 100%;
   max-width: 22rem;
+  margin-inline: auto;
   padding: 1.5rem 1.35rem 1.35rem;
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.72rem;
   border-radius: var(--radius-lg);
 }
 
@@ -585,26 +683,26 @@ body {
 }
 
 .login-demo {
-  margin: 0.85rem 0 0;
-  padding-top: 1rem;
-  border-top: 1px solid var(--ink-a08);
+  margin: 0.65rem 0 0;
+  padding-top: 0.9rem;
+  border-top: 1px solid var(--ink-a06);
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.2rem;
+  gap: 0.15rem;
 }
 
 .login-demo-label {
   margin: 0;
-  font-size: 0.72rem;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  font-weight: 650;
+  font-size: 0.74rem;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  font-weight: 500;
 }
 
 .login-demo-link {
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: 0.84rem;
+  font-weight: 450;
 }
 
 .gate-message {

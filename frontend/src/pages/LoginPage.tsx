@@ -122,44 +122,57 @@ export default function LoginPage() {
           <ThemeToggle />
         </div>
       </header>
-      <div className="login-page">
-        <div className="login-card panel-elevated">
-          <p className="login-kicker muted small">Sign in</p>
-          <h1 className="login-title">Continue with Google</h1>
-          {!clientId ? (
-            <p className="login-lead muted small">
-              Google sign-in needs a web client id in the frontend environment (VITE_GOOGLE_CLIENT_ID) and matching server
-              configuration. Ask your administrator, or use local dev flags to skip this screen.
-            </p>
-          ) : (
-            <p className="login-lead muted small">
-              We use your Google account only to recognize you and keep your entries separate. Password entry stays on
-              Google&apos;s side.
-            </p>
-          )}
-          {clientId ? (
-            <div className={`login-google-host${busy ? " login-google-host--busy" : ""}`}>
-              <div ref={btnRef} className="login-google-btn-mount" />
-              {busy ? <p className="login-google-busy muted small">Signing you in…</p> : null}
+      <main className="login-main">
+        <div className="login-backdrop" aria-hidden="true" />
+        <div className="login-stage">
+          <div className="login-intro">
+            <span className="login-intro-accent" aria-hidden="true" />
+            <div className="login-intro-text">
+              <h1 className="login-intro-title">Notice how you feel, over time</h1>
+              <p className="login-intro-lead">
+                EmotionGraph is a calm place for quick check-ins and gentle patterns—not a feed. Sign in with Google so your
+                journal and insights stay with your account.
+              </p>
             </div>
-          ) : null}
-          {error ? (
-            <p className="error-inline" role="alert">
-              {error}
+          </div>
+          <div className="login-card panel-elevated">
+            <p className="login-kicker muted small">Sign in</p>
+            <h2 className="login-title">Continue with Google</h2>
+            {!clientId ? (
+              <p className="login-lead muted small">
+                Google sign-in needs a web client id in the frontend environment (VITE_GOOGLE_CLIENT_ID) and matching server
+                configuration. Ask your administrator, or use local dev flags to skip this screen.
+              </p>
+            ) : (
+              <p className="login-lead muted small">
+                We use your Google account only to recognize you and keep your entries separate. Password entry stays on
+                Google&apos;s side.
+              </p>
+            )}
+            {clientId ? (
+              <div className={`login-google-host${busy ? " login-google-host--busy" : ""}`}>
+                <div ref={btnRef} className="login-google-btn-mount" />
+                {busy ? <p className="login-google-busy muted small">Signing you in…</p> : null}
+              </div>
+            ) : null}
+            {error ? (
+              <p className="error-inline" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <p className="login-footnote muted small">
+              By continuing you agree that Google may share your name and email with this app as described in their sign-in
+              prompt.
             </p>
-          ) : null}
-          <p className="login-footnote muted small">
-            By continuing you agree that Google may share your name and email with this app as described in their sign-in
-            prompt.
-          </p>
-          <div className="login-demo">
-            <p className="login-demo-label muted small">New here?</p>
-            <Link className="linkish login-demo-link" to="/demo/">
-              Explore the sample demo
-            </Link>
+            <div className="login-demo">
+              <p className="login-demo-label muted small">Prefer to browse first?</p>
+              <Link className="linkish login-demo-link" to="/demo/">
+                Explore the sample demo
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 }
