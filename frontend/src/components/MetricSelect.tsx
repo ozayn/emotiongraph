@@ -1,21 +1,27 @@
+import { useId } from "react";
+import CalmSelect from "./CalmSelect";
+
 type Props = {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
+  /** Tighter trigger for day-context and similar panels */
+  density?: "default" | "dense";
 };
 
-export default function MetricSelect({ label, value, onChange, options }: Props) {
+export default function MetricSelect({ label, value, onChange, options, density = "default" }: Props) {
+  const labelId = useId();
   return (
     <label className="field field--stacked">
-      <span>{label}</span>
-      <select className="field-select" value={value} onChange={(e) => onChange(e.target.value)}>
-        {options.map((o) => (
-          <option key={o.value || "__empty"} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      <span id={labelId}>{label}</span>
+      <CalmSelect
+        variant={density === "dense" ? "dense" : "field"}
+        value={value}
+        onChange={onChange}
+        options={options}
+        aria-labelledby={labelId}
+      />
     </label>
   );
 }

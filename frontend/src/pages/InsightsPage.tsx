@@ -57,15 +57,6 @@ function formatTimeShort(iso: string): string {
   }
 }
 
-const CHART_COLORS = {
-  energy: "#5a7a68",
-  contentment: "#5a6f8a",
-  anxiety: "#9a7568",
-  focus: "#7a6b8f",
-  sleepQ: "#4a6f7d",
-  cycle: "#8a7a5a",
-} as const;
-
 type TooltipProps = {
   active?: boolean;
   payload?: { name?: string; value?: number | null; color?: string; payload?: Record<string, unknown> }[];
@@ -278,8 +269,8 @@ export default function InsightsPage({ userId }: Props) {
                       <XAxis dataKey="label" tick={{ fontSize: 10, fill: "var(--muted)" }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
                       <YAxis domain={[0.5, 3.5]} ticks={[1, 2, 3]} width={28} tick={{ fontSize: 10, fill: "var(--muted)" }} tickLine={false} axisLine={false} />
                       <Tooltip content={<InsightTooltip />} />
-                      <Line type="monotone" dataKey="avg_energy" name="Energy" stroke={CHART_COLORS.energy} strokeWidth={2} dot={false} connectNulls />
-                      <Line type="monotone" dataKey="avg_contentment" name="Contentment" stroke={CHART_COLORS.contentment} strokeWidth={2} dot={false} connectNulls />
+                      <Line type="monotone" dataKey="avg_energy" name="Energy" stroke="var(--chart-energy)" strokeWidth={2} dot={false} connectNulls />
+                      <Line type="monotone" dataKey="avg_contentment" name="Contentment" stroke="var(--chart-contentment)" strokeWidth={2} dot={false} connectNulls />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -293,8 +284,8 @@ export default function InsightsPage({ userId }: Props) {
                       <XAxis dataKey="label" tick={{ fontSize: 10, fill: "var(--muted)" }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
                       <YAxis domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} width={28} tick={{ fontSize: 10, fill: "var(--muted)" }} tickLine={false} axisLine={false} />
                       <Tooltip content={<InsightTooltip />} />
-                      <Line type="monotone" dataKey="avg_anxiety" name="Anxiety" stroke={CHART_COLORS.anxiety} strokeWidth={2} dot={false} connectNulls />
-                      <Line type="monotone" dataKey="avg_focus" name="Focus" stroke={CHART_COLORS.focus} strokeWidth={2} dot={false} connectNulls />
+                      <Line type="monotone" dataKey="avg_anxiety" name="Anxiety" stroke="var(--chart-anxiety)" strokeWidth={2} dot={false} connectNulls />
+                      <Line type="monotone" dataKey="avg_focus" name="Focus" stroke="var(--chart-focus)" strokeWidth={2} dot={false} connectNulls />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -351,7 +342,7 @@ export default function InsightsPage({ userId }: Props) {
                             );
                           }}
                         />
-                        <Line type="monotone" dataKey="sleep_quality" name="Sleep" stroke={CHART_COLORS.sleepQ} strokeWidth={2} dot={false} connectNulls />
+                        <Line type="monotone" dataKey="sleep_quality" name="Sleep" stroke="var(--chart-sleep)" strokeWidth={2} dot={false} connectNulls />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
@@ -370,7 +361,7 @@ export default function InsightsPage({ userId }: Props) {
                         <XAxis dataKey="label" tick={{ fontSize: 10, fill: "var(--muted)" }} tickLine={false} axisLine={false} interval="preserveStartEnd" />
                         <YAxis domain={["auto", "auto"]} width={32} tick={{ fontSize: 10, fill: "var(--muted)" }} tickLine={false} axisLine={false} />
                         <Tooltip content={<InsightTooltip />} />
-                        <Line type="monotone" dataKey="cycle_day" name="Cycle" stroke={CHART_COLORS.cycle} strokeWidth={2} dot={false} connectNulls />
+                        <Line type="monotone" dataKey="cycle_day" name="Cycle" stroke="var(--chart-cycle)" strokeWidth={2} dot={false} connectNulls />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>

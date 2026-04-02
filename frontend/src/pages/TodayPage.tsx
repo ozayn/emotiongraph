@@ -725,6 +725,7 @@ export default function TodayPage({ userId }: TodayPageProps) {
                     value={dayDraft.sleep_quality}
                     onChange={(v) => setDayDraft((d) => ({ ...d, sleep_quality: v }))}
                     options={SLEEP_QUALITY_OPTIONS}
+                    density="dense"
                   />
                 </div>
               </div>

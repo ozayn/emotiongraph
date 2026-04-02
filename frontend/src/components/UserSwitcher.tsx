@@ -1,4 +1,6 @@
+import { useMemo } from "react";
 import type { User } from "../types";
+import CalmSelect from "./CalmSelect";
 
 type Props = {
   users: User[];
@@ -8,27 +10,22 @@ type Props = {
 
 export default function UserSwitcher({ users, userId, onSelectUser }: Props) {
   const current = users.find((u) => u.id === userId);
+  const options = useMemo(() => users.map((u) => ({ value: String(u.id), label: u.name })), [users]);
 
   return (
     <div className="user-switcher" aria-label="Active user">
       <span className="user-switcher-label muted small">You</span>
-      <select
-        className="user-switcher-select"
-        value={userId ?? ""}
-        title={current?.email}
-        onChange={(e) => {
-          const v = e.target.value;
-          if (v) onSelectUser(Number.parseInt(v, 10));
-        }}
+      <CalmSelect
+        variant="compact"
+        value={userId != null ? String(userId) : ""}
+        onChange={(v) => onSelectUser(Number.parseInt(v, 10))}
+        options={options}
+        disabled={users.length === 0}
         aria-label="Switch user"
-      >
-        {users.length === 0 && <option value="">Loading…</option>}
-        {users.map((u) => (
-          <option key={u.id} value={u.id}>
-            {u.name}
-          </option>
-        ))}
-      </select>
+        placeholder="Select user"
+        emptyStateLabel="Loading…"
+        title={current?.email}
+      />
     </div>
   );
 }

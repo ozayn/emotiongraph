@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, Route, Routes, useLocation } from "react-router-dom";
 import { fetchUsers } from "./api";
+import ThemeToggle from "./components/ThemeToggle";
 import UserSwitcher from "./components/UserSwitcher";
 import AdminTrackerPage from "./pages/AdminTrackerPage";
 import InsightsPage from "./pages/InsightsPage";
@@ -74,6 +75,7 @@ export default function App() {
             <span className="logo">EmotionGraph</span>
           </Link>
           <div className="app-header-right">
+            <ThemeToggle />
             {usersReady && users.length > 0 && (
               <UserSwitcher users={users} userId={userId} onSelectUser={onSelectUser} />
             )}

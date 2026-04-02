@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   commitLogsImport,
@@ -9,6 +9,7 @@ import {
   saveLogs,
   type LogEntryPatchBody,
 } from "../api";
+import CalmSelect from "../components/CalmSelect";
 import MetricSelect from "../components/MetricSelect";
 import type { LogImportRow, LogRow, LogsImportPreviewResponse, SavedLogEntry } from "../types";
 import { optionsForMetricKey } from "../trackerOptions";
@@ -21,6 +22,17 @@ const ENTRIES_VIEW_STORAGE_KEY = "emotiongraph_entries_view";
 const ENTRIES_LIST_INITIAL = 20;
 /** How many extra rows each “Show more” reveals. */
 const ENTRIES_LIST_STEP = 20;
+
+const LOG_ADD_SOURCE_OPTIONS = [
+  { value: "manual", label: "Manual" },
+  { value: "text", label: "Text" },
+];
+
+const LOG_EDIT_SOURCE_OPTIONS = [
+  ...LOG_ADD_SOURCE_OPTIONS,
+  { value: "voice", label: "Voice" },
+  { value: "import", label: "Import" },
+];
 
 type EntriesViewMode = "cards" | "table";
 
@@ -171,6 +183,8 @@ function draftToPatch(d: EditDraft): LogEntryPatchBody {
 type Props = { userId: number };
 
 export default function LogsPage({ userId }: Props) {
+  const addSourceLabelId = useId();
+  const editSourceLabelId = useId();
   const [startDate, setStartDate] = useState(() => isoDaysAgo(60));
   const [endDate, setEndDate] = useState(isoToday);
   const [entries, setEntries] = useState<SavedLogEntry[]>([]);
@@ -776,15 +790,14 @@ export default function LogsPage({ userId }: Props) {
                   />
                 </label>
                 <label className="field field--stacked">
-                  <span>Source</span>
-                  <select
-                    className="field-select"
+                  <span id={addSourceLabelId}>Source</span>
+                  <CalmSelect
+                    variant="field"
+                    aria-labelledby={addSourceLabelId}
                     value={addDraft.source_type}
-                    onChange={(ev) => setAddDraftField("source_type", ev.target.value as EditDraft["source_type"])}
-                  >
-                    <option value="manual">Manual</option>
-                    <option value="text">Text</option>
-                  </select>
+                    onChange={(v) => setAddDraftField("source_type", v as EditDraft["source_type"])}
+                    options={LOG_ADD_SOURCE_OPTIONS}
+                  />
                 </label>
                 <label className="field field--stacked">
                   <span>What happened</span>
@@ -882,17 +895,14 @@ export default function LogsPage({ userId }: Props) {
                   <input type="date" value={draft.log_date} onChange={(ev) => setDraftField("log_date", ev.target.value)} />
                 </label>
                 <label className="field field--stacked">
-                  <span>Source</span>
-                  <select
-                    className="field-select"
+                  <span id={editSourceLabelId}>Source</span>
+                  <CalmSelect
+                    variant="field"
+                    aria-labelledby={editSourceLabelId}
                     value={draft.source_type}
-                    onChange={(ev) => setDraftField("source_type", ev.target.value as EditDraft["source_type"])}
-                  >
-                    <option value="manual">Manual</option>
-                    <option value="text">Text</option>
-                    <option value="voice">Voice</option>
-                    <option value="import">Import</option>
-                  </select>
+                    onChange={(v) => setDraftField("source_type", v as EditDraft["source_type"])}
+                    options={LOG_EDIT_SOURCE_OPTIONS}
+                  />
                 </label>
                 <label className="field field--stacked">
                   <span>What happened</span>
