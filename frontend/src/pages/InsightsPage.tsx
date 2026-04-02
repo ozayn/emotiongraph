@@ -170,7 +170,7 @@ export default function InsightsPage({ userId }: Props) {
     <div className="insights-page">
       <header className="insights-header">
         <div className="insights-header-top">
-          <Link to="/" className="insights-back muted small">
+          <Link to="/today" className="insights-back muted small">
             ← Today
           </Link>
         </div>

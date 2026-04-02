@@ -75,6 +75,21 @@ function todayIso(): string {
   return `${y}-${m}-${day}`;
 }
 
+function formatDateHeading(iso: string): string {
+  const parts = iso.split("-").map(Number);
+  const [y, m, d] = parts;
+  if (!y || !m || !d || parts.length !== 3) return iso;
+  const dt = new Date(y, m - 1, d);
+  const now = new Date();
+  const opts: Intl.DateTimeFormatOptions = {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  };
+  if (dt.getFullYear() !== now.getFullYear()) opts.year = "numeric";
+  return dt.toLocaleDateString(undefined, opts);
+}
+
 type TodayPageProps = { userId: number };
 
 function isReadyUserId(id: number): boolean {
@@ -343,6 +358,7 @@ export default function TodayPage({ userId }: TodayPageProps) {
 
   const recordPanelClass = [
     "today-record",
+    "today-record--primary",
     "panel-elevated",
     "record-panel",
     recordingActive && "record-panel--live",
@@ -361,21 +377,21 @@ export default function TodayPage({ userId }: TodayPageProps) {
             <p className="pipeline-title" key={pipelinePhase}>
               {pipelinePhase === "transcribe" ? "Transcribing…" : "Extracting entries…"}
             </p>
-            <p className="pipeline-sub muted">This usually takes a few seconds.</p>
           </div>
         </div>
       )}
 
       <header className="today-header">
-        <h1 className="today-title">Today</h1>
+        <h1 className="today-title">
+          <time dateTime={logDate}>{formatDateHeading(logDate)}</time>
+        </h1>
         <label className="today-date-label">
-          <span className="sr-only">Log date</span>
+          <span className="sr-only">Change log date</span>
           <input className="date-input date-input--compact" type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} />
         </label>
       </header>
 
-      <section className={recordPanelClass}>
-        <p className="record-panel-label">Voice</p>
+      <section className={recordPanelClass} aria-label="Voice log">
         <AudioRecorder
           disabled={recordingLocked}
           onRecorded={(b) => void handleRecordingComplete(b)}
@@ -396,11 +412,10 @@ export default function TodayPage({ userId }: TodayPageProps) {
         {stepError && <p className="error-inline error-inline--spaced">{stepError}</p>}
       </section>
 
-      <section className="today-manual panel-elevated" aria-labelledby="manual-add-heading">
-        <p className="record-panel-label" id="manual-add-heading">
-          Add entry
-        </p>
-        <p className="manual-add-lead muted small">Type one row and save — no recording needed.</p>
+      <section className="today-manual today-manual--secondary" aria-labelledby="manual-add-heading">
+        <h2 className="today-manual-heading" id="manual-add-heading">
+          Type instead
+        </h2>
         <div className="manual-add-fields">
           <label className="field field--stacked">
             <span>What happened</span>
@@ -463,7 +478,7 @@ export default function TodayPage({ userId }: TodayPageProps) {
         {manualError && <p className="error-inline manual-add-error">{manualError}</p>}
         {manualSavedBanner && (
           <p className="manual-add-success" role="status">
-            Saved to your log — it should appear in the list below.
+            Saved.
           </p>
         )}
         <div className="manual-add-actions">
@@ -490,7 +505,7 @@ export default function TodayPage({ userId }: TodayPageProps) {
             <span className="day-context-trigger-title" id="day-heading">
               Day context
             </span>
-            <span className="day-context-trigger-hint muted">Optional · cycle, sleep, quality</span>
+            <span className="day-context-trigger-hint muted">Optional</span>
           </span>
           <span className="day-context-trigger-icon" aria-hidden="true">
             {dayContextOpen ? (
@@ -530,7 +545,7 @@ export default function TodayPage({ userId }: TodayPageProps) {
             <div className="day-context-top">
               <div className="day-context-top-text">
                 <p className="day-context-panel-lead muted">
-                  {dayContextEditing ? "Update cycle and sleep for this date." : "Daily signals — separate from your log entries."}
+                  {dayContextEditing ? "Save when you're done." : "Signals for this date only — not each log row."}
                 </p>
               </div>
               {!dayContextEditing && (
@@ -654,9 +669,9 @@ export default function TodayPage({ userId }: TodayPageProps) {
       </section>
 
       <section className="today-entries">
-        <h2 className="today-entries-heading">Today&apos;s log</h2>
+        <h2 className="today-entries-heading">Saved</h2>
         {loadError && <p className="error-inline">{loadError}</p>}
-        {!loadError && saved.length === 0 && <p className="muted today-entries-empty">Nothing saved for this date yet.</p>}
+        {!loadError && saved.length === 0 && <p className="muted today-entries-empty">Nothing saved yet.</p>}
         <ul className="saved-list">
           {saved.map((e) => (
             <li key={e.id} className="saved-item">

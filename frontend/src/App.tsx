@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, Route, Routes } from "react-router-dom";
+import { Link, Route, Routes, useLocation } from "react-router-dom";
 import { fetchUsers } from "./api";
 import UserSwitcher from "./components/UserSwitcher";
 import AdminTrackerPage from "./pages/AdminTrackerPage";
 import InsightsPage from "./pages/InsightsPage";
+import LaunchPage from "./pages/LaunchPage";
 import TodayPage from "./pages/TodayPage";
 import type { User } from "./types";
 import { getSelectedUserId, setSelectedUserId } from "./userSession";
 
 export default function App() {
+  const { pathname } = useLocation();
   const [users, setUsers] = useState<User[]>([]);
   const [userId, setUserId] = useState<number | null>(null);
   const [usersError, setUsersError] = useState<string | null>(null);
@@ -66,21 +68,25 @@ export default function App() {
     <div className="app-shell">
       <header className="app-header">
         <div className="app-header-inner">
-          <Link className="brand" to="/" aria-label="EmotionGraph home">
+          <Link className="brand" to="/today" aria-label="EmotionGraph — log">
             <img className="brand-mark" src="/logo-mark.svg" alt="" width="28" height="28" />
             <span className="logo">EmotionGraph</span>
           </Link>
           <div className="app-header-right">
-            {usersReady && users.length > 0 && <UserSwitcher users={users} userId={userId} onSelectUser={onSelectUser} />}
+            {usersReady && users.length > 0 && (
+              <UserSwitcher users={users} userId={userId} onSelectUser={onSelectUser} />
+            )}
             <nav className="app-header-nav" aria-label="App">
-              {usersReady && userId != null && (
+              {usersReady && userScopeReady && pathname !== "/today" && pathname !== "/" && (
+                <Link className="header-link" to="/today">
+                  Today
+                </Link>
+              )}
+              {usersReady && userScopeReady && (
                 <Link className="header-link" to="/insights">
                   Insights
                 </Link>
               )}
-              <Link className="header-link" to="/admin">
-                Config
-              </Link>
             </nav>
           </div>
         </div>
@@ -95,6 +101,16 @@ export default function App() {
           <Route
             path="/"
             element={
+              userScopeReady ? (
+                <LaunchPage users={users} userId={userId} />
+              ) : (
+                <UsersGate usersReady={usersReady} users={users} />
+              )
+            }
+          />
+          <Route
+            path="/today"
+            element={
               userScopeReady ? <TodayPage key={userId} userId={userId} /> : <UsersGate usersReady={usersReady} users={users} />
             }
           />
@@ -107,6 +123,19 @@ export default function App() {
           <Route path="/admin" element={<AdminTrackerPage />} />
         </Routes>
       </main>
+      <footer className="app-footer">
+        <nav className="app-footer-nav" aria-label="Secondary">
+          <Link className="app-footer-link muted small" to="/">
+            Start
+          </Link>
+          <span className="app-footer-sep muted small" aria-hidden="true">
+            ·
+          </span>
+          <Link className="app-footer-link muted small" to="/admin">
+            Config
+          </Link>
+        </nav>
+      </footer>
     </div>
   );
 }
