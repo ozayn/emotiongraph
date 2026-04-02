@@ -59,16 +59,23 @@ function todayIsoLocal(): string {
 /** 24h HH:MM wall clock in a specific IANA timezone (for extraction capture hint). */
 export function wallClockHHMMInTimeZone(timeZone: string): string {
   try {
-    const fmt = new Intl.DateTimeFormat("en-GB", {
+    const d = new Date();
+    const fmt = new Intl.DateTimeFormat("en-CA", {
       timeZone,
       hour: "2-digit",
       minute: "2-digit",
       hourCycle: "h23",
     });
-    const parts = fmt.formatToParts(new Date());
+    const parts = fmt.formatToParts(d);
     const h = parts.find((p) => p.type === "hour")?.value;
     const m = parts.find((p) => p.type === "minute")?.value;
-    if (h != null && m != null) return `${h.padStart(2, "0")}:${m.padStart(2, "0")}`;
+    if (h != null && m != null) {
+      const hi = Number.parseInt(h, 10);
+      const mi = Number.parseInt(m, 10);
+      if (Number.isFinite(hi) && Number.isFinite(mi)) {
+        return `${String(hi).padStart(2, "0")}:${String(mi).padStart(2, "0")}`;
+      }
+    }
   } catch {
     /* invalid TZ */
   }

@@ -103,6 +103,11 @@
   --ghost-hover-border: #dcd9d2;
   --launch-glow-inner: rgb(90 111 125 / 0.11);
   --launch-glow-outer: rgb(90 111 125 / 0.03);
+  --launch-signal-a: rgb(90 111 125 / 0.22);
+  --launch-signal-b: rgb(90 111 125 / 0.14);
+  --launch-signal-c: rgb(122 107 143 / 0.12);
+  --launch-signal-d: rgb(90 122 104 / 0.1);
+  --launch-veil: rgb(248 246 242 / 0.4);
   --import-focus-border: rgb(90 111 125 / 0.4);
   --import-focus-ring: rgb(90 111 125 / 0.1);
   --accent-focus-fill: rgb(90 111 125 / 0.12);
@@ -220,6 +225,11 @@
   --ghost-hover-border: rgb(236 234 227 / 0.14);
   --launch-glow-inner: rgb(140 165 185 / 0.14);
   --launch-glow-outer: rgb(140 165 185 / 0.04);
+  --launch-signal-a: rgb(143 163 178 / 0.28);
+  --launch-signal-b: rgb(143 163 178 / 0.16);
+  --launch-signal-c: rgb(180 168 210 / 0.14);
+  --launch-signal-d: rgb(122 171 146 / 0.12);
+  --launch-veil: rgb(30 29 33 / 0.35);
   --import-focus-border: rgb(160 185 205 / 0.45);
   --import-focus-ring: rgb(160 185 205 / 0.12);
   --accent-focus-fill: rgb(140 165 185 / 0.18);
@@ -576,39 +586,53 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: min(70dvh, 32rem);
-  padding: 1.25rem 0 2rem;
+  min-height: min(76dvh, 36rem);
+  padding: 1.5rem 1.25rem 2.5rem;
+  isolation: isolate;
+}
+
+.launch-backdrop {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.launch-field {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 85% 55% at 50% 18%, var(--launch-glow-inner) 0%, transparent 58%),
+    linear-gradient(180deg, var(--launch-veil) 0%, transparent 42%, transparent 100%);
+  opacity: 0.9;
 }
 
 .launch-ambient {
   position: absolute;
-  inset: 10% 5% auto;
-  height: min(52vw, 16rem);
-  max-width: 22rem;
-  margin: 0 auto;
+  top: 6%;
   left: 50%;
+  width: min(92vw, 26rem);
+  height: min(48vw, 15rem);
   transform: translateX(-50%);
   border-radius: 50%;
   background: radial-gradient(
-    ellipse at 50% 40%,
+    ellipse at 50% 42%,
     var(--launch-glow-inner) 0%,
-    var(--launch-glow-outer) 45%,
-    transparent 72%
+    var(--launch-glow-outer) 48%,
+    transparent 74%
   );
-  filter: blur(2px);
-  animation: launchAmbient 14s var(--ease-soft) infinite alternate;
-  pointer-events: none;
-  z-index: 0;
+  filter: blur(3px);
+  animation: launchAmbient 18s var(--ease-soft) infinite alternate;
 }
 
 @keyframes launchAmbient {
   from {
-    opacity: 0.75;
-    transform: translateX(-50%) scale(1);
+    opacity: 0.72;
+    transform: translateX(-50%) scale(1) translateY(0);
   }
   to {
-    opacity: 1;
-    transform: translateX(-50%) scale(1.04) translateY(-2%);
+    opacity: 0.98;
+    transform: translateX(-50%) scale(1.06) translateY(-1.5%);
   }
 }
 
@@ -619,66 +643,201 @@ body {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 1rem;
+  gap: 0.85rem;
   width: 100%;
-  max-width: 20rem;
+  max-width: 22rem;
   margin: 0 auto;
+}
+
+.launch-signal-wrap {
+  width: min(100%, 19rem);
+  height: clamp(4.25rem, 14vw, 5.5rem);
+  margin: 0 0 0.35rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.launch-signal-svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.launch-signal-lines {
+  transform-origin: 50% 50%;
+  animation: launchSignalBreath 22s var(--ease-soft) infinite alternate;
+}
+
+.launch-signal-path {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.launch-signal-path--a {
+  stroke: var(--launch-signal-a);
+  stroke-width: 1.35;
+}
+
+.launch-signal-path--b {
+  stroke: var(--launch-signal-b);
+  stroke-width: 1.1;
+}
+
+.launch-signal-path--c {
+  stroke: var(--launch-signal-c);
+  stroke-width: 1;
+}
+
+.launch-signal-path--d {
+  stroke: var(--launch-signal-d);
+  stroke-width: 0.9;
+}
+
+@keyframes launchSignalBreath {
+  from {
+    transform: translate3d(-5px, 1px, 0);
+    opacity: 0.88;
+  }
+  to {
+    transform: translate3d(5px, -1px, 0);
+    opacity: 1;
+  }
 }
 
 .launch-greeting {
   margin: 0;
-  font-size: clamp(1.65rem, 6vw, 2rem);
+  font-size: clamp(1.7rem, 6.2vw, 2.05rem);
   font-weight: 600;
-  letter-spacing: -0.04em;
-  line-height: 1.15;
+  letter-spacing: -0.038em;
+  line-height: 1.12;
   color: var(--text);
 }
 
 .launch-tagline {
-  margin: -0.15rem 0 0;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  max-width: 17rem;
+  margin: -0.05rem 0 0;
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  letter-spacing: 0.01em;
+  max-width: 18rem;
 }
 
-.launch-cta {
+/* Launch-only primary: pill shape, layered depth, calm hover lift */
+.btn.primary.launch-cta {
   width: 100%;
-  max-width: 17.5rem;
-  min-height: 52px;
-  margin-top: 0.35rem;
-  padding-inline: 1.5rem;
-  border-radius: var(--radius-lg);
-  font-size: 1rem;
+  max-width: 18rem;
+  min-height: 56px;
+  margin-top: 0.5rem;
+  padding: 0.78rem 1.75rem;
+  border-radius: 100px;
+  font-size: 1.03125rem;
   font-weight: 600;
-  letter-spacing: -0.02em;
-  box-shadow: var(--shadow-primary);
-  transition: transform 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out);
+  letter-spacing: 0.018em;
+  line-height: 1.22;
+  border: 1px solid var(--blue-a13);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    0 2px 4px var(--ink-a06),
+    0 6px 20px var(--blue-a20);
+  transition:
+    background 0.28s var(--ease-soft),
+    border-color 0.28s var(--ease-soft),
+    box-shadow 0.32s var(--ease-out),
+    transform 0.24s var(--ease-soft);
 }
 
-.launch-cta:active:not(:disabled) {
-  transform: scale(0.985);
+.btn.primary.launch-cta:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: var(--accent-mid);
+  border-color: var(--blue-a22);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.3),
+    0 3px 8px var(--ink-a08),
+    0 10px 28px var(--blue-a28);
+}
+
+.btn.primary.launch-cta:active:not(:disabled) {
+  transform: translateY(0) scale(0.987);
+  border-color: var(--blue-a20);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 1px 2px var(--ink-a08),
+    0 3px 12px var(--blue-a20);
+}
+
+.btn.primary.launch-cta:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    0 2px 4px var(--ink-a06),
+    0 6px 20px var(--blue-a20),
+    0 0 0 3px var(--blue-a08);
+}
+
+.btn.primary.launch-cta:focus-visible:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.3),
+    0 3px 8px var(--ink-a08),
+    0 10px 28px var(--blue-a28),
+    0 0 0 3px var(--blue-a10);
+}
+
+:root[data-theme="dark"] .btn.primary.launch-cta {
+  border-color: var(--blue-a24);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 2px 5px var(--ink-a28),
+    0 8px 22px var(--blue-a22);
+}
+
+:root[data-theme="dark"] .btn.primary.launch-cta:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.2),
+    0 4px 10px var(--ink-a32),
+    0 12px 32px var(--blue-a28);
+}
+
+:root[data-theme="dark"] .btn.primary.launch-cta:active:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.08),
+    0 1px 3px var(--ink-a28),
+    0 4px 14px var(--blue-a22);
+}
+
+:root[data-theme="dark"] .btn.primary.launch-cta:focus-visible {
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.14),
+    0 2px 5px var(--ink-a28),
+    0 8px 22px var(--blue-a22),
+    0 0 0 3px var(--blue-a12);
 }
 
 .launch-rise {
-  animation: launchRise 0.8s var(--ease-out) both;
+  animation: launchRise 0.85s var(--ease-out) both;
 }
 
-.launch-inner > .launch-rise:nth-child(1) {
-  animation-delay: 0.04s;
+.launch-rise--a {
+  animation-delay: 0.02s;
 }
 
-.launch-inner > .launch-rise:nth-child(2) {
-  animation-delay: 0.11s;
+.launch-rise--b {
+  animation-delay: 0.1s;
 }
 
-.launch-inner > .launch-rise:nth-child(3) {
-  animation-delay: 0.19s;
+.launch-rise--c {
+  animation-delay: 0.17s;
+}
+
+.launch-rise--d {
+  animation-delay: 0.24s;
 }
 
 @keyframes launchRise {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(14px);
   }
   to {
     opacity: 1;
@@ -688,6 +847,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .launch-ambient,
+  .launch-signal-lines,
   .launch-rise {
     animation: none !important;
   }
@@ -697,8 +857,18 @@ body {
     transform: translateX(-50%);
   }
 
+  .launch-signal-lines {
+    opacity: 0.92;
+    transform: none;
+  }
+
   .launch-rise {
     opacity: 1;
+    transform: none;
+  }
+
+  .btn.primary.launch-cta:hover:not(:disabled),
+  .btn.primary.launch-cta:active:not(:disabled) {
     transform: none;
   }
 }

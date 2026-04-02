@@ -78,7 +78,7 @@ capture_time_local (submission wall clock, "HH:MM", Western digits) is optional 
 When user_timezone (IANA) is provided, treat log_date as that calendar date in that timezone and capture_time_local as wall clock in that same timezone—not UTC unless the zone is Etc/UTC.
 
 Use start_time = capture_time_local for a row ONLY when ALL hold:
-  (1) The transcript clearly signals the present moment, something immediate/imminent, or an **immediate-recent** state tied to now (e.g. just waking)—not a remembered distant story. Qualifying cues (any language, natural equivalents): English "now", "right now", "currently", "at the moment", "about to", "going now", "starting now", "heading to", "on my way"; **immediate morning / wake**: "just woke up", "just woken up", "just got up", "just got out of bed", "just rolled out of bed"; typed or recorded check-ins e.g. "as I'm typing", "as I type", "in this recording", "on this recording"; Serbian e.g. "sada", "trenutno", "upravo", "idem na …"; Persian e.g. "الان", "دارم میرم …", "همین الان".
+  (1) The transcript clearly signals the present moment, something immediate/imminent, or an **immediate-recent** state tied to now (e.g. just waking)—not a remembered distant story. Qualifying cues (any language, natural equivalents): English "now", "right now", "currently", "at the moment", "about to", "going now", "starting now", "heading to", "on my way"; **immediate morning / wake**: "just woke up", "just woken up", "just got up", "just got out of bed", "just rolled out of bed"; **present emotional check-in** phrased as current state, e.g. "I'm feeling …", "I am feeling …", or "I feel …" when describing mood now — but NOT "I feel that …" narrating a past belief; typed or recorded check-ins e.g. "as I'm typing", "as I type", "in this recording", "on this recording"; Serbian e.g. "sada", "trenutno", "upravo", "idem na …"; Persian e.g. "الان", "دارم میرم …", "همین الان".
   (2) The passage is not framed as habitual or generic: if the speaker uses "usually", "often", "typically", "generally", or close equivalents (e.g. "معمولا", "обично", "često"), do NOT anchor to capture_time_local unless a separate clearly present-tense segment also qualifies that row.
   (3) The row is not about a recalled interval with its own stated or implied past timing.
   (4) No explicit clock time in the text applies to that row (if it does, use that time or null, not capture_time_local).
@@ -149,6 +149,10 @@ def _transcript_allows_capture_time_anchor(text: str) -> bool:
         "just rolled out of bed",
     )
     if any(m in lower for m in ascii_markers):
+        return True
+    if re.search(r"\bi'?m\s+feeling\b", lower) or re.search(r"\bi\s+am\s+feeling\b", lower):
+        return True
+    if re.search(r"\bi feel\s+(?!that\b)", lower):
         return True
     if re.search(r"\bjust\s+(woke|gotten\s+up|got\s+up|woken)\b", lower):
         return True

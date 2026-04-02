@@ -1,4 +1,4 @@
-import { wallClockHHMMInTimeZone } from "./datesTz";
+import { getBrowserIanaTimeZone, wallClockHHMMInTimeZone } from "./datesTz";
 import type {
   DebugLogsSaveResponse,
   ExtractLogsResponse,
@@ -62,10 +62,9 @@ export async function transcribeAudio(blob: Blob, filename: string): Promise<{ t
   return parseJson(res);
 }
 
-/** Client local wall clock as HH:MM (24h) for present-tense timing hints during extraction. */
+/** Client device wall clock as HH:MM (24h); same instant as wallClockHHMMInTimeZone(browser TZ). */
 export function localWallClockHHMM(): string {
-  const d = new Date();
-  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  return wallClockHHMMInTimeZone(getBrowserIanaTimeZone());
 }
 
 export async function extractLogs(
@@ -73,12 +72,12 @@ export async function extractLogs(
   logDate: string,
   options?: { captureTimeLocal?: string | null; timezone?: string | null },
 ): Promise<ExtractLogsResponse> {
-  const tz = options?.timezone?.trim() || null;
+  const savedTz = options?.timezone?.trim() || null;
+  /** IANA zone for wall clock + model context: saved preference, else this device. */
+  const effectiveIana = savedTz ?? getBrowserIanaTimeZone();
   const capture_time_local =
     options?.captureTimeLocal === undefined
-      ? tz
-        ? wallClockHHMMInTimeZone(tz)
-        : localWallClockHHMM()
+      ? wallClockHHMMInTimeZone(effectiveIana)
       : options.captureTimeLocal === null
         ? undefined
         : options.captureTimeLocal;
@@ -86,9 +85,7 @@ export async function extractLogs(
   if (capture_time_local != null) {
     body.capture_time_local = capture_time_local;
   }
-  if (tz) {
-    body.timezone = tz;
-  }
+  body.timezone = effectiveIana;
   const res = await fetch(`${base()}/extract-logs`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -93,6 +93,15 @@ function formatDateHeading(iso: string): string {
   return dt.toLocaleDateString(undefined, opts);
 }
 
+/** Saved-card time line: null when both missing; single time or en-dash range otherwise. */
+function todaySavedTimeDisplay(start: string | null | undefined, end: string | null | undefined): string | null {
+  const s = start?.trim() ?? "";
+  const t = end?.trim() ?? "";
+  if (!s && !t) return null;
+  if (s && t) return `${s}–${t}`;
+  return s || t;
+}
+
 type TodayPageProps = { userId: number; timeZone: string };
 
 /** Which input produced the current review session (sets saved `source_type`). */
@@ -894,6 +903,7 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
         <ul className="saved-list today-saved-list">
           {saved.map((e) => {
             const metricsShort = compactMetricSummary(e);
+            const timeLine = todaySavedTimeDisplay(e.start_time, e.end_time);
             const menuOpen = savedMenuOpenId === e.id;
             const menuDomId = `today-saved-menu-${e.id}`;
             return (
@@ -901,9 +911,7 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
                 <div className="today-saved-item-head">
                   <div className="today-saved-item-main">
                     <div className="today-saved-item-meta-row">
-                      <span className="mono muted today-saved-item-times" aria-label="Start to end time">
-                        {e.start_time ?? "—"}–{e.end_time ?? "—"}
-                      </span>
+                      {timeLine != null && <span className="mono muted today-saved-item-times">{timeLine}</span>}
                       {metricsShort && (
                         <span className="today-saved-item-metrics-compact mono muted" aria-label="Metrics summary">
                           {metricsShort}
