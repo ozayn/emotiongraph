@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { saveLogs } from "../api";
 import { todayIsoInTimeZone } from "../datesTz";
 import CalmSelect from "./CalmSelect";
+import InlineHelp from "./InlineHelp";
 import MetricSelect from "./MetricSelect";
 import { draftToNewLogRow, emptyDraftForDate, type EditDraft, LOG_ADD_SOURCE_OPTIONS } from "../logEditDraft";
 import { optionsForMetricKey } from "../trackerOptions";
@@ -68,8 +69,13 @@ export default function AddPastEntryFlow({ userId, timeZone, onSaved }: Props) {
 
   return (
     <div className="profile-data-group">
-      <h3 className="profile-data-kicker">Manual row</h3>
-      <p className="muted small profile-data-microcopy">One structured entry for any date.</p>
+      <div className="profile-data-kicker-row">
+        <h3 className="profile-data-kicker">Manual row</h3>
+        <InlineHelp label="Manual log row">
+          <p>Add one structured row for any date, with the same fields as a normal day log (including metrics you track).</p>
+          <p>It is stored like any other row for the date you pick.</p>
+        </InlineHelp>
+      </div>
       <button type="button" className="btn ghost small" onClick={openAddPast}>
         Add row
       </button>
@@ -86,14 +92,18 @@ export default function AddPastEntryFlow({ userId, timeZone, onSaved }: Props) {
           >
             <div className="log-edit-sheet-scroll">
               <div className="log-edit-sheet-head">
-                <h2 id="profile-log-add-title" ref={addSheetTitleRef} tabIndex={-1}>
-                  Add entry (past date)
-                </h2>
+                <div className="log-edit-sheet-title-cluster">
+                  <h2 id="profile-log-add-title" ref={addSheetTitleRef} tabIndex={-1}>
+                    Add entry
+                  </h2>
+                  <InlineHelp label="Past-date entry">
+                    <p>Saved as a normal log row for the date you choose — same fields as other days.</p>
+                  </InlineHelp>
+                </div>
                 <button type="button" className="btn btn-text log-edit-close" onClick={closeAddPast}>
                   Close
                 </button>
               </div>
-              <p className="muted small log-edit-past-note">Saved as a normal log row for the date you choose.</p>
               <div className="log-edit-fields">
                 <label className="field field--stacked">
                   <span>Log date</span>

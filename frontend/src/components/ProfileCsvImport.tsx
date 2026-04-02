@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { commitLogsImport, previewLogsImportCsv } from "../api";
 import type { LogImportRow, LogsImportPreviewResponse } from "../types";
+import InlineHelp from "./InlineHelp";
 
 type Props = {
   userId: number;
@@ -65,10 +66,15 @@ export default function ProfileCsvImport({ userId, onCommitted }: Props) {
 
   return (
     <div className="profile-data-group">
-      <h3 className="profile-data-kicker">Import</h3>
-      <p className="muted small profile-data-microcopy">
-        UTF-8 CSV; <span className="mono">log_date</span> per row · saved as <span className="mono">import</span>
-      </p>
+      <div className="profile-data-kicker-row">
+        <h3 className="profile-data-kicker">Import</h3>
+        <InlineHelp label="CSV import">
+          <p>
+            UTF-8 <span className="mono">.csv</span>. Each row needs <span className="mono">log_date</span>; optional columns match your tracker export shape.
+          </p>
+          <p>Imported rows are stored with source <span className="mono">import</span>. Preview checks the file before anything is saved.</p>
+        </InlineHelp>
+      </div>
       <div className="entries-import-upload">
         <div className="entries-import-dropzone">
           <input
@@ -98,8 +104,8 @@ export default function ProfileCsvImport({ userId, onCommitted }: Props) {
       {importPreview && (
         <div className="entries-import-preview">
           <p className="muted small">
-            <strong>{importPreview.row_count}</strong> row{importPreview.row_count === 1 ? "" : "s"} ready
-            {importPreview.parse_errors.length > 0 ? " (some lines skipped)" : ""}.
+            <strong>{importPreview.row_count}</strong> {importPreview.row_count === 1 ? "row" : "rows"} ready to save
+            {importPreview.parse_errors.length > 0 ? " · some lines skipped" : ""}
           </p>
           {importPreview.parse_errors.length > 0 && (
             <ul className="entries-import-errors muted small">

@@ -3,6 +3,7 @@ import { patchUserTimezone } from "../api";
 import { effectiveUserTimeZone, getBrowserIanaTimeZone } from "../datesTz";
 import { PRESET_TIMEZONES } from "../timezoneOptions";
 import type { User } from "../types";
+import InlineHelp from "./InlineHelp";
 
 const DEVICE_VALUE = "__device__";
 
@@ -36,22 +37,20 @@ export default function UserTimezonePreferences({ user, onUpdated }: Props) {
 
   return (
     <section className="preferences-tz" aria-labelledby="prefs-tz-heading">
-      <h2 id="prefs-tz-heading" className="preferences-tz-title">
-        Time zone
-      </h2>
-      <p className="preferences-tz-lead muted small">
-        Calendar days and voice/text capture use one IANA time zone. By default this matches{" "}
-        <strong>this device</strong> ({deviceTz}). Set a fixed zone only if you want dates to stay
-        aligned to a specific region.
-      </p>
+      <div className="profile-heading-with-help">
+        <h2 id="prefs-tz-heading" className="preferences-tz-title">
+          Time zone
+        </h2>
+        <InlineHelp label="Time zone">
+          <p>Calendar days and voice or text capture share one IANA time zone.</p>
+          <p>
+            Default follows <strong>this device</strong> ({deviceTz}). Pick a fixed region only if you want calendar days to stay aligned to that place when you travel.
+          </p>
+        </InlineHelp>
+      </div>
       <p className="preferences-tz-effective small">
-        <span className="muted">Effective zone now:</span>{" "}
-        <code className="preferences-tz-code">{effective}</code>
-        {saved == null ? (
-          <span className="muted"> (from device)</span>
-        ) : (
-          <span className="muted"> (saved override)</span>
-        )}
+        <span className="muted">Effective:</span> <code className="preferences-tz-code">{effective}</code>
+        <span className="muted">{saved == null ? " · device" : " · saved"}</span>
       </p>
       <div className="preferences-tz-control">
         <label className="preferences-tz-label" htmlFor={`prefs-tz-select-${user.id}`}>
@@ -75,7 +74,7 @@ export default function UserTimezonePreferences({ user, onUpdated }: Props) {
           {showSavedCustom && <option value={saved}>{saved}</option>}
         </select>
         <p id="prefs-tz-hint" className="sr-only">
-          Choose device time zone or a fixed IANA region.
+          Optional. Sets which IANA zone defines calendar days for this profile.
         </p>
       </div>
       {err && (

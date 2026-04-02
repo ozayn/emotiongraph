@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { downloadLogsCsvExport } from "../api";
 import AddPastEntryFlow from "../components/AddPastEntryFlow";
+import InlineHelp from "../components/InlineHelp";
 import ProfileCsvImport from "../components/ProfileCsvImport";
 import UserTimezonePreferences from "../components/UserTimezonePreferences";
 import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
@@ -68,7 +69,7 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
 
       <header className="profile-page-header">
         <h1 className="profile-page-title">Profile</h1>
-        <p className="profile-page-tagline muted small">Account, preferences, and data for this device.</p>
+        <p className="profile-page-tagline muted small">This device · this profile</p>
       </header>
 
       <section id="profile-identity" className="profile-section profile-section--account" aria-labelledby="profile-account-heading">
@@ -88,20 +89,25 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
             </p>
           </div>
 
-          <p className="profile-signin-future muted small">
-            Google sign-in will connect this screen to your account — not available in this build.
-          </p>
-
-          <p className="profile-account-hint muted small">
-            Voice and daily review live in the app bar. Text and structured rows:{" "}
-            <Link className="linkish profile-account-hint-link" to="/add-entry">
+          <div className="profile-account-toolbar">
+            <Link className="profile-account-add-link" to="/add-entry">
               Add entry
             </Link>
-          </p>
+            <InlineHelp label="This profile">
+              <p>Voice capture and daily review live in the top bar.</p>
+              <p>Google sign-in will link this profile to your account when it ships — not in this build.</p>
+            </InlineHelp>
+          </div>
 
           <div className="profile-account-footer">
             <Link className="profile-account-secondary" to="/switch-profile">
               Use a different profile
+            </Link>
+            <span className="profile-account-footer-sep muted small" aria-hidden="true">
+              ·
+            </span>
+            <Link className="profile-account-secondary" to="/admin">
+              Tracker config
             </Link>
           </div>
         </div>
@@ -126,8 +132,13 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
           <div className="profile-data-divider" aria-hidden="true" />
 
           <div className="profile-data-group">
-            <h3 className="profile-data-kicker">Export</h3>
-            <p className="muted small profile-data-microcopy">Your rows only, same shape as import.</p>
+            <div className="profile-data-kicker-row">
+              <h3 className="profile-data-kicker">Export</h3>
+              <InlineHelp label="CSV export">
+                <p>Download is limited to your own rows in the selected range.</p>
+                <p>Columns match the import template so you can round-trip edits in a spreadsheet.</p>
+              </InlineHelp>
+            </div>
             <div className="profile-export-range">
               <label className="profile-export-field">
                 <span className="profile-export-label">From</span>
