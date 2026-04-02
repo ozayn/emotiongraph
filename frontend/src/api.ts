@@ -1,5 +1,6 @@
 import { wallClockHHMMInTimeZone } from "./datesTz";
 import type {
+  DebugLogsSaveResponse,
   ExtractLogsResponse,
   InsightsPayload,
   LogImportRow,
@@ -98,6 +99,20 @@ export async function extractLogs(
 
 export async function saveLogs(userId: number, logDate: string, rows: LogRow[]): Promise<SavedLogEntry[]> {
   const res = await fetch(`${base()}/logs`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...userScopedHeaders(userId) },
+    body: JSON.stringify({ log_date: logDate, rows }),
+  });
+  return parseJson(res);
+}
+
+/** TEMP: same JSON body as saveLogs but POST /debug/logs (no DB write). Remove when debugging is done. */
+export async function debugSaveLogsPayload(
+  userId: number,
+  logDate: string,
+  rows: LogRow[],
+): Promise<DebugLogsSaveResponse> {
+  const res = await fetch(`${base()}/debug/logs`, {
     method: "POST",
     headers: { "Content-Type": "application/json", ...userScopedHeaders(userId) },
     body: JSON.stringify({ log_date: logDate, rows }),

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import type { ExtractLogsResponse, LogRow } from "../types";
+import { debugSaveLogsPayload } from "../api";
+import type { DebugLogsSaveResponse, ExtractLogsResponse, LogRow } from "../types";
 import MetricSelect from "./MetricSelect";
 import { optionsForMetricKey } from "../trackerOptions";
 
@@ -42,6 +43,8 @@ type Props = {
   open: boolean;
   transcript: string;
   logDate: string;
+  /** Scoped user for X-User-Id (required for temporary test-save debug). */
+  userId: number;
   /** How the input was produced; used in dev JSON export and filename. */
   extractSourceType: ExtractSourceType;
   extraction: ExtractLogsResponse | null;
@@ -52,10 +55,15 @@ type Props = {
   onDiscard: () => void;
 };
 
+function isReadyUserId(id: number): boolean {
+  return Number.isInteger(id) && id > 0;
+}
+
 export default function ReviewExtractionModal({
   open,
   transcript,
   logDate,
+  userId,
   extractSourceType,
   extraction,
   extractionLoading,
@@ -67,6 +75,9 @@ export default function ReviewExtractionModal({
   const [rows, setRows] = useState<LogRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [debugSaveLoading, setDebugSaveLoading] = useState(false);
+  const [debugSaveError, setDebugSaveError] = useState<string | null>(null);
+  const [debugSaveResponse, setDebugSaveResponse] = useState<DebugLogsSaveResponse | null>(null);
   const rowsTouched = useRef(false);
   const lastExtractionKey = useRef<string | null>(null);
 
@@ -75,9 +86,13 @@ export default function ReviewExtractionModal({
       rowsTouched.current = false;
       lastExtractionKey.current = null;
       setRows([]);
+      setDebugSaveResponse(null);
+      setDebugSaveError(null);
       return;
     }
     setSaveError(null);
+    setDebugSaveResponse(null);
+    setDebugSaveError(null);
     rowsTouched.current = false;
     setRows([]);
   }, [open]);
@@ -141,6 +156,24 @@ export default function ReviewExtractionModal({
       setSaveError(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSaving(false);
+    }
+  };
+
+  /** Same row payload as handleSaveRows in TodayPage (source_type from extract path). TEMP debug. */
+  const rowsForSavePayload = (): LogRow[] =>
+    rows.map((r) => ({ ...r, source_type: extractSourceType }));
+
+  const handleTestSavePayload = async () => {
+    setDebugSaveError(null);
+    setDebugSaveResponse(null);
+    setDebugSaveLoading(true);
+    try {
+      const res = await debugSaveLogsPayload(userId, logDate, rowsForSavePayload());
+      setDebugSaveResponse(res);
+    } catch (e) {
+      setDebugSaveError(e instanceof Error ? e.message : "Debug save request failed");
+    } finally {
+      setDebugSaveLoading(false);
     }
   };
 
@@ -282,16 +315,42 @@ export default function ReviewExtractionModal({
           </details>
 
           {saveError && <p className="error-inline review-save-error">{saveError}</p>}
+          {debugSaveError && (
+            <p className="error-inline review-save-error" role="status">
+              {debugSaveError}
+            </p>
+          )}
+          {debugSaveResponse != null && (
+            <section className="review-debug-save-response" aria-label="Debug save response">
+              <h4 className="review-debug-save-response-title">POST /debug/logs response (dev)</h4>
+              <pre className="review-debug-save-response-pre">{JSON.stringify(debugSaveResponse, null, 2)}</pre>
+            </section>
+          )}
           <div className="review-scroll-spacer" aria-hidden="true" />
         </div>
 
         <div className="review-sticky-footer">
-          <button type="button" className="btn btn-discard-footer" onClick={onDiscard} disabled={saving}>
+          <button type="button" className="btn btn-discard-footer" onClick={onDiscard} disabled={saving || debugSaveLoading}>
             Discard
           </button>
-          <button type="button" className="btn primary btn-save-footer" onClick={() => void handleSave()} disabled={saving}>
-            {saving ? "Saving…" : "Save to log"}
-          </button>
+          <div className="review-footer-save-row">
+            <button
+              type="button"
+              className="btn btn-text small review-debug-save-test"
+              onClick={() => void handleTestSavePayload()}
+              disabled={saving || debugSaveLoading || !isReadyUserId(userId)}
+            >
+              {debugSaveLoading ? "Testing…" : "Test save payload (dev)"}
+            </button>
+            <button
+              type="button"
+              className="btn primary btn-save-footer"
+              onClick={() => void handleSave()}
+              disabled={saving || debugSaveLoading}
+            >
+              {saving ? "Saving…" : "Save to log"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

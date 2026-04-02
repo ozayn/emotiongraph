@@ -30,6 +30,14 @@ export type SavedLogEntry = LogRow & {
   source_type: "manual" | "voice" | "text" | "import";
 };
 
+/** Response from POST /debug/logs (dry-run save diagnostics). TEMP: remove when debugging is done. */
+export type DebugLogsSaveResponse = {
+  user_id: number;
+  log_date: string;
+  row_count: number;
+  rows: LogRow[];
+};
+
 /** One row from CSV import preview / commit (matches backend LogImportRowIn). */
 export type LogImportRow = {
   log_date: string;

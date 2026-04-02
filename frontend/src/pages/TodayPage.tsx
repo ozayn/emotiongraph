@@ -807,6 +807,7 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
         open={reviewOpen}
         transcript={reviewSourceText}
         logDate={logDate}
+        userId={userId}
         extractSourceType={reviewOrigin === "text" ? "text" : "voice"}
         extraction={extraction}
         extractionLoading={extractionLoading}

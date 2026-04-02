@@ -2845,6 +2845,57 @@ body {
   color: var(--accent-blue-mid);
 }
 
+.review-debug-save-response {
+  margin-top: 1rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border);
+  background: var(--ink-a04);
+}
+
+.review-debug-save-response-title {
+  margin: 0 0 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.review-debug-save-response-pre {
+  margin: 0;
+  max-height: 14rem;
+  overflow: auto;
+  font-size: 0.72rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: var(--text);
+}
+
+.review-footer-save-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem 1rem;
+  width: 100%;
+  max-width: 22rem;
+}
+
+.review-debug-save-test {
+  min-height: auto;
+  padding: 0.25rem 0.35rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.review-debug-save-test:hover:not(:disabled) {
+  color: var(--accent-blue-mid);
+}
+
 .review-block {
   margin-top: 1.35rem;
 }
