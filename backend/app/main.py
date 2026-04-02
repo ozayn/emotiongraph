@@ -4,6 +4,7 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, File, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import StatementError
 from sqlalchemy.orm import Session
 
 from app.config import DEFAULT_CORS_ORIGINS, settings
@@ -44,6 +45,42 @@ from app.services.logs_csv_import import (
 from app.services.transcription import is_transcript_usable, transcribe_audio_bytes
 
 logger = logging.getLogger(__name__)
+
+
+def _pending_log_entry_snapshot(entry: LogEntry) -> dict:
+    """TEMP diagnostics: values ORM will persist (pre-commit)."""
+    ld = entry.log_date
+    return {
+        "user_id": entry.user_id,
+        "log_date": ld.isoformat() if ld is not None else None,
+        "start_time": entry.start_time,
+        "end_time": entry.end_time,
+        "event": entry.event,
+        "energy_level": entry.energy_level,
+        "anxiety": entry.anxiety,
+        "contentment": entry.contentment,
+        "focus": entry.focus,
+        "music": entry.music,
+        "comments": entry.comments,
+        "source_type": entry.source_type,
+    }
+
+
+def _dbapi_exc_parts(exc: BaseException) -> tuple[str | None, str | None]:
+    o = getattr(exc, "orig", None)
+    if o is None:
+        return None, None
+    return type(o).__name__, str(o)
+
+
+def _statement_preview(exc: BaseException) -> str | None:
+    if isinstance(exc, StatementError):
+        st = getattr(exc, "statement", None)
+        if st:
+            s = str(st)
+            return s if len(s) <= 2000 else s[:2000] + "…"
+    return None
+
 
 ensure_schema_via_alembic()
 ensure_users_timezone_column()
@@ -283,6 +320,12 @@ def save_logs(
     db: Session = Depends(get_db),
     user_id: int = Depends(require_user_id),
 ):
+    """
+    Insert path (not exercised by POST /debug/logs): failures are usually at db.commit()
+    (constraints, PK/sequence, FK, NOT NULL, type/length) or db.refresh() (ORM/DB column drift).
+    Production alignment: Alembic initial_schema + upgrade_rdbms_schema_for_multiuser (Postgres)
+    for user_id, created_at, source_type, indexes, and log_entries id sequence.
+    """
     row_count = len(body.rows)
     created: list[LogEntry] = []
     try:
@@ -303,27 +346,83 @@ def save_logs(
             )
             db.add(entry)
             created.append(entry)
-        logger.info(
-            "POST /logs committing user_id=%s log_date=%s row_count=%s",
-            user_id,
-            body.log_date,
-            row_count,
-        )
-        db.commit()
-        for e in created:
-            db.refresh(e)
-        return created
     except Exception as e:
         logger.error(
-            "POST /logs failed: exception_type=%s exception_message=%s user_id=%s log_date=%s row_count=%s",
+            "POST /logs failed during ORM build/db.add: sqlalchemy_type=%s sqlalchemy_message=%s "
+            "dbapi_type=%s dbapi_message=%s user_id=%s log_date=%s row_count=%s",
             type(e).__name__,
-            e,
+            str(e),
+            *_dbapi_exc_parts(e),
             user_id,
             body.log_date,
             row_count,
             exc_info=True,
         )
         raise
+
+    pending_rows = [_pending_log_entry_snapshot(e) for e in created]
+    logger.info(
+        "POST /logs pending inserts user_id=%s log_date=%s row_count=%s rows=%s",
+        user_id,
+        body.log_date,
+        row_count,
+        pending_rows,
+    )
+
+    try:
+        db.commit()
+    except Exception as e:
+        stmt = _statement_preview(e)
+        logger.error(
+            "POST /logs FAILED AT db.commit(): sqlalchemy_type=%s sqlalchemy_message=%s "
+            "dbapi_type=%s dbapi_message=%s statement_preview=%s pending_rows=%s user_id=%s log_date=%s row_count=%s",
+            type(e).__name__,
+            str(e),
+            *_dbapi_exc_parts(e),
+            stmt,
+            pending_rows,
+            user_id,
+            body.log_date,
+            row_count,
+            exc_info=True,
+        )
+        raise
+
+    committed_ids = [getattr(e, "id", None) for e in created]
+    logger.info(
+        "POST /logs commit ok user_id=%s log_date=%s row_count=%s assigned_ids=%s",
+        user_id,
+        body.log_date,
+        row_count,
+        committed_ids,
+    )
+
+    for i, e in enumerate(created):
+        try:
+            db.refresh(e)
+        except Exception as ex:
+            stmt = _statement_preview(ex)
+            snap = pending_rows[i] if i < len(pending_rows) else None
+            logger.error(
+                "POST /logs FAILED AT db.refresh(): refresh_index=%s sqlalchemy_type=%s sqlalchemy_message=%s "
+                "dbapi_type=%s dbapi_message=%s statement_preview=%s entry_id_after_commit=%s "
+                "pending_row_snapshot=%s all_assigned_ids=%s user_id=%s log_date=%s row_count=%s",
+                i,
+                type(ex).__name__,
+                str(ex),
+                *_dbapi_exc_parts(ex),
+                stmt,
+                getattr(e, "id", None),
+                snap,
+                committed_ids,
+                user_id,
+                body.log_date,
+                row_count,
+                exc_info=True,
+            )
+            raise
+
+    return created
 
 
 @app.post("/debug/logs", response_model=DebugLogsSaveResponse)
