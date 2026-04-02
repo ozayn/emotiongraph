@@ -71,6 +71,11 @@ TEST_CASES: list[dict[str, str]] = [
         "notes": "Happening-now English; no explicit clock time.",
     },
     {
+        "case_id": "just_woke_up_capture_anchor",
+        "input_text": "I just woke up, still groggy.",
+        "notes": "Immediate-recent wake; capture_time_local as start_time should not be stripped post-process.",
+    },
+    {
         "case_id": "single_work_block",
         "input_text": "From 9 to 11 I worked on the report. I felt mostly focused, only a little anxious, and my energy was neutral.",
         "notes": "Single row; explicit times; metrics in prose.",

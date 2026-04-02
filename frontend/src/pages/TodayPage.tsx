@@ -1,19 +1,29 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { extractLogs, fetchLogs, fetchTrackerDay, saveLogs, saveTrackerDay, transcribeAudio } from "../api";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { blobFailsMinimumSpeechEnergy } from "../audioSilence";
+import {
+  deleteLog,
+  extractLogs,
+  fetchLogs,
+  fetchTrackerDay,
+  patchLog,
+  saveLogs,
+  saveTrackerDay,
+  transcribeAudio,
+} from "../api";
 import { todayIsoInTimeZone } from "../datesTz";
 import AudioRecorder from "../components/AudioRecorder";
+import CalmSelect from "../components/CalmSelect";
 import MetricSelect from "../components/MetricSelect";
+import {
+  compactMetricSummary,
+  draftToPatch,
+  entryToDraft,
+  type EditDraft,
+  LOG_EDIT_SOURCE_OPTIONS,
+} from "../logEditDraft";
 import ReviewExtractionModal from "../components/ReviewExtractionModal";
 import type { ExtractLogsResponse, LogRow, SavedLogEntry } from "../types";
-import {
-  formatAnxiety,
-  formatContentment,
-  formatEnergy,
-  formatFocus,
-  formatSleepQuality,
-  optionsForMetricKey,
-  SLEEP_QUALITY_OPTIONS,
-} from "../trackerOptions";
+import { formatSleepQuality, optionsForMetricKey, SLEEP_QUALITY_OPTIONS } from "../trackerOptions";
 
 const MANUAL_MORE_KEYS: { key: keyof Omit<LogRow, "source_type">; label: string }[] = [
   { key: "energy_level", label: "Energy" },
@@ -124,6 +134,16 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
   const [manualError, setManualError] = useState<string | null>(null);
   const [manualSavedBanner, setManualSavedBanner] = useState(false);
   const [manualSectionOpen, setManualSectionOpen] = useState(false);
+  const [textSectionOpen, setTextSectionOpen] = useState(false);
+
+  const [savedMenuOpenId, setSavedMenuOpenId] = useState<number | null>(null);
+  const [savedEditEntry, setSavedEditEntry] = useState<SavedLogEntry | null>(null);
+  const [savedEditDraft, setSavedEditDraft] = useState<EditDraft | null>(null);
+  const [savedEditSaveError, setSavedEditSaveError] = useState<string | null>(null);
+  const [savedEditSaving, setSavedEditSaving] = useState(false);
+  const [savedActionError, setSavedActionError] = useState<string | null>(null);
+  const savedEditSourceLabelId = useId();
+  const savedEditTitleRef = useRef<HTMLHeadingElement>(null);
 
   const [dayDraft, setDayDraft] = useState({ cycle_day: "", sleep_hours: "", sleep_quality: "" });
   const [daySaving, setDaySaving] = useState(false);
@@ -160,6 +180,88 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
       setDayError(e instanceof Error ? e.message : "Failed to load day info");
     }
   }, [userId, logDate]);
+
+  const closeSavedEdit = useCallback(() => {
+    setSavedEditEntry(null);
+    setSavedEditDraft(null);
+    setSavedEditSaveError(null);
+  }, []);
+
+  const openSavedEdit = useCallback((entry: SavedLogEntry) => {
+    setSavedMenuOpenId(null);
+    setSavedEditSaveError(null);
+    setSavedActionError(null);
+    setSavedEditEntry(entry);
+    setSavedEditDraft(entryToDraft(entry));
+  }, []);
+
+  const handleSavedEditSave = useCallback(async () => {
+    if (!savedEditEntry || !savedEditDraft) return;
+    setSavedEditSaveError(null);
+    setSavedEditSaving(true);
+    try {
+      await patchLog(userId, savedEditEntry.id, draftToPatch(savedEditDraft));
+      closeSavedEdit();
+      await refreshSaved();
+    } catch (err) {
+      setSavedEditSaveError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSavedEditSaving(false);
+    }
+  }, [userId, savedEditEntry, savedEditDraft, closeSavedEdit, refreshSaved]);
+
+  const handleSavedDelete = useCallback(
+    async (entry: SavedLogEntry) => {
+      setSavedActionError(null);
+      if (!window.confirm(`Delete entry #${entry.id}? This cannot be undone.`)) return;
+      try {
+        await deleteLog(userId, entry.id);
+        await refreshSaved();
+      } catch (err) {
+        setSavedActionError(err instanceof Error ? err.message : "Could not delete entry");
+      }
+    },
+    [userId, refreshSaved],
+  );
+
+  const setSavedEditDraftField = useCallback(<K extends keyof EditDraft>(key: K, value: EditDraft[K]) => {
+    setSavedEditDraft((d) => (d ? { ...d, [key]: value } : null));
+  }, []);
+
+  useEffect(() => {
+    setSavedMenuOpenId(null);
+  }, [saved, logDate]);
+
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key !== "Escape") return;
+      if (savedEditDraft && savedEditEntry) {
+        closeSavedEdit();
+      } else if (savedMenuOpenId != null) {
+        setSavedMenuOpenId(null);
+      }
+    };
+    if (!savedEditDraft && savedMenuOpenId == null) return;
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [savedEditDraft, savedEditEntry, savedMenuOpenId, closeSavedEdit]);
+
+  useEffect(() => {
+    if (savedMenuOpenId == null) return;
+    const onPointerDown = (ev: PointerEvent) => {
+      const t = ev.target;
+      if (t instanceof Element && t.closest("[data-today-saved-menu-root]")) return;
+      setSavedMenuOpenId(null);
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+  }, [savedMenuOpenId]);
+
+  useEffect(() => {
+    if (!savedEditDraft || !savedEditEntry) return;
+    const id = window.requestAnimationFrame(() => savedEditTitleRef.current?.focus());
+    return () => window.cancelAnimationFrame(id);
+  }, [savedEditDraft, savedEditEntry]);
 
   useEffect(() => {
     if (!isReadyUserId(userId) || !logDate.trim()) return;
@@ -295,6 +397,12 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
     setStepError(null);
     setPipelineLoading(true);
     setPipelinePhase("transcribe");
+    const likelySilent = await blobFailsMinimumSpeechEnergy(recording);
+    if (likelySilent === true) {
+      setStepError("No usable speech detected.");
+      setPipelineLoading(false);
+      return;
+    }
     try {
       const { transcript: text } = await transcribeAudio(recording, "recording.webm");
       setTranscript(text);
@@ -316,8 +424,8 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
       setReviewOpen(true);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
-      if (msg.includes("no usable speech")) {
-        setStepError("Transcription failed or returned no usable speech.");
+      if (msg.includes("No usable speech detected")) {
+        setStepError("No usable speech detected.");
       } else {
         setStepError(msg || "Transcription failed");
       }
@@ -427,9 +535,10 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
         className={recordPanelClass}
         aria-label="Voice: speak naturally, then review extracted rows before saving"
       >
-        <h2 className="sr-only">Voice</h2>
+        <h2 className="today-voice-heading">Voice</h2>
         <AudioRecorder
           disabled={recordingLocked}
+          processing={pipelineLoading}
           onRecorded={(b) => void handleRecordingComplete(b)}
           onRecordingActiveChange={setRecordingActive}
         />
@@ -448,40 +557,55 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
         {stepError && <p className="error-inline error-inline--spaced">{stepError}</p>}
       </section>
 
-      <section className="today-text-extract" aria-labelledby="text-mode-heading">
-        <h2 className="today-mode-heading" id="text-mode-heading">
-          Text
-        </h2>
-        <p className="today-text-extract-lead muted small">
-          Natural typed language — extract structured rows, review, then save (same path as voice).
-        </p>
-        <label className="sr-only" htmlFor="today-free-text">
-          Natural-language log note for text extraction
-        </label>
-        <textarea
-          id="today-free-text"
-          className="today-free-text-input"
-          rows={4}
-          placeholder="e.g. Rough morning, better after lunch…"
-          value={freeTextDraft}
-          onChange={(e) => setFreeTextDraft(e.target.value)}
-          disabled={pipelineLoading || reviewOpen || extractionLoading}
-        />
-        <div className="today-text-extract-actions">
-          <button
-            type="button"
-            className="btn primary small today-text-extract-btn"
-            disabled={!freeTextDraft.trim() || pipelineLoading || reviewOpen || extractionLoading}
-            onClick={() => void handleTextExtract()}
-          >
-            {extractionLoading && !pipelineLoading && !reviewOpen ? "Extracting…" : "Extract"}
-          </button>
-        </div>
+      <section className="today-text-shell" aria-label="Text extraction">
+        <details
+          className="today-text-disclosure today-secondary-disclosure"
+          open={textSectionOpen}
+          onToggle={(e) => setTextSectionOpen(e.currentTarget.open)}
+        >
+          <summary className="today-text-summary">
+            <span className="today-text-summary-stack">
+              <span className="today-text-summary-title" id="text-mode-heading">
+                Text
+              </span>
+              <span className="today-text-summary-hint muted">Typed note → extract</span>
+            </span>
+            <span className="today-text-summary-chevron" aria-hidden="true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+          </summary>
+          <div className="today-text-body">
+            <label className="sr-only" htmlFor="today-free-text">
+              Natural-language log note for text extraction
+            </label>
+            <textarea
+              id="today-free-text"
+              className="today-free-text-input today-free-text-input--compact"
+              rows={3}
+              placeholder="e.g. Rough morning, better after lunch…"
+              value={freeTextDraft}
+              onChange={(e) => setFreeTextDraft(e.target.value)}
+              disabled={pipelineLoading || reviewOpen || extractionLoading}
+            />
+            <div className="today-text-extract-actions">
+              <button
+                type="button"
+                className="btn primary small today-text-extract-btn"
+                disabled={!freeTextDraft.trim() || pipelineLoading || reviewOpen || extractionLoading}
+                onClick={() => void handleTextExtract()}
+              >
+                {extractionLoading && !pipelineLoading && !reviewOpen ? "Extracting…" : "Extract"}
+              </button>
+            </div>
+          </div>
+        </details>
       </section>
 
-      <section className="today-manual-shell" aria-labelledby="manual-add-heading">
+      <section className="today-manual-shell today-secondary-stack" aria-labelledby="manual-add-heading">
         <details
-          className="today-manual today-manual--secondary today-manual-disclosure"
+          className="today-manual today-manual--secondary today-manual-disclosure today-secondary-disclosure"
           open={manualSectionOpen}
           onToggle={(e) => setManualSectionOpen(e.currentTarget.open)}
         >
@@ -581,7 +705,7 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
         </details>
       </section>
 
-      <section className="today-day-context" aria-labelledby="day-heading">
+      <section className="today-day-context today-day-context--quiet" aria-labelledby="day-heading">
         <button
           type="button"
           className="day-context-trigger"
@@ -765,43 +889,188 @@ export default function TodayPage({ userId, timeZone }: TodayPageProps) {
       <section className="today-entries today-entries--integrated">
         <h2 className="today-entries-heading">Saved</h2>
         {loadError && <p className="error-inline">{loadError}</p>}
+        {savedActionError && <p className="error-inline today-saved-action-error">{savedActionError}</p>}
         {!loadError && saved.length === 0 && <p className="muted today-entries-empty">Nothing saved yet.</p>}
-        <ul className="saved-list">
-          {saved.map((e) => (
-            <li key={e.id} className="saved-item">
-              <div className="saved-item-top">
-                <span className="saved-item-id mono" title="Database id">
-                  #{e.id}
-                </span>
-                <span className="mono muted saved-item-times">
-                  {e.start_time ?? "—"} – {e.end_time ?? "—"}
-                </span>
-              </div>
-              <div className="saved-item-body">{e.event ?? "(no event)"}</div>
-              {(e.energy_level != null ||
-                e.anxiety != null ||
-                e.contentment != null ||
-                e.focus != null) && (
-                <div className="saved-item-metrics muted small">
-                  {[
-                    e.energy_level != null ? `Energy · ${formatEnergy(e.energy_level)}` : null,
-                    e.anxiety != null ? `Anxiety · ${formatAnxiety(e.anxiety)}` : null,
-                    e.contentment != null ? `Contentment · ${formatContentment(e.contentment)}` : null,
-                    e.focus != null ? `Focus · ${formatFocus(e.focus)}` : null,
-                  ]
-                    .filter((x): x is string => x != null)
-                    .join(" · ")}
+        <ul className="saved-list today-saved-list">
+          {saved.map((e) => {
+            const metricsShort = compactMetricSummary(e);
+            const menuOpen = savedMenuOpenId === e.id;
+            const menuDomId = `today-saved-menu-${e.id}`;
+            return (
+              <li key={e.id} className="saved-item today-saved-item">
+                <div className="today-saved-item-head">
+                  <div className="today-saved-item-main">
+                    <div className="today-saved-item-meta-row">
+                      <span className="mono muted today-saved-item-times" aria-label="Start to end time">
+                        {e.start_time ?? "—"}–{e.end_time ?? "—"}
+                      </span>
+                      {metricsShort && (
+                        <span className="today-saved-item-metrics-compact mono muted" aria-label="Metrics summary">
+                          {metricsShort}
+                        </span>
+                      )}
+                      <span className="today-saved-item-source">{e.source_type}</span>
+                    </div>
+                    <p className="today-saved-item-event">{e.event?.trim() ? e.event : "(no event)"}</p>
+                    {(e.comments || e.music) && (
+                      <p className="today-saved-item-foot muted small">
+                        {[e.music && e.music, e.comments].filter(Boolean).join(" · ")}
+                      </p>
+                    )}
+                  </div>
+                  <div className="entries-item-menu-wrap" data-today-saved-menu-root>
+                    <button
+                      type="button"
+                      className="entries-item-menu-trigger"
+                      aria-label="Saved entry actions"
+                      aria-haspopup="menu"
+                      aria-expanded={menuOpen}
+                      aria-controls={menuDomId}
+                      onClick={() => setSavedMenuOpenId((id) => (id === e.id ? null : e.id))}
+                    >
+                      <span aria-hidden="true" className="entries-item-menu-icon">
+                        ⋯
+                      </span>
+                    </button>
+                    {menuOpen && (
+                      <ul id={menuDomId} className="entries-item-menu" role="menu">
+                        <li role="presentation">
+                          <button
+                            type="button"
+                            className="entries-item-menu-item"
+                            role="menuitem"
+                            onClick={() => openSavedEdit(e)}
+                          >
+                            Edit
+                          </button>
+                        </li>
+                        <li role="presentation">
+                          <button
+                            type="button"
+                            className="entries-item-menu-item entries-item-menu-item--danger"
+                            role="menuitem"
+                            onClick={() => {
+                              setSavedMenuOpenId(null);
+                              void handleSavedDelete(e);
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </li>
+                      </ul>
+                    )}
+                  </div>
                 </div>
-              )}
-              {(e.comments || e.music) && (
-                <div className="saved-item-meta muted small">
-                  {[e.music && `Music · ${e.music}`, e.comments].filter(Boolean).join(" · ")}
-                </div>
-              )}
-            </li>
-          ))}
+              </li>
+            );
+          })}
         </ul>
       </section>
+
+      {savedEditDraft && savedEditEntry && (
+        <>
+          <div className="log-edit-backdrop" role="presentation" onClick={closeSavedEdit} />
+          <div
+            className="log-edit-sheet"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="today-log-edit-title"
+            onClick={(ev) => ev.stopPropagation()}
+          >
+            <div className="log-edit-sheet-scroll">
+              <div className="log-edit-sheet-head">
+                <h2 id="today-log-edit-title" ref={savedEditTitleRef} tabIndex={-1}>
+                  Edit entry #{savedEditEntry.id}
+                </h2>
+                <button type="button" className="btn btn-text log-edit-close" onClick={closeSavedEdit}>
+                  Close
+                </button>
+              </div>
+              <div className="log-edit-fields">
+                <label className="field field--stacked">
+                  <span>Log date</span>
+                  <input
+                    type="date"
+                    value={savedEditDraft.log_date}
+                    onChange={(ev) => setSavedEditDraftField("log_date", ev.target.value)}
+                  />
+                </label>
+                <label className="field field--stacked">
+                  <span id={savedEditSourceLabelId}>Source</span>
+                  <CalmSelect
+                    variant="field"
+                    aria-labelledby={savedEditSourceLabelId}
+                    value={savedEditDraft.source_type}
+                    onChange={(v) => setSavedEditDraftField("source_type", v as EditDraft["source_type"])}
+                    options={LOG_EDIT_SOURCE_OPTIONS}
+                  />
+                </label>
+                <label className="field field--stacked">
+                  <span>What happened</span>
+                  <input type="text" value={savedEditDraft.event} onChange={(ev) => setSavedEditDraftField("event", ev.target.value)} />
+                </label>
+                <div className="manual-add-time-row">
+                  <label className="field field--stacked">
+                    <span>Start</span>
+                    <input type="text" value={savedEditDraft.start_time} onChange={(ev) => setSavedEditDraftField("start_time", ev.target.value)} />
+                  </label>
+                  <label className="field field--stacked">
+                    <span>End</span>
+                    <input type="text" value={savedEditDraft.end_time} onChange={(ev) => setSavedEditDraftField("end_time", ev.target.value)} />
+                  </label>
+                </div>
+                {(["energy_level", "anxiety", "contentment", "focus"] as const).map((key) => {
+                  const opts = optionsForMetricKey(key);
+                  if (!opts) return null;
+                  return (
+                    <MetricSelect
+                      key={key}
+                      label={
+                        key === "energy_level"
+                          ? "Energy"
+                          : key === "anxiety"
+                            ? "Anxiety"
+                            : key === "contentment"
+                              ? "Contentment"
+                              : "Focus"
+                      }
+                      value={savedEditDraft[key]}
+                      onChange={(v) => setSavedEditDraftField(key, v)}
+                      options={opts}
+                    />
+                  );
+                })}
+                {optionsForMetricKey("music") && (
+                  <MetricSelect
+                    label="Music"
+                    value={savedEditDraft.music}
+                    onChange={(v) => setSavedEditDraftField("music", v)}
+                    options={optionsForMetricKey("music")!}
+                  />
+                )}
+                <label className="field field--stacked">
+                  <span>Comments</span>
+                  <textarea
+                    className="log-edit-comments"
+                    rows={3}
+                    value={savedEditDraft.comments}
+                    onChange={(ev) => setSavedEditDraftField("comments", ev.target.value)}
+                  />
+                </label>
+              </div>
+              {savedEditSaveError && <p className="error-inline log-edit-error">{savedEditSaveError}</p>}
+            </div>
+            <div className="log-edit-footer">
+              <button type="button" className="btn ghost" onClick={closeSavedEdit} disabled={savedEditSaving}>
+                Cancel
+              </button>
+              <button type="button" className="btn primary" onClick={() => void handleSavedEditSave()} disabled={savedEditSaving}>
+                {savedEditSaving ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       <ReviewExtractionModal
         open={reviewOpen}

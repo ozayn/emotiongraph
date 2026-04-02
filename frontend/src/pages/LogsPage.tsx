@@ -7,15 +7,22 @@ import {
   patchLog,
   previewLogsImportCsv,
   saveLogs,
-  type LogEntryPatchBody,
 } from "../api";
 import CalmSelect from "../components/CalmSelect";
 import MetricSelect from "../components/MetricSelect";
-import type { LogImportRow, LogRow, LogsImportPreviewResponse, SavedLogEntry } from "../types";
+import type { LogImportRow, LogsImportPreviewResponse, SavedLogEntry } from "../types";
 import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
+import {
+  compactMetricSummary,
+  draftToNewLogRow,
+  draftToPatch,
+  emptyDraftForDate,
+  entryToDraft,
+  type EditDraft,
+  LOG_ADD_SOURCE_OPTIONS,
+  LOG_EDIT_SOURCE_OPTIONS,
+} from "../logEditDraft";
 import { optionsForMetricKey } from "../trackerOptions";
-
-const ALLOWED_MUSIC = ["No", "Yes, upbeat", "Yes, calm", "Yes, other"] as const;
 
 const ENTRIES_VIEW_STORAGE_KEY = "emotiongraph_entries_view";
 
@@ -23,17 +30,6 @@ const ENTRIES_VIEW_STORAGE_KEY = "emotiongraph_entries_view";
 const ENTRIES_LIST_INITIAL = 20;
 /** How many extra rows each “Show more” reveals. */
 const ENTRIES_LIST_STEP = 20;
-
-const LOG_ADD_SOURCE_OPTIONS = [
-  { value: "manual", label: "Manual" },
-  { value: "text", label: "Text" },
-];
-
-const LOG_EDIT_SOURCE_OPTIONS = [
-  ...LOG_ADD_SOURCE_OPTIONS,
-  { value: "voice", label: "Voice" },
-  { value: "import", label: "Import" },
-];
 
 type EntriesViewMode = "cards" | "table";
 
@@ -52,116 +48,10 @@ function tableMetricCell(v: number | null | undefined): string {
   return v != null ? String(v) : "—";
 }
 
-type EditDraft = {
-  log_date: string;
-  start_time: string;
-  end_time: string;
-  event: string;
-  energy_level: string;
-  anxiety: string;
-  contentment: string;
-  focus: string;
-  music: string;
-  comments: string;
-  source_type: "manual" | "voice" | "text" | "import";
-};
-
 function shortDate(iso: string): string {
   const [y, m, day] = iso.split("-").map(Number);
   if (!y || !m || !day) return iso;
   return new Date(y, m - 1, day).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
-}
-
-/** Collapsed list: short metric tokens (E=energy, A=anxiety, C=contentment, F=focus). */
-function compactMetricSummary(e: SavedLogEntry): string | null {
-  const parts: string[] = [];
-  if (e.energy_level != null) parts.push(`E${e.energy_level}`);
-  if (e.anxiety != null) parts.push(`A${e.anxiety}`);
-  if (e.contentment != null) parts.push(`C${e.contentment}`);
-  if (e.focus != null) parts.push(`F${e.focus}`);
-  return parts.length > 0 ? parts.join(" · ") : null;
-}
-
-function normalizeSourceType(s: string): EditDraft["source_type"] {
-  const t = s.trim().toLowerCase();
-  if (t === "voice" || t === "text" || t === "manual" || t === "import") return t;
-  return "manual";
-}
-
-function entryToDraft(e: SavedLogEntry): EditDraft {
-  return {
-    log_date: e.log_date,
-    start_time: e.start_time ?? "",
-    end_time: e.end_time ?? "",
-    event: e.event ?? "",
-    energy_level: e.energy_level != null ? String(e.energy_level) : "",
-    anxiety: e.anxiety != null ? String(e.anxiety) : "",
-    contentment: e.contentment != null ? String(e.contentment) : "",
-    focus: e.focus != null ? String(e.focus) : "",
-    music: e.music ?? "",
-    comments: e.comments ?? "",
-    source_type: normalizeSourceType(e.source_type ?? "manual"),
-  };
-}
-
-function parseMusic(s: string): string | null {
-  const t = s.trim();
-  if (!t) return null;
-  return ALLOWED_MUSIC.includes(t as (typeof ALLOWED_MUSIC)[number]) ? t : null;
-}
-
-function draftToNewLogRow(d: EditDraft): LogRow {
-  const p = draftToPatch(d);
-  return {
-    start_time: p.start_time ?? null,
-    end_time: p.end_time ?? null,
-    event: p.event ?? null,
-    energy_level: p.energy_level ?? null,
-    anxiety: p.anxiety ?? null,
-    contentment: p.contentment ?? null,
-    focus: p.focus ?? null,
-    music: p.music ?? null,
-    comments: p.comments ?? null,
-    source_type: p.source_type,
-  };
-}
-
-function emptyDraftForDate(logDate: string): EditDraft {
-  return {
-    log_date: logDate,
-    start_time: "",
-    end_time: "",
-    event: "",
-    energy_level: "",
-    anxiety: "",
-    contentment: "",
-    focus: "",
-    music: "",
-    comments: "",
-    source_type: "manual",
-  };
-}
-
-function draftToPatch(d: EditDraft): LogEntryPatchBody {
-  const num = (s: string): number | null => {
-    const t = s.trim();
-    if (t === "") return null;
-    const n = parseInt(t, 10);
-    return Number.isFinite(n) ? n : null;
-  };
-  return {
-    log_date: d.log_date,
-    start_time: d.start_time.trim() || null,
-    end_time: d.end_time.trim() || null,
-    event: d.event.trim() || null,
-    energy_level: num(d.energy_level),
-    anxiety: num(d.anxiety),
-    contentment: num(d.contentment),
-    focus: num(d.focus),
-    music: parseMusic(d.music),
-    comments: d.comments.trim() || null,
-    source_type: d.source_type,
-  };
 }
 
 type Props = { userId: number; timeZone: string };

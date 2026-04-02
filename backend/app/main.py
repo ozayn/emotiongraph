@@ -44,7 +44,13 @@ from app.services.logs_csv_import import (
     execute_log_import,
     parse_logs_import_csv,
 )
-from app.services.transcription import is_transcript_usable, transcribe_audio_bytes
+from app.services.transcription import (
+    NO_USABLE_SPEECH_MESSAGE,
+    is_effectively_silent_upload,
+    is_likely_silence_hallucination_transcript,
+    is_transcript_usable,
+    transcribe_audio_bytes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -194,16 +200,17 @@ async def transcribe(audio: UploadFile = File(...)):
         raw = await audio.read()
         if not raw:
             raise HTTPException(status_code=400, detail="empty upload")
+        if is_effectively_silent_upload(raw, audio.filename or ""):
+            raise HTTPException(status_code=422, detail=NO_USABLE_SPEECH_MESSAGE)
         text = transcribe_audio_bytes(audio.filename or "recording.webm", raw)
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(status_code=502, detail=str(e)) from e
     if not is_transcript_usable(text):
-        raise HTTPException(
-            status_code=422,
-            detail="Transcript contains no usable speech",
-        )
+        raise HTTPException(status_code=422, detail=NO_USABLE_SPEECH_MESSAGE)
+    if is_likely_silence_hallucination_transcript(text):
+        raise HTTPException(status_code=422, detail=NO_USABLE_SPEECH_MESSAGE)
     return {"transcript": text}
 
 

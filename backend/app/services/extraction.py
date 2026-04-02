@@ -78,7 +78,7 @@ capture_time_local (submission wall clock, "HH:MM", Western digits) is optional 
 When user_timezone (IANA) is provided, treat log_date as that calendar date in that timezone and capture_time_local as wall clock in that same timezone—not UTC unless the zone is Etc/UTC.
 
 Use start_time = capture_time_local for a row ONLY when ALL hold:
-  (1) The transcript clearly signals the present moment or something immediate/imminent—not a remembered or habitual story. Treat as qualifying cues (any language, including natural equivalents): e.g. English "now", "right now", "currently", "at the moment", "about to", "going now", "starting now", "heading to", "on my way"; Serbian e.g. "sada", "trenutno", "upravo", "idem na …"; Persian e.g. "الان", "دارم میرم …", "همین الان".
+  (1) The transcript clearly signals the present moment, something immediate/imminent, or an **immediate-recent** state tied to now (e.g. just waking)—not a remembered distant story. Qualifying cues (any language, natural equivalents): English "now", "right now", "currently", "at the moment", "about to", "going now", "starting now", "heading to", "on my way"; **immediate morning / wake**: "just woke up", "just woken up", "just got up", "just got out of bed", "just rolled out of bed"; typed or recorded check-ins e.g. "as I'm typing", "as I type", "in this recording", "on this recording"; Serbian e.g. "sada", "trenutno", "upravo", "idem na …"; Persian e.g. "الان", "دارم میرم …", "همین الان".
   (2) The passage is not framed as habitual or generic: if the speaker uses "usually", "often", "typically", "generally", or close equivalents (e.g. "معمولا", "обично", "često"), do NOT anchor to capture_time_local unless a separate clearly present-tense segment also qualifies that row.
   (3) The row is not about a recalled interval with its own stated or implied past timing.
   (4) No explicit clock time in the text applies to that row (if it does, use that time or null, not capture_time_local).
@@ -87,7 +87,7 @@ If you use capture_time_local as start_time for a row, set end_time to null. Nev
 
 If capture_time_local is absent, do not invent clock times from "now" alone; use null unless the text states a time clearly.
 
-When in doubt, leave start_time null instead of using capture_time_local.
+When in doubt between a **distant memory** and a **present or immediate-recent** check-in, leave start_time null instead of using capture_time_local—but phrases like "just woke up" / "just got up" are immediate-recent and usually qualify.
 """
 
 SYSTEM_PROMPT = """You extract structured daily log data from spoken or written narrative text (voice transcripts or typed notes).
@@ -128,6 +128,10 @@ def _transcript_allows_capture_time_anchor(text: str) -> bool:
         "as we speak",
         "this moment",
         "at present",
+        "as i'm typing",
+        "as i type",
+        "in this recording",
+        "on this recording",
         "i'm going to",
         "im going to",
         "i am going to",
@@ -137,8 +141,16 @@ def _transcript_allows_capture_time_anchor(text: str) -> bool:
         "going to the ",
         "heading to",
         "on my way",
+        "just woke up",
+        "just woken up",
+        "just got up",
+        "just woke",
+        "just got out of bed",
+        "just rolled out of bed",
     )
     if any(m in lower for m in ascii_markers):
+        return True
+    if re.search(r"\bjust\s+(woke|gotten\s+up|got\s+up|woken)\b", lower):
         return True
     if re.search(r"(?:^|[\s,.;:!?\"'(\[\{])now(?:[\s,.;:!?\"')\]\}]|$)", lower):
         return True
