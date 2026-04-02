@@ -37,16 +37,25 @@ function userScopedHeaders(userId: number): Record<string, string> {
   return { "X-User-Id": String(userId) };
 }
 
-/** Mark requests from the `/demo/*` UI so the API can restrict user scope to the Test sandbox. */
-function demoPublicHeaders(): Record<string, string> {
-  if (typeof window !== "undefined" && window.location.pathname.startsWith("/demo")) {
-    return { "X-Public-Demo": "1" };
-  }
-  return {};
+function isPublicDemoRoute(): boolean {
+  if (typeof window === "undefined") return false;
+  const p = window.location.pathname;
+  return p === "/demo" || p.startsWith("/demo/");
 }
 
-/** Prefer Bearer (private signed-in); otherwise demo / dev X-User-Id + demo marker when on `/demo`. */
+/** Mark requests from the `/demo` UI so the API can restrict user scope to the Test sandbox. */
+function demoPublicHeaders(): Record<string, string> {
+  return isPublicDemoRoute() ? { "X-Public-Demo": "1" } : {};
+}
+
+/**
+ * Prefer Bearer on the private app (`/`). On `/demo/*`, never send the private JWT — otherwise
+ * GET /users and scoped routes resolve to the signed-in private user (e.g. Azin) instead of Test.
+ */
 function scopedAuthHeaders(userId: number): Record<string, string> {
+  if (isPublicDemoRoute()) {
+    return { ...userScopedHeaders(userId), ...demoPublicHeaders() };
+  }
   const a = authHeaders();
   if (a.Authorization) {
     return a;
@@ -84,7 +93,10 @@ async function parseJson<T>(res: Response): Promise<T> {
 }
 
 export async function fetchUsers(isDemoRealm = false): Promise<User[]> {
-  const headers: Record<string, string> = { ...authHeaders() };
+  const headers: Record<string, string> = {};
+  if (!isDemoRealm) {
+    Object.assign(headers, authHeaders());
+  }
   if (isDemoRealm) {
     headers["X-Public-Demo"] = "1";
   }

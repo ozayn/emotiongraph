@@ -3,6 +3,9 @@
  * See `frontend/.env.example`.
  */
 
+/** Must match backend `DEMO_SANDBOX_EMAIL` / seeded Test row. Public demo never uses other profiles. */
+export const DEMO_SANDBOX_EMAIL = "test@emotiongraph.local";
+
 /** Optional pin for `/demo` when the Test user’s id is known; must match the seeded Test row or the list is empty. */
 export function getDemoUserIdFilter(): number | null {
   const raw = import.meta.env.VITE_DEMO_USER_ID as string | undefined;

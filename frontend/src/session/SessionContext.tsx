@@ -1,7 +1,13 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { ApiUnauthorizedError, fetchUsers } from "../api";
 import { usePrivateAuthOptional } from "../auth/privateAuthContext";
-import { allowLocalPrivateDev, getDemoUserIdFilter, googleAuthDevBypass, isGoogleAuthRequired } from "../config/realmConfig";
+import {
+  allowLocalPrivateDev,
+  DEMO_SANDBOX_EMAIL,
+  getDemoUserIdFilter,
+  googleAuthDevBypass,
+  isGoogleAuthRequired,
+} from "../config/realmConfig";
 import { effectiveUserTimeZone } from "../datesTz";
 import type { User } from "../types";
 import { clearSelectedUserId, getSelectedUserId, setSelectedUserId } from "../userSession";
@@ -94,9 +100,18 @@ export function SessionProvider({ realm, children }: ProviderProps) {
       .then((list) => {
         if (cancelled) return;
         let next = list;
+        if (realm === "demo") {
+          const sand = list.filter((u) => u.email.toLowerCase() === DEMO_SANDBOX_EMAIL.toLowerCase());
+          if (sand.length === 0 && list.length > 0) {
+            setUsersError(
+              "The public demo only uses the Test sandbox. Try again later or open the full app.",
+            );
+          }
+          next = sand;
+        }
         const demoFilter = getDemoUserIdFilter();
         if (realm === "demo" && demoFilter != null) {
-          next = list.filter((u) => u.id === demoFilter);
+          next = next.filter((u) => u.id === demoFilter);
           if (next.length === 0) {
             setUsersError(
               "The public demo uses the Test sample profile only. Remove VITE_DEMO_USER_ID or set it to Test’s numeric id from your server.",
