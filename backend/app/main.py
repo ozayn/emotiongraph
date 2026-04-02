@@ -4,7 +4,7 @@ from fastapi import Depends, FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
-from app.config import settings
+from app.config import DEFAULT_CORS_ORIGINS, settings
 from app.db import Base, SessionLocal, engine, get_db
 from app.deps import require_user_id
 from app.models import LogEntry, TrackerDay, User
@@ -34,19 +34,30 @@ try:
 finally:
     _db_seed.close()
 
-app = FastAPI(title="EmotionGraph API")
-app.include_router(tracker_config_router)
-app.include_router(insights_router, prefix="/insights", tags=["insights"])
-app.include_router(export_csv_router, prefix="/export", tags=["export"])
 
-_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+def _cors_allow_origins() -> list[str]:
+    """Explicit origin list only: credentialed fetches are invalid with Access-Control-Allow-Origin: *."""
+    parts = [o.strip() for o in settings.cors_origins.split(",") if o.strip()]
+    if not parts:
+        parts = [o.strip() for o in DEFAULT_CORS_ORIGINS.split(",") if o.strip()]
+    return list(dict.fromkeys(parts))
+
+
+app = FastAPI(title="EmotionGraph API")
+
+# Apply CORS before registering routes so every path (/, /insights, /export/..., /tracker-config, …)
+# receives the same middleware stack; included routers are still wrapped by this app instance.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_origins or ["*"],
+    allow_origins=_cors_allow_origins(),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(tracker_config_router)
+app.include_router(insights_router, prefix="/insights", tags=["insights"])
+app.include_router(export_csv_router, prefix="/export", tags=["export"])
 
 
 @app.get("/health")
