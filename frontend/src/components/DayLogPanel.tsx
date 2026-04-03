@@ -802,7 +802,7 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
           <div className="pipeline-card">
             <div className="pipeline-spinner" aria-hidden="true" />
             <p className="pipeline-title" key={pipelinePhase}>
-              {pipelinePhase === "transcribe" ? "Transcribing…" : "Extracting entries…"}
+              {pipelinePhase === "transcribe" ? "Transcribing…" : "Logging…"}
             </p>
           </div>
         </div>
@@ -931,9 +931,9 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
             <p id={`text-mode-${textAreaId}`} className="add-entry-mode-section-label">
               Text
             </p>
-            <p className="muted small add-entry-mode-hint">Write a note, then extract into one or more entries for this date.</p>
+            <p className="muted small add-entry-mode-hint">Write a note, then tap Log to add entries for this date.</p>
             <label className="sr-only" htmlFor={`entries-free-text-${textAreaId}`}>
-              Natural-language log note for text extraction
+              Written note to log for this date
             </label>
             <textarea
               id={`entries-free-text-${textAreaId}`}
@@ -951,7 +951,7 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
                 disabled={!freeTextDraft.trim() || textInputLocked}
                 onClick={() => void handleTextExtract()}
               >
-                {extractionLoading && !reviewOpen ? "Extracting…" : "Extract"}
+                {extractionLoading && !reviewOpen ? "Logging…" : "Log"}
               </button>
             </div>
             {postExtractSaveError && !reviewOpen ? (
@@ -965,7 +965,7 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
             <p id="manual-add-heading-entries" className="add-entry-mode-section-label">
               Manual
             </p>
-            <p className="muted small add-entry-mode-hint">Fill fields and save directly — no extraction.</p>
+            <p className="muted small add-entry-mode-hint">Fill fields and save directly.</p>
             <div className="today-manual-body add-entry-manual-inner">
             <div className="manual-add-fields">
               <label className="field field--stacked">

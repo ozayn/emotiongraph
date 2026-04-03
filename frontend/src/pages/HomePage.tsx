@@ -442,7 +442,7 @@ export default function HomePage({ userId, timeZone, users }: Props) {
           <div className="pipeline-card">
             <div className="pipeline-spinner" aria-hidden="true" />
             <p className="pipeline-title" key={pipelinePhase}>
-              {pipelinePhase === "transcribe" ? "Transcribing…" : "Extracting entries…"}
+              {pipelinePhase === "transcribe" ? "Transcribing…" : "Logging…"}
             </p>
           </div>
         </div>
@@ -538,7 +538,7 @@ export default function HomePage({ userId, timeZone, users }: Props) {
                     disabled={!textDraft.trim() || textInputLocked}
                     onClick={() => void handleTextExtract()}
                   >
-                    {extractionLoading && !reviewOpen ? "Extracting…" : "Extract"}
+                    {extractionLoading && !reviewOpen ? "Logging…" : "Log"}
                   </button>
                 </div>
                 {postExtractSaveError && !reviewOpen ? (
