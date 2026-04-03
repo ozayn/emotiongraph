@@ -80,7 +80,7 @@ When user_timezone (IANA) is provided, treat log_date as that calendar date in t
 **This input is typed text (not a live voice capture).** Be conservative with capture_time_local.
 
 Use start_time = capture_time_local for a row ONLY when ALL hold:
-  (1) The transcript clearly signals the present moment, something immediate/imminent, or an **immediate-recent** state tied to now (e.g. just waking)—not a remembered distant story. Qualifying cues (any language, natural equivalents): English "now", "right now", "currently", "at the moment", "about to", "going now", "starting now", "heading to", "on my way"; **immediate morning / wake**: "just woke up", "just woken up", "just got up", "just got out of bed", "just rolled out of bed"; **present emotional check-in** phrased as current state, e.g. "I'm feeling …", "I am feeling …", or "I feel …" when describing mood now — but NOT "I feel that …" narrating a past belief; typed or recorded check-ins e.g. "as I'm typing", "as I type", "in this recording", "on this recording"; Serbian e.g. "sada", "trenutno", "upravo", "idem na …"; Persian e.g. "الان", "دارم میرم …", "همین الان".
+  (1) The transcript clearly signals the present moment, something immediate/imminent, or an **immediate-recent** state tied to now (e.g. just waking)—not a remembered distant story. Qualifying cues (any language, natural equivalents): English "now", "right now", "currently", "at the moment", "at this moment", "as of now", "about to", "going now", "starting now", "heading to", "on my way"; **present activity / task** describing what the speaker is doing at submission time: "I'm coding", "I am coding", "I'm working on …", "I am working on …" (contrast past "I was coding / I was working on"); **immediate morning / wake**: "just woke up", "just woken up", "just got up", "just got out of bed", "just rolled out of bed"; **present emotional check-in** phrased as current state, e.g. "I'm feeling …", "I am feeling …", or "I feel …" when describing mood now — but NOT "I feel that …" narrating a past belief; **present progressive** tied to now, e.g. "I'm …ing now", "… and feeling …" when the clause is clearly about the current moment (often together with "currently" / "right now"); typed or recorded check-ins e.g. "as I'm typing", "as I type", "in this recording", "on this recording"; Serbian e.g. "sada", "trenutno", "upravo", "idem na …"; Persian e.g. "الان", "دارم میرم …", "همین الان".
   (2) The passage is not framed as habitual or generic: if the speaker uses "usually", "often", "typically", "generally", or close equivalents (e.g. "معمولا", "обично", "često"), do NOT anchor to capture_time_local unless a separate clearly present-tense segment also qualifies that row.
   (3) The row is not about a recalled interval with its own stated or implied past timing.
   (4) No explicit clock time in the text applies to that row (if it does, use that time or null, not capture_time_local).
@@ -207,6 +207,8 @@ def _transcript_allows_capture_time_anchor(text: str) -> bool:
         "right now",
         "currently",
         "at the moment",
+        "at this moment",
+        "as of now",
         "about to",
         "starting now",
         "going now",
@@ -235,6 +237,13 @@ def _transcript_allows_capture_time_anchor(text: str) -> bool:
         "just rolled out of bed",
     )
     if any(m in lower for m in ascii_markers):
+        return True
+    # Present activity at submission time (exclude "i was …" past forms).
+    if re.search(r"\bi'?m\s+coding\b", lower) or re.search(r"\bi\s+am\s+coding\b", lower):
+        return True
+    if re.search(r"\bi'?m\s+working\s+on\b", lower) or re.search(r"\bi\s+am\s+working\s+on\b", lower):
+        return True
+    if re.search(r"\bim\s+working\s+on\b", lower):
         return True
     if re.search(r"\bi'?m\s+feeling\b", lower) or re.search(r"\bi\s+am\s+feeling\b", lower):
         return True
@@ -310,17 +319,49 @@ def _maybe_fill_voice_default_start_time(
     return [row.model_copy(update={"start_time": cap})]
 
 
+def _maybe_fill_text_present_start_time(
+    rows: list[ExtractLogsRow],
+    transcript: str,
+    capture_time_local: str | None,
+    capture_kind: str,
+) -> list[ExtractLogsRow]:
+    """
+    Typed text: when the transcript clearly anchors to the present and the model left start_time
+    empty, stamp capture_time_local for a single row (same conservative shape as voice fill).
+    Explicit times in the row are never overwritten.
+    """
+    if capture_kind != "text" or not capture_time_local:
+        return rows
+    if not _transcript_allows_capture_time_anchor(transcript):
+        return rows
+    if _transcript_suggests_retrospective(transcript):
+        return rows
+    cap = _normalize_hhmm(capture_time_local)
+    if not cap or not re.match(r"^\d{2}:\d{2}$", cap):
+        return rows
+    if len(rows) != 1:
+        return rows
+    row = rows[0]
+    if _is_proper_hhmm(row.start_time):
+        return rows
+    if row.end_time is not None and str(row.end_time).strip():
+        return rows
+    return [row.model_copy(update={"start_time": cap})]
+
+
 def _postprocess_extraction(
     result: ExtractLogsResponse,
     transcript: str,
     capture_time_local: str | None,
     capture_kind: str,
 ) -> ExtractLogsResponse:
-    stripped = _maybe_strip_capture_time_rows(result.rows, transcript, capture_time_local, capture_kind)
-    filled = _maybe_fill_voice_default_start_time(stripped, transcript, capture_time_local, capture_kind)
-    if stripped is result.rows and filled is stripped:
+    rows = result.rows
+    rows = _maybe_strip_capture_time_rows(rows, transcript, capture_time_local, capture_kind)
+    rows = _maybe_fill_voice_default_start_time(rows, transcript, capture_time_local, capture_kind)
+    rows = _maybe_fill_text_present_start_time(rows, transcript, capture_time_local, capture_kind)
+    if rows is result.rows:
         return result
-    return result.model_copy(update={"rows": filled})
+    return result.model_copy(update={"rows": rows})
 
 
 def _user_content(

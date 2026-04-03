@@ -308,7 +308,6 @@ export default function HomePage({ userId, timeZone, users }: Props) {
                   id={`home-free-text-${textAreaId}`}
                   className="today-free-text-input today-free-text-input--compact home-capture-textarea"
                   rows={4}
-                  placeholder="e.g. Rough morning, better after lunch…"
                   value={textDraft}
                   onChange={(e) => setTextDraft(e.target.value)}
                   disabled={textInputLocked}

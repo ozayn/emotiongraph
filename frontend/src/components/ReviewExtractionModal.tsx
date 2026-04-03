@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { debugSaveLogsPayload } from "../api";
-import type { DebugLogsSaveResponse, ExtractLogsResponse, LogRow } from "../types";
+import type { ExtractLogsResponse, LogRow } from "../types";
 import MetricSelect from "./MetricSelect";
 import { optionsForMetricKey } from "../trackerOptions";
 
@@ -43,7 +42,7 @@ type Props = {
   open: boolean;
   transcript: string;
   logDate: string;
-  /** Scoped user for X-User-Id (required for temporary test-save debug). */
+  /** Scoped profile user id (passed through for consistency with save flows). */
   userId: number;
   /** How the input was produced; used in dev JSON export and filename. */
   extractSourceType: ExtractSourceType;
@@ -55,15 +54,35 @@ type Props = {
   onDiscard: () => void;
 };
 
-function isReadyUserId(id: number): boolean {
-  return Number.isInteger(id) && id > 0;
+function compactEntryTitle(row: LogRow, index: number): string {
+  const e = row.event?.trim();
+  if (e) return e.length > 72 ? `${e.slice(0, 71)}…` : e;
+  return `Entry ${index + 1}`;
+}
+
+function compactEntrySubtitle(row: LogRow): string {
+  const timeParts: string[] = [];
+  if (row.start_time?.trim()) timeParts.push(row.start_time.trim());
+  if (row.end_time?.trim()) timeParts.push(row.end_time.trim());
+  const times = timeParts.length ? timeParts.join(" → ") : null;
+  const metrics: string[] = [];
+  if (row.energy_level != null) metrics.push(`Energy ${row.energy_level}`);
+  if (row.anxiety != null) metrics.push(`Anxiety ${row.anxiety}`);
+  if (row.contentment != null) metrics.push(`Contentment ${row.contentment}`);
+  if (row.focus != null) metrics.push(`Focus ${row.focus}`);
+  const m = metrics.slice(0, 3).join(" · ");
+  const seg = [times, m].filter(Boolean).join(" · ");
+  if (seg) return seg;
+  const c = row.comments?.trim();
+  if (c) return c.length > 56 ? `${c.slice(0, 55)}…` : c;
+  return "No details yet";
 }
 
 export default function ReviewExtractionModal({
   open,
   transcript,
   logDate,
-  userId,
+  userId: _userId,
   extractSourceType,
   extraction,
   extractionLoading,
@@ -75,24 +94,19 @@ export default function ReviewExtractionModal({
   const [rows, setRows] = useState<LogRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [debugSaveLoading, setDebugSaveLoading] = useState(false);
-  const [debugSaveError, setDebugSaveError] = useState<string | null>(null);
-  const [debugSaveResponse, setDebugSaveResponse] = useState<DebugLogsSaveResponse | null>(null);
   const rowsTouched = useRef(false);
   const lastExtractionKey = useRef<string | null>(null);
+  const [fullDetailsOpen, setFullDetailsOpen] = useState(false);
 
   useEffect(() => {
     if (!open) {
       rowsTouched.current = false;
       lastExtractionKey.current = null;
       setRows([]);
-      setDebugSaveResponse(null);
-      setDebugSaveError(null);
+      setFullDetailsOpen(false);
       return;
     }
     setSaveError(null);
-    setDebugSaveResponse(null);
-    setDebugSaveError(null);
     rowsTouched.current = false;
     setRows([]);
   }, [open]);
@@ -159,24 +173,6 @@ export default function ReviewExtractionModal({
     }
   };
 
-  /** Same row payload as handleSaveRows on voice/text flows (source_type from extract path). TEMP debug. */
-  const rowsForSavePayload = (): LogRow[] =>
-    rows.map((r) => ({ ...r, source_type: extractSourceType }));
-
-  const handleTestSavePayload = async () => {
-    setDebugSaveError(null);
-    setDebugSaveResponse(null);
-    setDebugSaveLoading(true);
-    try {
-      const res = await debugSaveLogsPayload(userId, logDate, rowsForSavePayload());
-      setDebugSaveResponse(res);
-    } catch (e) {
-      setDebugSaveError(e instanceof Error ? e.message : "Debug save request failed");
-    } finally {
-      setDebugSaveLoading(false);
-    }
-  };
-
   const downloadExtractionJson = () => {
     if (!extraction) return;
     const extracted_output: Record<string, unknown> = {
@@ -210,27 +206,26 @@ export default function ReviewExtractionModal({
 
   return (
     <div className="review-backdrop" role="presentation">
-      <div className="review-sheet" role="dialog" aria-labelledby="review-title" aria-modal="true">
-        <div className="review-sheet-scroll">
+      <div
+        className={`review-sheet ${fullDetailsOpen ? "review-sheet--details-open" : "review-sheet--compact-first"}`}
+        role="dialog"
+        aria-labelledby="review-title"
+        aria-modal="true"
+      >
+        <div className={`review-sheet-scroll ${fullDetailsOpen ? "" : "review-sheet-scroll--compact"}`}>
           <div className="review-sheet-head">
-            <h2 id="review-title">Review</h2>
-            <p className="review-sheet-sub">
-              <span className="mono">{logDate}</span>
-              <span className="review-sheet-sub-sep">·</span>
-              <span>Edits are saved only when you confirm below.</span>
-            </p>
-            {canDownloadExtract && (
-              <button
-                type="button"
-                className="btn btn-text small review-dev-download"
-                onClick={downloadExtractionJson}
-              >
-                Download JSON (dev)
-              </button>
+            <p className="review-sheet-eyebrow">Review</p>
+            <h2 id="review-title" className="review-sheet-title-date mono">
+              {logDate}
+            </h2>
+            {fullDetailsOpen ? (
+              <p className="review-sheet-sub">Edits are saved only when you tap Save below.</p>
+            ) : (
+              <p className="review-sheet-sub review-sheet-sub--light">Check the summary, then save or edit details.</p>
             )}
           </div>
 
-          <section className="review-block">
+          <section className="review-block review-block--tight-top">
             <div className="review-block-head">
               <h3 className="review-block-title">Summary</h3>
               {extractionLoading && <span className="pill">Working…</span>}
@@ -251,62 +246,114 @@ export default function ReviewExtractionModal({
                 </button>
               </p>
             )}
-            {!extractionLoading && extraction && <p className="summary-text">{extraction.transcript_summary || "—"}</p>}
+            {!extractionLoading && extraction && (
+              <p className={`summary-text ${fullDetailsOpen ? "" : "summary-text--compact"}`}>
+                {extraction.transcript_summary || "—"}
+              </p>
+            )}
           </section>
 
           <section className="review-block">
             <div className="review-block-head">
               <h3 className="review-block-title">Entries</h3>
-              <button type="button" className="btn btn-minimal small" onClick={addRow}>
-                + Add
-              </button>
+              {fullDetailsOpen ? (
+                <button type="button" className="btn btn-minimal small" onClick={addRow}>
+                  + Add
+                </button>
+              ) : null}
             </div>
-            <div className="row-stack">
-              {rows.length === 0 && !extractionLoading && (
-                <p className="muted review-rows-empty">No entries yet. Add one or retry extraction.</p>
-              )}
-              {rows.map((row, i) => (
-                <article key={i} className="entry-card">
-                  <div className="entry-card-head">
-                    <span className="entry-card-label">Entry {i + 1}</span>
-                    <button type="button" className="btn btn-minimal small" onClick={() => removeRow(i)}>
-                      Remove
-                    </button>
-                  </div>
-                  <div className="entry-card-fields">
-                    {FIELDS.map(({ key, label }) => {
-                      const opts = optionsForMetricKey(key);
-                      if (opts) {
-                        return (
-                          <MetricSelect
-                            key={key}
-                            label={label}
-                            value={row[key] == null ? "" : String(row[key])}
-                            onChange={(v) => updateCell(i, key, v)}
-                            options={opts}
-                          />
-                        );
-                      }
-                      return (
-                        <label key={key} className="field field--stacked">
-                          <span>{label}</span>
-                          <input
-                            type="text"
-                            value={row[key] ?? ""}
-                            onChange={(e) => updateCell(i, key, e.target.value)}
-                          />
-                        </label>
-                      );
-                    })}
-                  </div>
-                </article>
-              ))}
-            </div>
+
+            {!fullDetailsOpen ? (
+              <>
+                <div className="review-entry-preview-stack">
+                  {rows.length === 0 && !extractionLoading && (
+                    <p className="muted review-rows-empty">No entries yet. Retry extraction or use Edit details to add a row.</p>
+                  )}
+                  {rows.map((row, i) => (
+                    <div key={i} className="review-entry-preview">
+                      <div className="review-entry-preview-body">
+                        <p className="review-entry-preview-title">{compactEntryTitle(row, i)}</p>
+                        <p className="review-entry-preview-meta muted small">{compactEntrySubtitle(row)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="review-entry-preview-remove linkish"
+                        onClick={() => removeRow(i)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="review-compact-actions">
+                  <button
+                    type="button"
+                    className="btn ghost small review-edit-details-btn"
+                    onClick={() => setFullDetailsOpen(true)}
+                  >
+                    Edit details
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="review-expanded-toolbar">
+                  <button
+                    type="button"
+                    className="btn btn-text small review-hide-details-btn"
+                    onClick={() => setFullDetailsOpen(false)}
+                  >
+                    Hide details
+                  </button>
+                </div>
+                <div className="row-stack">
+                  {rows.length === 0 && !extractionLoading && (
+                    <p className="muted review-rows-empty">No entries yet. Add one or retry extraction.</p>
+                  )}
+                  {rows.map((row, i) => (
+                    <article key={i} className="entry-card">
+                      <div className="entry-card-head">
+                        <span className="entry-card-label">Entry {i + 1}</span>
+                        <button type="button" className="btn btn-minimal small" onClick={() => removeRow(i)}>
+                          Remove
+                        </button>
+                      </div>
+                      <div className="entry-card-fields">
+                        {FIELDS.map(({ key, label }) => {
+                          const opts = optionsForMetricKey(key);
+                          if (opts) {
+                            return (
+                              <MetricSelect
+                                key={key}
+                                label={label}
+                                value={row[key] == null ? "" : String(row[key])}
+                                onChange={(v) => updateCell(i, key, v)}
+                                options={opts}
+                              />
+                            );
+                          }
+                          return (
+                            <label key={key} className="field field--stacked">
+                              <span>{label}</span>
+                              <input
+                                type="text"
+                                value={row[key] ?? ""}
+                                onChange={(e) => updateCell(i, key, e.target.value)}
+                              />
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </>
+            )}
           </section>
 
-          <details className="transcript-details" open>
+          <details className="transcript-details">
             <summary className="transcript-details-summary">
-              <span className="transcript-details-label">Transcript</span>
+              <span className="transcript-details-label">Original input</span>
               <span className="transcript-details-cue" aria-hidden="true" />
             </summary>
             <div className="transcript-panel">
@@ -314,41 +361,33 @@ export default function ReviewExtractionModal({
             </div>
           </details>
 
+          {canDownloadExtract && (
+            <details className="review-dev-details">
+              <summary className="review-dev-details-summary">Developer</summary>
+              <div className="review-dev-details-body">
+                <button type="button" className="btn btn-text small review-dev-download" onClick={downloadExtractionJson}>
+                  Download JSON (dev)
+                </button>
+              </div>
+            </details>
+          )}
+
           {saveError && <p className="error-inline review-save-error">{saveError}</p>}
-          {debugSaveError && (
-            <p className="error-inline review-save-error" role="status">
-              {debugSaveError}
-            </p>
-          )}
-          {debugSaveResponse != null && (
-            <section className="review-debug-save-response" aria-label="Debug save response">
-              <h4 className="review-debug-save-response-title">POST /debug/logs response (dev)</h4>
-              <pre className="review-debug-save-response-pre">{JSON.stringify(debugSaveResponse, null, 2)}</pre>
-            </section>
-          )}
           <div className="review-scroll-spacer" aria-hidden="true" />
         </div>
 
         <div className="review-sticky-footer">
-          <button type="button" className="btn btn-discard-footer" onClick={onDiscard} disabled={saving || debugSaveLoading}>
+          <button type="button" className="btn btn-discard-footer" onClick={onDiscard} disabled={saving}>
             Discard
           </button>
           <div className="review-footer-save-row">
             <button
               type="button"
-              className="btn btn-text small review-debug-save-test"
-              onClick={() => void handleTestSavePayload()}
-              disabled={saving || debugSaveLoading || !isReadyUserId(userId)}
-            >
-              {debugSaveLoading ? "Testing…" : "Test save payload (dev)"}
-            </button>
-            <button
-              type="button"
               className="btn primary btn-save-footer"
               onClick={() => void handleSave()}
-              disabled={saving || debugSaveLoading}
+              disabled={saving}
             >
-              {saving ? "Saving…" : "Save to log"}
+              {saving ? "Saving…" : "Save"}
             </button>
           </div>
         </div>
