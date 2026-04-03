@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   CartesianGrid,
-  Legend,
   ResponsiveContainer,
   Scatter,
   ScatterChart,
@@ -119,17 +118,29 @@ function ScatterTip({
   );
 }
 
-function collectNums(entries: SavedLogEntry[], key: keyof SavedLogEntry): number[] {
-  return entries.map((e) => e[key]).filter((v): v is number => typeof v === "number" && Number.isFinite(v));
-}
+type MetricKey = "energy" | "anxiety" | "contentment" | "focus";
 
-function average(nums: number[]): number | null {
-  if (!nums.length) return null;
-  return nums.reduce((a, b) => a + b, 0) / nums.length;
-}
+const SNAPSHOT_METRICS: {
+  key: MetricKey;
+  label: string;
+  colorVar: string;
+}[] = [
+  { key: "energy", label: "Energy", colorVar: "var(--chart-energy)" },
+  { key: "anxiety", label: "Anxiety", colorVar: "var(--chart-anxiety)" },
+  { key: "contentment", label: "Contentment", colorVar: "var(--chart-contentment)" },
+  { key: "focus", label: "Focus", colorVar: "var(--chart-focus)" },
+];
+
+const defaultMetricVisibility: Record<MetricKey, boolean> = {
+  energy: true,
+  anxiety: true,
+  contentment: true,
+  focus: true,
+};
 
 export default function TodaySnapshot({ userId, logDate, entries, entriesLoading }: Props) {
   const [trackerDay, setTrackerDay] = useState<TrackerDay | null>(null);
+  const [metricVisible, setMetricVisible] = useState<Record<MetricKey, boolean>>(defaultMetricVisibility);
 
   useEffect(() => {
     if (!isReadyUserId(userId) || !logDate.trim()) return;
@@ -146,19 +157,6 @@ export default function TodaySnapshot({ userId, logDate, entries, entriesLoading
   const hasScatter =
     series.energy.length + series.anxiety.length + series.contentment.length + series.focus.length > 0;
 
-  const summaryParts = useMemo(() => {
-    const parts: string[] = [];
-    const ae = average(collectNums(entries, "energy_level"));
-    const aa = average(collectNums(entries, "anxiety"));
-    const ac = average(collectNums(entries, "contentment"));
-    const af = average(collectNums(entries, "focus"));
-    if (ae != null) parts.push(`Energy ~${formatEnergy(Math.round(ae))}`);
-    if (aa != null) parts.push(`Anxiety ~${formatAnxiety(Math.round(aa))}`);
-    if (ac != null) parts.push(`Contentment ~${formatContentment(Math.round(ac))}`);
-    if (af != null) parts.push(`Focus ~${formatFocus(Math.round(af))}`);
-    return parts;
-  }, [entries]);
-
   const dayContextLine = useMemo(() => {
     if (!trackerDay) return null;
     const bits: string[] = [];
@@ -169,12 +167,12 @@ export default function TodaySnapshot({ userId, logDate, entries, entriesLoading
     return bits.join(" · ");
   }, [trackerDay]);
 
-  const snapshotSummaryPreview = useMemo(() => {
+  /** Short headline only — metrics belong in the chart and toggles. */
+  const checkInsHeadline = useMemo(() => {
     if (entries.length === 0) return "No check-ins yet";
-    const n = `${entries.length} check-in${entries.length === 1 ? "" : "s"}`;
-    if (summaryParts.length > 0) return `${n} · ${summaryParts.join(" · ")}`;
-    return n;
-  }, [entries.length, summaryParts]);
+    const n = entries.length;
+    return n === 1 ? "1 check-in today" : `${n} check-ins today`;
+  }, [entries.length]);
 
   if (entriesLoading) {
     return (
@@ -185,13 +183,15 @@ export default function TodaySnapshot({ userId, logDate, entries, entriesLoading
   }
 
   return (
-    <section className="today-snapshot" aria-label="Today snapshot">
-      <details className="today-snapshot-details">
-        <summary className="today-snapshot-summary">
-          <span className="today-snapshot-summary-label">Snapshot</span>
-          <span className="today-snapshot-summary-meta muted small">{snapshotSummaryPreview}</span>
-        </summary>
-        <div className="today-snapshot-details-body">
+    <section className="today-snapshot" aria-labelledby="today-snapshot-title">
+      <div className="today-snapshot-surface">
+        <header className="today-snapshot-head">
+          <h2 id="today-snapshot-title" className="today-snapshot-head-title">
+            Check-ins by time
+          </h2>
+          <p className="today-snapshot-head-meta muted small">{checkInsHeadline}</p>
+        </header>
+        <div className="today-snapshot-body">
           {dayContextLine ? (
             <p className="today-snapshot-dayctx muted small">
               <span className="today-snapshot-dayctx-label">Day</span> {dayContextLine}
@@ -199,7 +199,6 @@ export default function TodaySnapshot({ userId, logDate, entries, entriesLoading
           ) : null}
 
           <div className="today-snapshot-chart-panel">
-            <p className="today-snapshot-chart-heading">Check-ins by time</p>
             {entries.length === 0 ? (
               <p className="muted small today-snapshot-chart-empty">Nothing logged yet.</p>
             ) : !hasScatter ? (
@@ -207,124 +206,169 @@ export default function TodaySnapshot({ userId, logDate, entries, entriesLoading
                 Add energy, anxiety, contentment, or focus on entries to plot by time of day.
               </p>
             ) : (
-              <div className="today-snapshot-chart-wrap">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 6, right: 6, left: -14, bottom: 2 }}>
-                    <CartesianGrid stroke="var(--border-line)" vertical={false} />
-                    <XAxis
-                      type="number"
-                      dataKey="x"
-                      domain={[0, 24]}
-                      ticks={[0, 6, 12, 18, 24]}
-                      tickFormatter={(v) => (v === 24 ? "24h" : `${v}h`)}
-                      tick={{ fontSize: 9, fill: "var(--muted)" }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      type="number"
-                      dataKey="y"
-                      domain={[0, 5.5]}
-                      ticks={[0, 1, 2, 3, 4, 5]}
-                      width={24}
-                      tick={{ fontSize: 9, fill: "var(--muted)" }}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <Tooltip
-                      cursor={{ strokeDasharray: "3 3" }}
-                      content={({ active, payload }) => {
-                        const name = payload?.[0]?.name as string | undefined;
-                        if (name === "Energy")
-                          return (
-                            <ScatterTip
-                              active={active}
-                              payload={payload as { payload: DayPoint }[]}
-                              metric="Energy"
-                              formatVal={formatEnergy}
-                            />
-                          );
-                        if (name === "Anxiety")
-                          return (
-                            <ScatterTip
-                              active={active}
-                              payload={payload as { payload: DayPoint }[]}
-                              metric="Anxiety"
-                              formatVal={formatAnxiety}
-                            />
-                          );
-                        if (name === "Contentment")
-                          return (
-                            <ScatterTip
-                              active={active}
-                              payload={payload as { payload: DayPoint }[]}
-                              metric="Contentment"
-                              formatVal={formatContentment}
-                            />
-                          );
-                        if (name === "Focus")
-                          return (
-                            <ScatterTip
-                              active={active}
-                              payload={payload as { payload: DayPoint }[]}
-                              metric="Focus"
-                              formatVal={formatFocus}
-                            />
-                          );
-                        return null;
-                      }}
-                    />
-                    <Legend
-                      wrapperStyle={{ fontSize: "10px", paddingTop: 2 }}
-                      formatter={(value) => <span style={{ color: "var(--muted)" }}>{value}</span>}
-                    />
-                    {series.energy.length > 0 ? (
-                      <Scatter
-                        name="Energy"
-                        data={series.energy}
-                        fill="var(--chart-energy)"
-                        shape="circle"
-                        legendType="circle"
-                        isAnimationActive={false}
-                      />
-                    ) : null}
-                    {series.anxiety.length > 0 ? (
-                      <Scatter
-                        name="Anxiety"
-                        data={series.anxiety}
-                        fill="var(--chart-anxiety)"
-                        shape="circle"
-                        legendType="circle"
-                        isAnimationActive={false}
-                      />
-                    ) : null}
-                    {series.contentment.length > 0 ? (
-                      <Scatter
-                        name="Contentment"
-                        data={series.contentment}
-                        fill="var(--chart-contentment)"
-                        shape="circle"
-                        legendType="circle"
-                        isAnimationActive={false}
-                      />
-                    ) : null}
-                    {series.focus.length > 0 ? (
-                      <Scatter
-                        name="Focus"
-                        data={series.focus}
-                        fill="var(--chart-focus)"
-                        shape="circle"
-                        legendType="circle"
-                        isAnimationActive={false}
-                      />
-                    ) : null}
-                  </ScatterChart>
-                </ResponsiveContainer>
-              </div>
+              <>
+                <div
+                  className="today-snapshot-metric-toggles"
+                  role="group"
+                  aria-label="Metrics on chart"
+                >
+                  {SNAPSHOT_METRICS.map(({ key, label, colorVar }) => {
+                    const hasData = series[key].length > 0;
+                    const on = metricVisible[key];
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className={
+                          "today-snapshot-metric-toggle" +
+                          (on && hasData ? " today-snapshot-metric-toggle--on" : "") +
+                          (!hasData ? " today-snapshot-metric-toggle--no-data" : "")
+                        }
+                        aria-pressed={hasData ? on : undefined}
+                        disabled={!hasData}
+                        title={!hasData ? `No ${label.toLowerCase()} values logged today` : undefined}
+                        onClick={() => {
+                          if (!hasData) return;
+                          setMetricVisible((v) => ({ ...v, [key]: !v[key] }));
+                        }}
+                        style={{ "--today-metric-color": colorVar } as CSSProperties}
+                      >
+                        <span className="today-snapshot-metric-toggle-dot" aria-hidden />
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {SNAPSHOT_METRICS.some((m) => metricVisible[m.key] && series[m.key].length > 0) ? (
+                  <div className="today-snapshot-chart-wrap">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ScatterChart margin={{ top: 6, right: 6, left: 6, bottom: 10 }}>
+                        <CartesianGrid stroke="var(--border-line)" vertical={false} />
+                        <XAxis
+                          type="number"
+                          dataKey="x"
+                          domain={[0, 24]}
+                          ticks={[0, 6, 12, 18, 24]}
+                          tickFormatter={(v) => (v === 24 ? "24h" : `${v}h`)}
+                          tick={{
+                            fontSize: 10,
+                            fill: "var(--text)",
+                            fillOpacity: 0.55,
+                          }}
+                          tickLine={false}
+                          axisLine={{ stroke: "var(--border-line)" }}
+                        />
+                        <YAxis
+                          type="number"
+                          dataKey="y"
+                          domain={[0, 5.5]}
+                          ticks={[0, 1, 2, 3, 4, 5]}
+                          width={40}
+                          tick={{
+                            fontSize: 11,
+                            fill: "var(--text)",
+                            fillOpacity: 0.62,
+                          }}
+                          tickLine={false}
+                          tickMargin={8}
+                          axisLine={{ stroke: "var(--border-line)" }}
+                        />
+                        <Tooltip
+                          cursor={{ strokeDasharray: "3 3" }}
+                          content={({ active, payload }) => {
+                            const name = payload?.[0]?.name as string | undefined;
+                            if (name === "Energy")
+                              return (
+                                <ScatterTip
+                                  active={active}
+                                  payload={payload as { payload: DayPoint }[]}
+                                  metric="Energy"
+                                  formatVal={formatEnergy}
+                                />
+                              );
+                            if (name === "Anxiety")
+                              return (
+                                <ScatterTip
+                                  active={active}
+                                  payload={payload as { payload: DayPoint }[]}
+                                  metric="Anxiety"
+                                  formatVal={formatAnxiety}
+                                />
+                              );
+                            if (name === "Contentment")
+                              return (
+                                <ScatterTip
+                                  active={active}
+                                  payload={payload as { payload: DayPoint }[]}
+                                  metric="Contentment"
+                                  formatVal={formatContentment}
+                                />
+                              );
+                            if (name === "Focus")
+                              return (
+                                <ScatterTip
+                                  active={active}
+                                  payload={payload as { payload: DayPoint }[]}
+                                  metric="Focus"
+                                  formatVal={formatFocus}
+                                />
+                              );
+                            return null;
+                          }}
+                        />
+                        {metricVisible.energy && series.energy.length > 0 ? (
+                          <Scatter
+                            name="Energy"
+                            data={series.energy}
+                            fill="var(--chart-energy)"
+                            shape="circle"
+                            legendType="none"
+                            isAnimationActive={false}
+                          />
+                        ) : null}
+                        {metricVisible.anxiety && series.anxiety.length > 0 ? (
+                          <Scatter
+                            name="Anxiety"
+                            data={series.anxiety}
+                            fill="var(--chart-anxiety)"
+                            shape="circle"
+                            legendType="none"
+                            isAnimationActive={false}
+                          />
+                        ) : null}
+                        {metricVisible.contentment && series.contentment.length > 0 ? (
+                          <Scatter
+                            name="Contentment"
+                            data={series.contentment}
+                            fill="var(--chart-contentment)"
+                            shape="circle"
+                            legendType="none"
+                            isAnimationActive={false}
+                          />
+                        ) : null}
+                        {metricVisible.focus && series.focus.length > 0 ? (
+                          <Scatter
+                            name="Focus"
+                            data={series.focus}
+                            fill="var(--chart-focus)"
+                            shape="circle"
+                            legendType="none"
+                            isAnimationActive={false}
+                          />
+                        ) : null}
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <p className="muted small today-snapshot-chart-empty today-snapshot-chart-empty--toggle-hint">
+                    Turn on at least one metric above to show the chart.
+                  </p>
+                )}
+              </>
             )}
           </div>
         </div>
-      </details>
+      </div>
     </section>
   );
 }
