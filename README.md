@@ -51,6 +51,10 @@ Optional env vars for a future single-URL outbound proxy (not used by outbound c
 - `USE_OUTBOUND_PROXY=false`
 - `OUTBOUND_PROXY_URL=http://username:password@ip:port`
 
+## Deployment (Railway)
+
+Branch strategy and staging setup: **`docs/RAILWAY-STAGING.md`** (`main` = production, `staging` = pre-production QA, separate DB and CORS).
+
 ## Scripts
 
 - **`scripts/run_backend.sh`** — `cd`s into `backend/`, creates `.venv` if missing, installs Python dependencies when `requirements.txt` is new or changed, runs FastAPI with **uvicorn** on **127.0.0.1:8100**.
