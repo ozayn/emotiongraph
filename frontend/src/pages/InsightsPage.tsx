@@ -13,9 +13,17 @@ import {
   YAxis,
 } from "recharts";
 import { fetchInsights } from "../api";
+import MetricDetailModal from "../components/MetricDetailModal";
+import {
+  EMOTION_MODAL_META,
+  formatEmotionModalValue,
+  recentEmotionSamplesFromInsights,
+  TRACKER_MODAL_META,
+  type MetricModalState,
+} from "../metricDetailModal";
 import { useSession } from "../session/SessionContext";
 import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
-import type { InsightsPayload, InsightsRecentEntry } from "../types";
+import type { InsightsPayload, InsightsRecentEntry, InsightsSummary } from "../types";
 import {
   formatAnxiety,
   formatContentment,
@@ -89,6 +97,71 @@ function InsightTooltip({ active, payload }: TooltipProps) {
 
 function isReadyUserId(id: number): boolean {
   return Number.isInteger(id) && id > 0;
+}
+
+function buildInsightsMetricModalProps(
+  subject: MetricModalState,
+  data: InsightsPayload,
+  args: {
+    startDate: string;
+    endDate: string;
+    singleDay: boolean;
+    s: InsightsSummary | undefined;
+  },
+) {
+  const { startDate, endDate, singleDay, s } = args;
+  const contextRange = singleDay ? snapshotHeadingDate(startDate) : `${shortDate(startDate)} – ${shortDate(endDate)}`;
+  const entryMeta = s
+    ? ` · ${s.entry_count} ${s.entry_count === 1 ? "entry" : "entries"} · ${s.days_with_entries} active ${s.days_with_entries === 1 ? "day" : "days"}`
+    : "";
+
+  if (subject.category === "emotion") {
+    const meta = EMOTION_MODAL_META[subject.key];
+    const avg =
+      subject.key === "energy"
+        ? s?.avg_energy
+        : subject.key === "anxiety"
+          ? s?.avg_anxiety
+          : subject.key === "contentment"
+            ? s?.avg_contentment
+            : s?.avg_focus;
+    const valueLine =
+      avg != null
+        ? `Average in this range · ${formatEmotionModalValue(subject.key, avg)}`
+        : "No values logged for this metric in the selected range.";
+    return {
+      title: meta.label,
+      valueLine,
+      scaleLine: meta.scale,
+      blurb: meta.blurb,
+      contextLine: contextRange + entryMeta,
+      samples: recentEmotionSamplesFromInsights(data.recent_entries, subject.key),
+    };
+  }
+
+  const meta = TRACKER_MODAL_META[subject.key];
+  const ts = data.tracker_summary;
+  const val =
+    subject.key === "sleep_quality"
+      ? ts.avg_sleep_quality
+      : subject.key === "cycle_day"
+        ? ts.avg_cycle_day
+        : ts.avg_sleep_hours;
+  const valueLine =
+    val != null ? `Average · ${formatAvg(val)}` : "Nothing recorded in day context for this range.";
+  let ctxExtra = "";
+  if ((subject.key === "sleep_hours" || subject.key === "sleep_quality") && ts.days_with_tracker > 0) {
+    ctxExtra = ` · ${ts.days_with_tracker} ${ts.days_with_tracker === 1 ? "day" : "days"} with day context`;
+  } else if (subject.key === "cycle_day" && ts.days_with_tracker > 0) {
+    ctxExtra = ` · ${ts.days_with_tracker} ${ts.days_with_tracker === 1 ? "day" : "days"} with data`;
+  }
+  return {
+    title: meta.label,
+    valueLine,
+    scaleLine: meta.scale,
+    blurb: meta.blurb,
+    contextLine: contextRange + ctxExtra,
+  };
 }
 
 /** Fractional hour 0–24 for local wall time, with small index-based jitter for overlapping times. */
@@ -440,6 +513,7 @@ export default function InsightsPage({ userId, timeZone }: Props) {
   const [data, setData] = useState<InsightsPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [metricModal, setMetricModal] = useState<MetricModalState | null>(null);
   useEffect(() => {
     if (!isReadyUserId(userId)) {
       setLoading(false);
@@ -579,26 +653,26 @@ export default function InsightsPage({ userId, timeZone }: Props) {
               {singleDay ? "This day" : "Averages"}
             </h2>
             <div className="insights-summary-grid">
-              <div className="insights-metric-card">
-                <p className="insights-metric-label">Energy</p>
-                <p className="insights-metric-value">{formatAvg(s?.avg_energy ?? null)}</p>
-                <p className="insights-metric-hint muted small">1–3 scale</p>
-              </div>
-              <div className="insights-metric-card">
-                <p className="insights-metric-label">Anxiety</p>
-                <p className="insights-metric-value">{formatAvg(s?.avg_anxiety ?? null)}</p>
-                <p className="insights-metric-hint muted small">0–3 scale</p>
-              </div>
-              <div className="insights-metric-card">
-                <p className="insights-metric-label">Contentment</p>
-                <p className="insights-metric-value">{formatAvg(s?.avg_contentment ?? null)}</p>
-                <p className="insights-metric-hint muted small">1–3 scale</p>
-              </div>
-              <div className="insights-metric-card">
-                <p className="insights-metric-label">Focus</p>
-                <p className="insights-metric-value">{formatAvg(s?.avg_focus ?? null)}</p>
-                <p className="insights-metric-hint muted small">1–5 scale</p>
-              </div>
+              {(
+                [
+                  { key: "energy" as const, label: "Energy", avg: s?.avg_energy ?? null, hint: "1–3 scale" },
+                  { key: "anxiety" as const, label: "Anxiety", avg: s?.avg_anxiety ?? null, hint: "0–3 scale" },
+                  { key: "contentment" as const, label: "Contentment", avg: s?.avg_contentment ?? null, hint: "1–3 scale" },
+                  { key: "focus" as const, label: "Focus", avg: s?.avg_focus ?? null, hint: "1–5 scale" },
+                ] as const
+              ).map(({ key, label, avg, hint }) => (
+                <button
+                  key={key}
+                  type="button"
+                  className="insights-metric-card insights-metric-card--action"
+                  aria-label={`${label} — details`}
+                  onClick={() => setMetricModal({ category: "emotion", key })}
+                >
+                  <p className="insights-metric-label">{label}</p>
+                  <p className="insights-metric-value">{formatAvg(avg)}</p>
+                  <p className="insights-metric-hint muted small">{hint}</p>
+                </button>
+              ))}
             </div>
             <p className="insights-range-meta muted small">
               {s?.entry_count ?? 0} entries · {s?.days_with_entries ?? 0} active days
@@ -670,19 +744,34 @@ export default function InsightsPage({ userId, timeZone }: Props) {
                   : "From your cycle & sleep fields."}
               </p>
               <div className="insights-summary-grid insights-summary-grid--3">
-                <div className="insights-metric-card">
+                <button
+                  type="button"
+                  className="insights-metric-card insights-metric-card--action"
+                  aria-label="Sleep quality — details"
+                  onClick={() => setMetricModal({ category: "tracker", key: "sleep_quality" })}
+                >
                   <p className="insights-metric-label">Sleep quality</p>
                   <p className="insights-metric-value">{formatAvg(data.tracker_summary.avg_sleep_quality)}</p>
                   <p className="insights-metric-hint muted small">1–5 avg</p>
-                </div>
-                <div className="insights-metric-card">
+                </button>
+                <button
+                  type="button"
+                  className="insights-metric-card insights-metric-card--action"
+                  aria-label="Cycle day — details"
+                  onClick={() => setMetricModal({ category: "tracker", key: "cycle_day" })}
+                >
                   <p className="insights-metric-label">Cycle day</p>
                   <p className="insights-metric-value">{formatAvg(data.tracker_summary.avg_cycle_day)}</p>
                   <p className="insights-metric-hint muted small">
                     {singleDay ? "This day" : "Across logged days"}
                   </p>
-                </div>
-                <div className="insights-metric-card">
+                </button>
+                <button
+                  type="button"
+                  className="insights-metric-card insights-metric-card--action"
+                  aria-label="Sleep hours — details"
+                  onClick={() => setMetricModal({ category: "tracker", key: "sleep_hours" })}
+                >
                   <p className="insights-metric-label">Sleep hours</p>
                   <p className="insights-metric-value">{formatAvg(data.tracker_summary.avg_sleep_hours)}</p>
                   <p className="insights-metric-hint muted small">
@@ -690,7 +779,7 @@ export default function InsightsPage({ userId, timeZone }: Props) {
                       ? "Logged for this day"
                       : `${data.tracker_summary.days_with_tracker} days`}
                   </p>
-                </div>
+                </button>
               </div>
               {data.tracker_daily.length >= 2 && (
                 <div className="insights-chart-card insights-chart-card--spaced">
@@ -773,6 +862,19 @@ export default function InsightsPage({ userId, timeZone }: Props) {
           />
         </>
       )}
+
+      {metricModal && data ? (
+        <MetricDetailModal
+          open
+          onClose={() => setMetricModal(null)}
+          {...buildInsightsMetricModalProps(metricModal, data, {
+            startDate,
+            endDate,
+            singleDay,
+            s,
+          })}
+        />
+      ) : null}
     </div>
   );
 }

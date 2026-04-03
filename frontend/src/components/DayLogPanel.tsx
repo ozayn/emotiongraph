@@ -22,6 +22,7 @@ import {
   LOG_EDIT_SOURCE_OPTIONS,
 } from "../logEditDraft";
 import CustomFieldsForm from "./CustomFieldsForm";
+import EntryDetailModal from "./EntryDetailModal";
 import { IconRowEdit, IconRowTrash } from "./RowActionIcons";
 import {
   buildCustomValuesPayload,
@@ -150,6 +151,7 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
   const [textSectionOpen, setTextSectionOpen] = useState(false);
 
   const [savedMenuOpenId, setSavedMenuOpenId] = useState<number | null>(null);
+  const [savedEntryDetail, setSavedEntryDetail] = useState<SavedLogEntry | null>(null);
   const [savedEditEntry, setSavedEditEntry] = useState<SavedLogEntry | null>(null);
   const [savedEditDraft, setSavedEditDraft] = useState<EditDraft | null>(null);
   const [savedEditSaveError, setSavedEditSaveError] = useState<string | null>(null);
@@ -228,6 +230,7 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
 
   const openSavedEdit = useCallback(
     (entry: SavedLogEntry) => {
+      setSavedEntryDetail(null);
       setSavedMenuOpenId(null);
       setSavedEditSaveError(null);
       setSavedActionError(null);
@@ -278,6 +281,7 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
         await deleteLog(userId, entry.id);
         await refreshSaved();
         await onMutate?.();
+        setSavedEntryDetail((d) => (d?.id === entry.id ? null : d));
       } catch (err) {
         setSavedActionError(err instanceof Error ? err.message : "Could not delete entry");
       }
@@ -914,7 +918,17 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
             const menuOpen = savedMenuOpenId === e.id;
             const menuDomId = `entries-day-saved-menu-${e.id}`;
             return (
-              <li key={e.id} className="saved-item today-saved-item">
+              <li
+                key={e.id}
+                className="saved-item today-saved-item today-saved-item--interactive"
+                tabIndex={0}
+                onClick={() => setSavedEntryDetail(e)}
+                onKeyDown={(ev) => {
+                  if (ev.key !== "Enter" && ev.key !== " ") return;
+                  ev.preventDefault();
+                  setSavedEntryDetail(e);
+                }}
+              >
                 <div className="today-saved-item-head">
                   <div className="today-saved-item-main">
                     <div className="today-saved-item-meta-row">
@@ -933,7 +947,11 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
                       </p>
                     )}
                   </div>
-                  <div className="entries-item-menu-wrap" data-day-log-saved-menu-root>
+                  <div
+                    className="entries-item-menu-wrap"
+                    data-day-log-saved-menu-root
+                    onClick={(ev) => ev.stopPropagation()}
+                  >
                     <button
                       type="button"
                       className="entries-item-menu-trigger"
@@ -1103,6 +1121,13 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
           </div>
         </>
       )}
+
+      <EntryDetailModal
+        open={savedEntryDetail != null}
+        entry={savedEntryDetail}
+        onClose={() => setSavedEntryDetail(null)}
+        fieldDefinitions={customEntryFields}
+      />
 
       <ReviewExtractionModal
         open={reviewOpen}

@@ -1,4 +1,12 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import MetricDetailModal from "./MetricDetailModal";
+import {
+  averageEmotionFromEntries,
+  EMOTION_MODAL_META,
+  formatEmotionModalValue,
+  recentEmotionSamplesFromSaved,
+  type EmotionMetricKey,
+} from "../metricDetailModal";
 import {
   CartesianGrid,
   ResponsiveContainer,
@@ -118,7 +126,7 @@ function ScatterTip({
   );
 }
 
-type MetricKey = "energy" | "anxiety" | "contentment" | "focus";
+type MetricKey = EmotionMetricKey;
 
 const SNAPSHOT_METRICS: {
   key: MetricKey;
@@ -138,9 +146,21 @@ const defaultMetricVisibility: Record<MetricKey, boolean> = {
   focus: true,
 };
 
+function headingDate(iso: string): string {
+  const [y, m, day] = iso.split("-").map(Number);
+  if (!y || !m || !day) return iso;
+  return new Date(y, m - 1, day).toLocaleDateString(undefined, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 export default function TodaySnapshot({ userId, logDate, entries, entriesLoading }: Props) {
   const [trackerDay, setTrackerDay] = useState<TrackerDay | null>(null);
   const [metricVisible, setMetricVisible] = useState<Record<MetricKey, boolean>>(defaultMetricVisibility);
+  const [detailKey, setDetailKey] = useState<EmotionMetricKey | null>(null);
 
   useEffect(() => {
     if (!isReadyUserId(userId) || !logDate.trim()) return;
@@ -156,6 +176,11 @@ export default function TodaySnapshot({ userId, logDate, entries, entriesLoading
   const series = useMemo(() => buildTodayScatterSeries(entries), [entries]);
   const hasScatter =
     series.energy.length + series.anxiety.length + series.contentment.length + series.focus.length > 0;
+
+  const detailAvg = useMemo(
+    () => (detailKey ? averageEmotionFromEntries(entries, detailKey) : null),
+    [detailKey, entries],
+  );
 
   const dayContextLine = useMemo(() => {
     if (!trackerDay) return null;
@@ -198,6 +223,36 @@ export default function TodaySnapshot({ userId, logDate, entries, entriesLoading
               <summary className="today-snapshot-dayctx-summary">Sleep &amp; cycle</summary>
               <p className="today-snapshot-dayctx-body muted small">{dayContextLine}</p>
             </details>
+          ) : null}
+
+          {entries.length > 0 ? (
+            <div className="today-snapshot-metric-grid" role="group" aria-label="Today's metric averages">
+              {SNAPSHOT_METRICS.map(({ key, label, colorVar }) => {
+                const avg = averageEmotionFromEntries(entries, key);
+                const hint =
+                  key === "energy"
+                    ? "1–3 scale"
+                    : key === "anxiety"
+                      ? "0–3 scale"
+                      : key === "contentment"
+                        ? "1–3 scale"
+                        : "1–5 scale";
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    className="today-snapshot-metric-card"
+                    style={{ "--today-metric-card-accent": colorVar } as CSSProperties}
+                    aria-label={`${label} — details`}
+                    onClick={() => setDetailKey(key)}
+                  >
+                    <p className="today-snapshot-metric-label">{label}</p>
+                    <p className="today-snapshot-metric-value">{formatAvg(avg)}</p>
+                    <p className="today-snapshot-metric-hint muted small">{hint}</p>
+                  </button>
+                );
+              })}
+            </div>
           ) : null}
 
           <div className="today-snapshot-chart-panel">
@@ -371,6 +426,23 @@ export default function TodaySnapshot({ userId, logDate, entries, entriesLoading
           </div>
         </div>
       </div>
+
+      {detailKey ? (
+        <MetricDetailModal
+          open
+          onClose={() => setDetailKey(null)}
+          title={EMOTION_MODAL_META[detailKey].label}
+          valueLine={
+            detailAvg != null
+              ? `Today's average · ${formatEmotionModalValue(detailKey, detailAvg)}`
+              : "No values logged today for this metric."
+          }
+          scaleLine={EMOTION_MODAL_META[detailKey].scale}
+          blurb={EMOTION_MODAL_META[detailKey].blurb}
+          contextLine={`${headingDate(logDate)} · ${entries.length} ${entries.length === 1 ? "check-in" : "check-ins"}`}
+          samples={recentEmotionSamplesFromSaved(entries, detailKey)}
+        />
+      ) : null}
     </section>
   );
 }

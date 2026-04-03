@@ -1,9 +1,18 @@
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+} from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { deleteLog, fetchLogsRange, patchLog, putLogEntryCustomValues } from "../api";
 import CalmSelect from "../components/CalmSelect";
 import CustomFieldsForm from "../components/CustomFieldsForm";
 import { IconRowEdit, IconRowTrash } from "../components/RowActionIcons";
+import EntryDetailModal from "../components/EntryDetailModal";
 import TodaySnapshot from "../components/TodaySnapshot";
 import MetricSelect from "../components/MetricSelect";
 import { buildCustomValuesPayload, customValuesToDraft, filterCustomFormFields } from "../customFieldValues";
@@ -92,6 +101,7 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
   const sheetTitleRef = useRef<HTMLHeadingElement>(null);
   const [visibleCount, setVisibleCount] = useState(ENTRIES_LIST_INITIAL);
   const [cardMenuOpenId, setCardMenuOpenId] = useState<number | null>(null);
+  const [entryDetail, setEntryDetail] = useState<SavedLogEntry | null>(null);
   const [viewMode, setViewModeState] = useState<EntriesViewMode>(() => readStoredEntriesViewMode());
 
   const setViewMode = useCallback((mode: EntriesViewMode) => {
@@ -197,6 +207,7 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
   }, [draft, editing]);
 
   const openEdit = (e: SavedLogEntry) => {
+    setEntryDetail(null);
     setCardMenuOpenId(null);
     setSaveError(null);
     setActionError(null);
@@ -240,6 +251,7 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
     try {
       await deleteLog(userId, entry.id);
       await applyRange();
+      setEntryDetail((d) => (d?.id === entry.id ? null : d));
     } catch (err) {
       setActionError(err instanceof Error ? err.message : "Could not delete entry");
     }
@@ -398,8 +410,19 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
                 const metricsShort = compactMetricSummary(e);
                 const menuOpen = cardMenuOpenId === e.id;
                 const menuDomId = `entry-card-actions-${e.id}`;
+                const onCardKeyDown = (ev: ReactKeyboardEvent<HTMLLIElement>) => {
+                  if (ev.key !== "Enter" && ev.key !== " ") return;
+                  ev.preventDefault();
+                  setEntryDetail(e);
+                };
                 return (
-                  <li key={e.id} className="entries-item">
+                  <li
+                    key={e.id}
+                    className="entries-item entries-item--interactive"
+                    tabIndex={0}
+                    onClick={() => setEntryDetail(e)}
+                    onKeyDown={onCardKeyDown}
+                  >
                     <div className="entries-item-cardhead">
                       <div className="entries-item-cardhead-main">
                         <span className="entries-item-date">{shortDate(e.log_date)}</span>
@@ -408,7 +431,11 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
                         </span>
                         <span className="entries-item-source">{e.source_type}</span>
                       </div>
-                      <div className="entries-item-menu-wrap" data-entries-card-menu-root>
+                      <div
+                        className="entries-item-menu-wrap"
+                        data-entries-card-menu-root
+                        onClick={(ev) => ev.stopPropagation()}
+                      >
                         <button
                           type="button"
                           className="entries-item-menu-trigger"
@@ -500,7 +527,17 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
                 </thead>
                 <tbody>
                   {displayedEntries.map((e) => (
-                    <tr key={e.id}>
+                    <tr
+                      key={e.id}
+                      className="entries-table-row entries-table-row--interactive"
+                      tabIndex={0}
+                      onClick={() => setEntryDetail(e)}
+                      onKeyDown={(ev) => {
+                        if (ev.key !== "Enter" && ev.key !== " ") return;
+                        ev.preventDefault();
+                        setEntryDetail(e);
+                      }}
+                    >
                       <td className="mono entries-table-date">{e.log_date}</td>
                       <td className="mono entries-table-time">{e.start_time ?? "—"}</td>
                       <td className="mono entries-table-time">{e.end_time ?? "—"}</td>
@@ -512,7 +549,7 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
                       <td className="mono entries-table-num">{tableMetricCell(e.anxiety)}</td>
                       <td className="mono entries-table-num">{tableMetricCell(e.contentment)}</td>
                       <td className="mono entries-table-num">{tableMetricCell(e.focus)}</td>
-                      <td className="entries-table-actions">
+                      <td className="entries-table-actions" onClick={(ev) => ev.stopPropagation()}>
                         <button
                           type="button"
                           className="entries-row-icon-btn"
@@ -671,6 +708,13 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
           </div>
         </>
       )}
+
+      <EntryDetailModal
+        open={entryDetail != null}
+        entry={entryDetail}
+        onClose={() => setEntryDetail(null)}
+        fieldDefinitions={customEntryFields}
+      />
     </div>
   );
 }
