@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { patchUserTimezone } from "../api";
 import { effectiveUserTimeZone, getBrowserIanaTimeZone } from "../datesTz";
 import { PRESET_TIMEZONES } from "../timezoneOptions";
 import type { User } from "../types";
+import CalmSelect, { type CalmSelectOption } from "./CalmSelect";
 import InlineHelp from "./InlineHelp";
 
 const DEVICE_VALUE = "__device__";
@@ -13,6 +14,8 @@ type Props = {
 };
 
 export default function UserTimezonePreferences({ user, onUpdated }: Props) {
+  const panelId = useId();
+  const detailsRef = useRef<HTMLDetailsElement>(null);
   const [err, setErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -25,6 +28,30 @@ export default function UserTimezonePreferences({ user, onUpdated }: Props) {
 
   const selectValue = saved ?? DEVICE_VALUE;
 
+  const calmOptions: CalmSelectOption[] = useMemo(() => {
+    const list: CalmSelectOption[] = [
+      { value: DEVICE_VALUE, label: "This device", hint: deviceTz },
+      ...PRESET_TIMEZONES.map((z) => ({ value: z.value, label: z.label, hint: z.value })),
+    ];
+    if (showSavedCustom && saved) {
+      const tail = saved.includes("/") ? saved.split("/").pop() ?? saved : saved;
+      list.push({
+        value: saved,
+        label: tail === saved ? saved : tail,
+        hint: tail === saved ? undefined : saved,
+      });
+    }
+    return list;
+  }, [deviceTz, saved, showSavedCustom]);
+
+  useEffect(() => {
+    if (err && detailsRef.current) detailsRef.current.open = true;
+  }, [err]);
+
+  useEffect(() => {
+    if (busy && detailsRef.current) detailsRef.current.open = true;
+  }, [busy]);
+
   const onChange = (raw: string) => {
     setErr(null);
     const tz: string | null = raw === DEVICE_VALUE ? null : raw;
@@ -35,53 +62,64 @@ export default function UserTimezonePreferences({ user, onUpdated }: Props) {
       .finally(() => setBusy(false));
   };
 
+  const labelId = `prefs-tz-label-${user.id}`;
+
   return (
-    <section className="preferences-tz preferences-tz--profile-block" aria-labelledby="prefs-tz-heading">
-      <div className="profile-heading-with-help">
-        <h3 id="prefs-tz-heading" className="profile-display-name-title">
-          Time zone
-        </h3>
-        <InlineHelp label="Time zone">
-          <p>
-            Defines calendar days for this profile. Default is this device ({deviceTz}); choose a fixed region if you want
-            dates to stay put when you travel.
+    <details
+      ref={detailsRef}
+      id="profile-preferences-tz"
+      className="preferences-tz preferences-tz--expandable preferences-tz--profile-block"
+    >
+      <summary className="preferences-tz-summary">
+        <div className="preferences-tz-summary-main">
+          <span className="preferences-tz-summary-eyebrow">Time zone</span>
+          <span className="preferences-tz-summary-value">
+            <code className="preferences-tz-code preferences-tz-code--summary" title={effective}>
+              {effective}
+            </code>
+            <span className="preferences-tz-pill">{saved == null ? "Device" : "Saved"}</span>
+          </span>
+        </div>
+        <span className="preferences-tz-chevron" aria-hidden="true" />
+        <span className="sr-only">
+          {`Effective zone ${effective}. ${saved == null ? "Following this device." : "Using a saved zone."} Expand to change.`}
+        </span>
+      </summary>
+      <div id={panelId} className="preferences-tz-panel">
+        <div className="preferences-tz-panel-lead">
+          <InlineHelp label="Time zone">
+            <p>
+              Defines calendar days for this profile. Default is this device ({deviceTz}); choose a fixed region if you want
+              dates to stay put when you travel.
+            </p>
+          </InlineHelp>
+        </div>
+        <div className="preferences-tz-control">
+          <label className="preferences-tz-label" id={labelId} htmlFor={`prefs-tz-select-${user.id}`}>
+            Zone
+          </label>
+          <CalmSelect
+            id={`prefs-tz-select-${user.id}`}
+            variant="timezone"
+            value={selectValue}
+            onChange={onChange}
+            options={calmOptions}
+            dividerAfterIndices={[0]}
+            disabled={busy}
+            aria-labelledby={labelId}
+            aria-busy={busy}
+            aria-describedby={err ? `prefs-tz-err-${user.id}` : "prefs-tz-hint"}
+          />
+          <p id="prefs-tz-hint" className="sr-only">
+            Optional. Sets which IANA zone defines calendar days for this profile.
           </p>
-        </InlineHelp>
+        </div>
+        {err && (
+          <p id={`prefs-tz-err-${user.id}`} className="user-tz-err preferences-tz-err" role="alert">
+            {err}
+          </p>
+        )}
       </div>
-      <p className="preferences-tz-effective small">
-        <span className="muted">Now</span> <code className="preferences-tz-code">{effective}</code>
-        <span className="muted">{saved == null ? " · device" : " · saved"}</span>
-      </p>
-      <div className="preferences-tz-control">
-        <label className="preferences-tz-label" htmlFor={`prefs-tz-select-${user.id}`}>
-          Zone
-        </label>
-        <select
-          id={`prefs-tz-select-${user.id}`}
-          className="user-tz-select preferences-tz-select"
-          value={selectValue}
-          disabled={busy}
-          aria-busy={busy}
-          aria-describedby={err ? `prefs-tz-err-${user.id}` : "prefs-tz-hint"}
-          onChange={(e) => onChange(e.target.value)}
-        >
-          <option value={DEVICE_VALUE}>Use this device’s time zone ({deviceTz})</option>
-          {PRESET_TIMEZONES.map((z) => (
-            <option key={z.value} value={z.value}>
-              {z.label}
-            </option>
-          ))}
-          {showSavedCustom && <option value={saved}>{saved}</option>}
-        </select>
-        <p id="prefs-tz-hint" className="sr-only">
-          Optional. Sets which IANA zone defines calendar days for this profile.
-        </p>
-      </div>
-      {err && (
-        <p id={`prefs-tz-err-${user.id}`} className="user-tz-err" role="alert">
-          {err}
-        </p>
-      )}
-    </section>
+    </details>
   );
 }

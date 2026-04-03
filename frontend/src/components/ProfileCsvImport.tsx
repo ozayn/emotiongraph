@@ -65,47 +65,49 @@ export default function ProfileCsvImport({ userId, onCommitted }: Props) {
   };
 
   return (
-    <div className="profile-settings-field profile-import-field">
+    <div className="profile-settings-field profile-import-field profile-data-tool">
       <div className="profile-data-kicker-row">
         <h3 className="profile-data-kicker">Import</h3>
         <InlineHelp label="CSV import">
           <p>
-            UTF-8 CSV with <span className="mono">log_date</span> per row. Preview before save; stored as <span className="mono">import</span>.
+            UTF-8 CSV with a <span className="mono">log_date</span> column per row. Preview first, then save. Imported rows are stored with source{" "}
+            <span className="mono">import</span>.
           </p>
         </InlineHelp>
       </div>
-      <div className="entries-import-upload">
-        <div className="entries-import-dropzone">
-          <input
-            id="profile-import-csv-input"
-            key={importInputKey}
-            type="file"
-            accept=".csv,text/csv"
-            className="entries-import-input-hidden"
-            aria-label="Choose CSV file to import"
-            onChange={(ev) => onImportFilePicked(ev.target.files)}
-          />
-          <div className="entries-import-dropzone-inner">
-            <label htmlFor="profile-import-csv-input" className="entries-import-choose">
-              Choose CSV
-            </label>
-            <span className="entries-import-filename mono muted small" aria-live="polite">
-              {importSelectedName ?? "No file selected"}
-            </span>
+      <div className="profile-data-tool-body">
+        <div className="entries-import-upload">
+          <div className="entries-import-dropzone">
+            <input
+              id="profile-import-csv-input"
+              key={importInputKey}
+              type="file"
+              accept=".csv,text/csv"
+              className="entries-import-input-hidden"
+              aria-label="Choose CSV file to import"
+              onChange={(ev) => onImportFilePicked(ev.target.files)}
+            />
+            <div className="entries-import-dropzone-inner">
+              <label htmlFor="profile-import-csv-input" className="entries-import-choose">
+                Choose CSV
+              </label>
+              <span className="entries-import-filename mono muted small" aria-live="polite">
+                {importSelectedName ?? "No file selected"}
+              </span>
+            </div>
           </div>
+          <button type="button" className="btn ghost small entries-import-preview-btn" disabled={importBusy} onClick={() => void runImportPreview()}>
+            {importBusy && !importPreview ? "Preview…" : "Preview"}
+          </button>
         </div>
-        <button type="button" className="btn ghost small entries-import-preview-btn" disabled={importBusy} onClick={() => void runImportPreview()}>
-          {importBusy && !importPreview ? "Preview…" : "Preview"}
-        </button>
-      </div>
-      {importPickErr && <p className="error-inline">{importPickErr}</p>}
-      {importCommitErr && <p className="error-inline">{importCommitErr}</p>}
-      {importPreview && (
-        <div className="entries-import-preview">
-          <p className="muted small">
-            <strong>{importPreview.row_count}</strong> {importPreview.row_count === 1 ? "row" : "rows"} ready to save
-            {importPreview.parse_errors.length > 0 ? " · some lines skipped" : ""}
-          </p>
+        {importPickErr && <p className="error-inline">{importPickErr}</p>}
+        {importCommitErr && <p className="error-inline">{importCommitErr}</p>}
+        {importPreview && (
+          <div className="entries-import-preview">
+            <p className="muted small profile-import-preview-meta" aria-live="polite">
+              <strong>{importPreview.row_count}</strong> {importPreview.row_count === 1 ? "row" : "rows"}
+              {importPreview.parse_errors.length > 0 ? " · some lines skipped" : ""}
+            </p>
           {importPreview.parse_errors.length > 0 && (
             <ul className="entries-import-errors muted small">
               {importPreview.parse_errors.slice(0, 8).map((err) => (
@@ -145,7 +147,8 @@ export default function ProfileCsvImport({ userId, onCommitted }: Props) {
             {importBusy ? "Saving…" : `Save ${importPreview.row_count} imported row${importPreview.row_count === 1 ? "" : "s"}`}
           </button>
         </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
