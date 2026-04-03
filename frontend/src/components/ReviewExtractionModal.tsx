@@ -105,7 +105,8 @@ export default function ReviewExtractionModal({
   const [saveError, setSaveError] = useState<string | null>(null);
   const rowsTouched = useRef(false);
   const lastExtractionKey = useRef<string | null>(null);
-  const [fullDetailsOpen, setFullDetailsOpen] = useState(false);
+  /** `null` = entry list; index = editing that row’s fields. */
+  const [expandedEntryIndex, setExpandedEntryIndex] = useState<number | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -113,7 +114,7 @@ export default function ReviewExtractionModal({
       lastExtractionKey.current = null;
       setRows([]);
       setRowServerIds([]);
-      setFullDetailsOpen(false);
+      setExpandedEntryIndex(null);
       return;
     }
     setSaveError(null);
@@ -135,6 +136,12 @@ export default function ReviewExtractionModal({
       initialServerIds != null && initialServerIds.length === r.length ? initialServerIds : undefined;
     setRowServerIds(ids ?? r.map(() => undefined));
   }, [open, extraction, initialServerIds]);
+
+  useEffect(() => {
+    if (expandedEntryIndex != null && expandedEntryIndex >= rows.length) {
+      setExpandedEntryIndex(null);
+    }
+  }, [rows.length, expandedEntryIndex]);
 
   if (!open) return null;
 
@@ -174,6 +181,12 @@ export default function ReviewExtractionModal({
   };
   const removeRow = (i: number) => {
     rowsTouched.current = true;
+    setExpandedEntryIndex((cur) => {
+      if (cur == null) return null;
+      if (cur === i) return null;
+      if (cur > i) return cur - 1;
+      return cur;
+    });
     setRows((prev) => prev.filter((_, j) => j !== i));
     setRowServerIds((prev) => prev.filter((_, j) => j !== i));
   };
@@ -223,25 +236,32 @@ export default function ReviewExtractionModal({
 
   const entriesAlreadyOnServer = initialServerIds != null && initialServerIds.length > 0;
   const dismissLabel = entriesAlreadyOnServer ? "Close" : "Discard";
+  const entryDetailOpen = expandedEntryIndex != null;
+  const REMOVE_FROM_SAVE_HINT = "Exclude this row from what you save (not saved to your log yet).";
+  const expandedDetailIndex = expandedEntryIndex;
+  const expandedDetailRow =
+    expandedDetailIndex != null && rows[expandedDetailIndex] !== undefined ? rows[expandedDetailIndex] : undefined;
 
   return (
     <div className="review-backdrop" role="presentation">
       <div
-        className={`review-sheet ${fullDetailsOpen ? "review-sheet--details-open" : "review-sheet--compact-first"}`}
+        className={`review-sheet ${entryDetailOpen ? "review-sheet--details-open" : "review-sheet--compact-first"}`}
         role="dialog"
         aria-labelledby="review-title"
         aria-modal="true"
       >
-        <div className={`review-sheet-scroll ${fullDetailsOpen ? "" : "review-sheet-scroll--compact"}`}>
+        <div className={`review-sheet-scroll ${entryDetailOpen ? "" : "review-sheet-scroll--compact"}`}>
           <div className="review-sheet-head">
             <p className="review-sheet-eyebrow">Review</p>
             <h2 id="review-title" className="review-sheet-title-date mono">
               {logDate}
             </h2>
-            {fullDetailsOpen ? (
-              <p className="review-sheet-sub">Edits are saved only when you tap Save below.</p>
+            {entryDetailOpen ? (
+              <p className="review-sheet-sub">Edits apply when you tap Save below.</p>
             ) : (
-              <p className="review-sheet-sub review-sheet-sub--light">Check the summary, then save or edit details.</p>
+              <p className="review-sheet-sub review-sheet-sub--light">
+                Check the summary, tap an entry to edit fields, then save.
+              </p>
             )}
           </div>
 
@@ -267,7 +287,7 @@ export default function ReviewExtractionModal({
               </p>
             )}
             {!extractionLoading && extraction && (
-              <p className={`summary-text ${fullDetailsOpen ? "" : "summary-text--compact"}`}>
+              <p className={`summary-text ${entryDetailOpen ? "" : "summary-text--compact"}`}>
                 {extraction.transcript_summary || "—"}
               </p>
             )}
@@ -276,99 +296,103 @@ export default function ReviewExtractionModal({
           <section className="review-block">
             <div className="review-block-head">
               <h3 className="review-block-title">Entries</h3>
-              {fullDetailsOpen ? (
+              {!entryDetailOpen ? (
                 <button type="button" className="btn btn-minimal small" onClick={addRow}>
                   + Add
                 </button>
               ) : null}
             </div>
 
-            {!fullDetailsOpen ? (
+            {!entryDetailOpen ? (
               <>
+                <p className="muted small review-entries-context-hint">
+                  Tap a row to edit. Remove drops it from this save only.
+                </p>
                 <div className="review-entry-preview-stack">
                   {rows.length === 0 && !extractionLoading && (
-                    <p className="muted review-rows-empty">No entries yet. Retry extraction or use Edit details to add a row.</p>
+                    <p className="muted review-rows-empty">No entries yet. Tap + Add or retry extraction.</p>
                   )}
                   {rows.map((row, i) => (
                     <div key={i} className="review-entry-preview">
-                      <div className="review-entry-preview-body">
-                        <p className="review-entry-preview-title">{compactEntryTitle(row, i)}</p>
-                        <p className="review-entry-preview-meta muted small">{compactEntrySubtitle(row)}</p>
-                      </div>
+                      <button
+                        type="button"
+                        className="review-entry-preview-main"
+                        onClick={() => setExpandedEntryIndex(i)}
+                      >
+                        <span className="review-entry-preview-title">{compactEntryTitle(row, i)}</span>
+                        <span className="review-entry-preview-meta muted small">{compactEntrySubtitle(row)}</span>
+                      </button>
                       <button
                         type="button"
                         className="review-entry-preview-remove linkish"
-                        onClick={() => removeRow(i)}
+                        title={REMOVE_FROM_SAVE_HINT}
+                        aria-label={`Remove “${compactEntryTitle(row, i)}” from this save`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeRow(i);
+                        }}
                       >
                         Remove
                       </button>
                     </div>
                   ))}
                 </div>
-                <div className="review-compact-actions">
-                  <button
-                    type="button"
-                    className="btn ghost small review-edit-details-btn"
-                    onClick={() => setFullDetailsOpen(true)}
-                  >
-                    Edit details
-                  </button>
-                </div>
               </>
-            ) : (
+            ) : expandedDetailRow != null && expandedDetailIndex != null ? (
               <>
                 <div className="review-expanded-toolbar">
                   <button
                     type="button"
-                    className="btn btn-text small review-hide-details-btn"
-                    onClick={() => setFullDetailsOpen(false)}
+                    className="btn btn-text small review-back-to-entries-btn"
+                    onClick={() => setExpandedEntryIndex(null)}
                   >
-                    Hide details
+                    ← All entries
                   </button>
                 </div>
                 <div className="row-stack">
-                  {rows.length === 0 && !extractionLoading && (
-                    <p className="muted review-rows-empty">No entries yet. Add one or retry extraction.</p>
-                  )}
-                  {rows.map((row, i) => (
-                    <article key={i} className="entry-card">
-                      <div className="entry-card-head">
-                        <span className="entry-card-label">Entry {i + 1}</span>
-                        <button type="button" className="btn btn-minimal small" onClick={() => removeRow(i)}>
-                          Remove
-                        </button>
-                      </div>
-                      <div className="entry-card-fields">
-                        {FIELDS.map(({ key, label }) => {
-                          const opts = optionsForMetricKey(key);
-                          if (opts) {
-                            return (
-                              <MetricSelect
-                                key={key}
-                                label={label}
-                                value={row[key] == null ? "" : String(row[key])}
-                                onChange={(v) => updateCell(i, key, v)}
-                                options={opts}
-                              />
-                            );
-                          }
+                  <article className="entry-card entry-card--review-focus">
+                    <div className="entry-card-head">
+                      <span className="entry-card-label">Entry {expandedDetailIndex + 1}</span>
+                      <button
+                        type="button"
+                        className="btn btn-minimal small"
+                        title={REMOVE_FROM_SAVE_HINT}
+                        aria-label={`Remove entry ${expandedDetailIndex + 1} from this save`}
+                        onClick={() => removeRow(expandedDetailIndex)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                    <div className="entry-card-fields">
+                      {FIELDS.map(({ key, label }) => {
+                        const opts = optionsForMetricKey(key);
+                        if (opts) {
                           return (
-                            <label key={key} className="field field--stacked">
-                              <span>{label}</span>
-                              <input
-                                type="text"
-                                value={row[key] ?? ""}
-                                onChange={(e) => updateCell(i, key, e.target.value)}
-                              />
-                            </label>
+                            <MetricSelect
+                              key={key}
+                              label={label}
+                              value={expandedDetailRow[key] == null ? "" : String(expandedDetailRow[key])}
+                              onChange={(v) => updateCell(expandedDetailIndex, key, v)}
+                              options={opts}
+                            />
                           );
-                        })}
-                      </div>
-                    </article>
-                  ))}
+                        }
+                        return (
+                          <label key={key} className="field field--stacked">
+                            <span>{label}</span>
+                            <input
+                              type="text"
+                              value={expandedDetailRow[key] ?? ""}
+                              onChange={(e) => updateCell(expandedDetailIndex, key, e.target.value)}
+                            />
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </article>
                 </div>
               </>
-            )}
+            ) : null}
           </section>
 
           <details className="transcript-details">
@@ -393,7 +417,6 @@ export default function ReviewExtractionModal({
           )}
 
           {saveError && <p className="error-inline review-save-error">{saveError}</p>}
-          <div className="review-scroll-spacer" aria-hidden="true" />
         </div>
 
         <div className="review-sticky-footer">

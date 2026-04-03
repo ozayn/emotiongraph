@@ -169,6 +169,8 @@ type Props = {
 
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+const ADD_ENTRY_CAPTURE_SAVED_FLASH_MS = 3400;
+
 export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }: Props) {
   const textAreaId = useId();
   const savedEditSourceLabelId = useId();
@@ -207,6 +209,15 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
   const [postExtractSaveError, setPostExtractSaveError] = useState<string | null>(null);
   const [recordingActive, setRecordingActive] = useState(false);
   const [extractSavedBanner, setExtractSavedBanner] = useState(false);
+  const [captureSavedFlash, setCaptureSavedFlash] = useState(false);
+  const captureFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearCaptureFlashTimer = useCallback(() => {
+    if (captureFlashTimerRef.current != null) {
+      clearTimeout(captureFlashTimerRef.current);
+      captureFlashTimerRef.current = null;
+    }
+  }, []);
 
   const [manualDraft, setManualDraft] = useState(emptyManualDraft);
   const [manualSaving, setManualSaving] = useState(false);
@@ -445,19 +456,19 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
     setExtractionError(null);
     setExtractionLoading(false);
     setExtractSavedBanner(false);
-  }, [logDate]);
+    clearCaptureFlashTimer();
+    setCaptureSavedFlash(false);
+  }, [logDate, clearCaptureFlashTimer]);
+
+  useEffect(() => {
+    return () => clearCaptureFlashTimer();
+  }, [clearCaptureFlashTimer]);
 
   useEffect(() => {
     if (reviewOpen) {
       reviewSessionInitialIdsRef.current = pendingReviewEntryIds;
     }
   }, [reviewOpen, pendingReviewEntryIds]);
-
-  useEffect(() => {
-    if (!extractSavedBanner) return;
-    const t = window.setTimeout(() => setExtractSavedBanner(false), 5000);
-    return () => clearTimeout(t);
-  }, [extractSavedBanner]);
 
   useEffect(() => {
     if (!dayContextEditing) return;
@@ -601,6 +612,12 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
         }
         setPostExtractSaveError(null);
         setExtractSavedBanner(true);
+        clearCaptureFlashTimer();
+        setCaptureSavedFlash(true);
+        captureFlashTimerRef.current = setTimeout(() => {
+          setCaptureSavedFlash(false);
+          captureFlashTimerRef.current = null;
+        }, ADD_ENTRY_CAPTURE_SAVED_FLASH_MS);
         await refreshSaved();
         await onMutate?.();
       } catch (e) {
@@ -609,7 +626,7 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
         setReviewOpen(true);
       }
     },
-    [userId, logDate, refreshSaved, onMutate],
+    [userId, logDate, refreshSaved, onMutate, clearCaptureFlashTimer],
   );
 
   const beginNewVoiceClip = useCallback(() => {
@@ -619,7 +636,9 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
     setVoiceTranscript("");
     setExtraction(null);
     setExtractionError(null);
-  }, []);
+    clearCaptureFlashTimer();
+    setCaptureSavedFlash(false);
+  }, [clearCaptureFlashTimer]);
 
   const handleRecordingComplete = async (recording: Blob) => {
     beginNewVoiceClip();
@@ -875,7 +894,9 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
         id="add-entry-mode-panel"
         role="tabpanel"
         aria-labelledby={`add-entry-tab-${entryMode}`}
-        className="add-entry-mode-panel entries-day-sub"
+        className={["add-entry-mode-panel", "entries-day-sub", "home-capture-panel", captureSavedFlash && "home-capture-panel--saved-flash"]
+          .filter(Boolean)
+          .join(" ")}
       >
         {entryMode === "voice" && (
           <div className="add-entry-voice-block">
@@ -1235,9 +1256,43 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
       </div>
 
       {extractSavedBanner && (
-        <p className="manual-add-success add-entry-extract-banner entries-day-sub" role="status">
-          Saved new entries for this date.
-        </p>
+        <div className="save-success-overlay save-success-overlay--add-entry">
+          <div className="save-success-overlay__backdrop" aria-hidden="true" />
+          <div className="add-entry-save-done-card" role="status" aria-live="polite">
+            <div className="add-entry-save-done-inner">
+            <div className="add-entry-save-done-body">
+              <span className="add-entry-save-done-mark" aria-hidden="true">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" />
+                  <path
+                    d="M8 12.5l2.5 2.5L16 9.5"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </span>
+              <div className="add-entry-save-done-copy">
+                <p className="add-entry-save-done-title">Saved for this date</p>
+                <p className="add-entry-save-done-sub muted small">
+                  Logged from what you captured. Review if you like, then tap Close when you&apos;re finished.
+                </p>
+              </div>
+            </div>
+            <div className="add-entry-save-done-actions">
+              {pendingReviewEntryIds != null && pendingReviewEntryIds.length > 0 ? (
+                <button type="button" className="btn ghost small add-entry-save-done-review" onClick={() => setReviewOpen(true)}>
+                  Review
+                </button>
+              ) : null}
+              <button type="button" className="add-entry-save-done-dismiss" onClick={() => setExtractSavedBanner(false)}>
+                Close
+              </button>
+            </div>
+            </div>
+          </div>
+        </div>
       )}
 
       <section className="today-entries today-entries--integrated entries-day-sub" aria-labelledby="entries-day-saved-heading">

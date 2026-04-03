@@ -21,8 +21,8 @@ type Props = { userId: number; timeZone: string; users?: User[] };
 
 type CaptureMode = "voice" | "text";
 
-/** Snackbar auto-hide: long enough to read + tap Review (conventional “long” snackbar range). */
-const SAVE_TOAST_AUTO_DISMISS_MS = 8500;
+/** Capture panel success tint / border (timed); success sheet stays until Done. */
+const CAPTURE_SAVED_FLASH_MS = 3400;
 
 function normalizeExtractedRows(raw: LogRow[]): LogRow[] {
   return raw.map((row) => ({
@@ -81,27 +81,31 @@ export default function HomePage({ userId, timeZone, users }: Props) {
   const [todayLogCount, setTodayLogCount] = useState<number | null>(null);
   const [saveToastOpen, setSaveToastOpen] = useState(false);
   const [saveToastOfferReview, setSaveToastOfferReview] = useState(false);
-  const saveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const captureFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reviewSessionInitialIdsRef = useRef<number[] | null>(null);
+  const [captureSavedFlash, setCaptureSavedFlash] = useState(false);
 
-  const clearSaveToastTimer = useCallback(() => {
-    if (saveToastTimerRef.current != null) {
-      clearTimeout(saveToastTimerRef.current);
-      saveToastTimerRef.current = null;
+  const clearCaptureFlashTimer = useCallback(() => {
+    if (captureFlashTimerRef.current != null) {
+      clearTimeout(captureFlashTimerRef.current);
+      captureFlashTimerRef.current = null;
     }
   }, []);
 
   const showSaveToast = useCallback(
-    (offerReview: boolean) => {
-      clearSaveToastTimer();
+    (offerReview: boolean, pulseCapture: boolean = offerReview) => {
+      if (pulseCapture) {
+        clearCaptureFlashTimer();
+        setCaptureSavedFlash(true);
+        captureFlashTimerRef.current = setTimeout(() => {
+          setCaptureSavedFlash(false);
+          captureFlashTimerRef.current = null;
+        }, CAPTURE_SAVED_FLASH_MS);
+      }
       setSaveToastOfferReview(offerReview);
       setSaveToastOpen(true);
-      saveToastTimerRef.current = setTimeout(() => {
-        setSaveToastOpen(false);
-        saveToastTimerRef.current = null;
-      }, SAVE_TOAST_AUTO_DISMISS_MS);
     },
-    [clearSaveToastTimer],
+    [clearCaptureFlashTimer],
   );
 
   const refreshTodayLogCount = useCallback(async () => {
@@ -126,8 +130,8 @@ export default function HomePage({ userId, timeZone, users }: Props) {
   }, [refreshTodayLogCount]);
 
   useEffect(() => {
-    return () => clearSaveToastTimer();
-  }, [clearSaveToastTimer]);
+    return () => clearCaptureFlashTimer();
+  }, [clearCaptureFlashTimer]);
 
   useEffect(() => {
     if (reviewOpen) {
@@ -138,9 +142,8 @@ export default function HomePage({ userId, timeZone, users }: Props) {
   useEffect(() => {
     if (captureMode !== "text") {
       setSaveToastOpen(false);
-      clearSaveToastTimer();
     }
-  }, [captureMode, clearSaveToastTimer]);
+  }, [captureMode]);
 
   const resetCaptureDraft = useCallback(() => {
     setReviewOpen(false);
@@ -247,8 +250,9 @@ export default function HomePage({ userId, timeZone, users }: Props) {
     setExtraction(null);
     setExtractionError(null);
     setSaveToastOpen(false);
-    clearSaveToastTimer();
-  }, [clearSaveToastTimer]);
+    clearCaptureFlashTimer();
+    setCaptureSavedFlash(false);
+  }, [clearCaptureFlashTimer]);
 
   const handleRecordingComplete = async (recording: Blob) => {
     beginNewVoiceClip();
@@ -388,7 +392,7 @@ export default function HomePage({ userId, timeZone, users }: Props) {
     if (fromTextCapture) {
       setTextDraft("");
     }
-    showSaveToast(false);
+    showSaveToast(false, false);
     void refreshTodayLogCount();
   };
 
@@ -407,6 +411,8 @@ export default function HomePage({ userId, timeZone, users }: Props) {
     "today-record--voice-home",
     "panel-elevated",
     "record-panel",
+    "home-capture-panel",
+    captureSavedFlash && "home-capture-panel--saved-flash",
     captureMode === "voice" && recordingActive && "record-panel--live",
     captureMode === "voice" && pipelineLoading && "record-panel--processing",
     captureMode === "voice" && blob && !pipelineLoading && !reviewOpen && "record-panel--captured",
@@ -420,15 +426,18 @@ export default function HomePage({ userId, timeZone, users }: Props) {
     "today-record--voice-home",
     "panel-elevated",
     "home-capture-text-panel",
-  ].join(" ");
+    "home-capture-panel",
+    captureSavedFlash && "home-capture-panel--saved-flash",
+  ]
+    .filter(Boolean)
+    .join(" ");
 
   const profileSelf = users?.find((u) => u.id === userId);
   const profileName = profileSelf ? displayNameForUser(profileSelf) : "there";
 
   const dismissSaveToast = useCallback(() => {
-    clearSaveToastTimer();
     setSaveToastOpen(false);
-  }, [clearSaveToastTimer]);
+  }, []);
 
   const openReviewFromToast = useCallback(() => {
     dismissSaveToast();
@@ -577,23 +586,50 @@ export default function HomePage({ userId, timeZone, users }: Props) {
       />
 
       {saveToastOpen ? (
-        <div
-          className="home-save-snackbar"
-          role="status"
-          aria-live="polite"
-          aria-atomic="true"
-        >
-          <div className="home-save-snackbar-inner">
-            <p className="home-save-snackbar-msg">Saved</p>
-            <div className="home-save-snackbar-actions">
-              {saveToastOfferReview ? (
-                <button type="button" className="home-save-snackbar-action" onClick={openReviewFromToast}>
-                  Review
+        <div className="save-success-overlay">
+          <div className="save-success-overlay__backdrop" aria-hidden="true" />
+          <div
+            className="home-save-snackbar home-save-snackbar--sheet"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+          >
+            <div className="home-save-snackbar-inner home-save-snackbar-inner--complete">
+              <div className="home-save-snackbar-main">
+                <span className="home-save-snackbar-mark" aria-hidden="true">
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" className="home-save-snackbar-mark-ring" />
+                    <path
+                      d="M8 12.5l2.5 2.5L16 9.5"
+                      stroke="currentColor"
+                      strokeWidth="1.75"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      className="home-save-snackbar-mark-check"
+                    />
+                  </svg>
+                </span>
+                <div className="home-save-snackbar-copy">
+                  <p className="home-save-snackbar-title">Saved for today</p>
+                  {saveToastOfferReview ? (
+                    <p className="home-save-snackbar-sub muted small">
+                      Logged from what you captured. Review if you like, then tap Done when you&apos;re finished.
+                    </p>
+                  ) : (
+                    <p className="home-save-snackbar-sub muted small">Your updates are in Today. Tap Done to continue.</p>
+                  )}
+                </div>
+              </div>
+              <div className="home-save-snackbar-actions">
+                {saveToastOfferReview ? (
+                  <button type="button" className="home-save-snackbar-action home-save-snackbar-action--lead" onClick={openReviewFromToast}>
+                    Review
+                  </button>
+                ) : null}
+                <button type="button" className="home-save-snackbar-dismiss" onClick={dismissSaveToast}>
+                  Done
                 </button>
-              ) : null}
-              <button type="button" className="home-save-snackbar-dismiss" onClick={dismissSaveToast}>
-                Dismiss
-              </button>
+              </div>
             </div>
           </div>
         </div>
