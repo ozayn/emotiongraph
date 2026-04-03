@@ -8,6 +8,19 @@ EmotionGraph uses [Alembic](https://alembic.sqlalchemy.org/) with the same `DATA
 - The **current schema** is defined by SQLAlchemy models under `app.models` and `app.tracker_config_models`.
 - **`alembic_version`** stores which revision the database is on. New columns and tables are added by **new** revisions, not by `create_all`.
 
+## Gotchas
+
+### PostgreSQL boolean columns
+
+**Do not** use integer `1` / `0` in Alembic migrations or raw SQL (`INSERT`, `UPDATE`, `VALUES`, defaults) for `BOOLEAN` columns — PostgreSQL will reject the type mismatch.
+
+Use real booleans instead:
+
+- SQL literals: `TRUE` / `FALSE`
+- Or bound parameters with Python `True` / `False` (e.g. `conn.execute(sa.text("INSERT INTO t (b) VALUES (:flag)"), {"flag": True})`)
+
+SQLite in tests often tolerates `0`/`1`; production Postgres will not — write migrations for Postgres correctness first.
+
 ## Create a migration
 
 From the **`backend/`** directory (same cwd as `./scripts/run_backend.sh`):

@@ -15,7 +15,6 @@ import {
 } from "../api";
 import { todayIsoInTimeZone } from "../datesTz";
 import AudioRecorder from "./AudioRecorder";
-import CalmSelect from "./CalmSelect";
 import MetricSelect from "./MetricSelect";
 import ReviewExtractionModal, { type ReviewSaveMeta } from "./ReviewExtractionModal";
 import {
@@ -23,10 +22,10 @@ import {
   draftToPatch,
   entryToDraft,
   type EditDraft,
-  LOG_EDIT_SOURCE_OPTIONS,
 } from "../logEditDraft";
 import CustomFieldsForm from "./CustomFieldsForm";
 import EntryDetailModal from "./EntryDetailModal";
+import LogEntryEditFormFields from "./LogEntryEditFormFields";
 import OptionalAngerMetric from "./OptionalAngerMetric";
 import SourceTypeIndicator from "./SourceTypeIndicator";
 import { IconRowEdit, IconRowTrash } from "./RowActionIcons";
@@ -1427,95 +1426,16 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
                   Close
                 </button>
               </div>
-              <div className="log-edit-fields">
-                <label className="field field--stacked">
-                  <span>Log date</span>
-                  <input
-                    type="date"
-                    value={savedEditDraft.log_date}
-                    onChange={(ev) => setSavedEditDraftField("log_date", ev.target.value)}
-                  />
-                </label>
-                <label className="field field--stacked">
-                  <span id={savedEditSourceLabelId}>Source</span>
-                  <CalmSelect
-                    variant="field"
-                    aria-labelledby={savedEditSourceLabelId}
-                    value={savedEditDraft.source_type}
-                    onChange={(v) => setSavedEditDraftField("source_type", v as EditDraft["source_type"])}
-                    options={LOG_EDIT_SOURCE_OPTIONS}
-                  />
-                </label>
-                <label className="field field--stacked">
-                  <span>What happened</span>
-                  <input type="text" value={savedEditDraft.event} onChange={(ev) => setSavedEditDraftField("event", ev.target.value)} />
-                </label>
-                <div className="manual-add-time-row">
-                  <label className="field field--stacked">
-                    <span>Start</span>
-                    <input type="text" value={savedEditDraft.start_time} onChange={(ev) => setSavedEditDraftField("start_time", ev.target.value)} />
-                  </label>
-                  <label className="field field--stacked">
-                    <span>End</span>
-                    <input type="text" value={savedEditDraft.end_time} onChange={(ev) => setSavedEditDraftField("end_time", ev.target.value)} />
-                  </label>
-                </div>
-                {(["energy_level", "anxiety", "contentment", "focus"] as const).map((key) => {
-                  const opts = optionsForMetricKey(key);
-                  if (!opts) return null;
-                  return (
-                    <MetricSelect
-                      key={key}
-                      label={
-                        key === "energy_level"
-                          ? "Energy"
-                          : key === "anxiety"
-                            ? "Anxiety"
-                            : key === "contentment"
-                              ? "Contentment"
-                              : "Focus"
-                      }
-                      value={savedEditDraft[key]}
-                      onChange={(v) => setSavedEditDraftField(key, v)}
-                      options={opts}
-                    />
-                  );
-                })}
-                <OptionalAngerMetric
-                  value={savedEditDraft.anger}
-                  onChange={(v) => setSavedEditDraftField("anger", v)}
-                  disabled={savedEditSaving}
-                />
-                {optionsForMetricKey("music") && (
-                  <MetricSelect
-                    label="Music"
-                    value={savedEditDraft.music}
-                    onChange={(v) => setSavedEditDraftField("music", v)}
-                    options={optionsForMetricKey("music")!}
-                  />
-                )}
-                <label className="field field--stacked">
-                  <span>Comments</span>
-                  <textarea
-                    className="log-edit-comments"
-                    rows={3}
-                    value={savedEditDraft.comments}
-                    onChange={(ev) => setSavedEditDraftField("comments", ev.target.value)}
-                  />
-                </label>
-                {customEntryFields.length > 0 && (
-                  <details className="log-edit-custom-disclosure">
-                    <summary className="log-edit-custom-summary muted small">Optional team fields</summary>
-                    <CustomFieldsForm
-                      fields={customEntryFields}
-                      draft={savedEditCustomDraft}
-                      onChange={(fid, v) => setSavedEditCustomDraft((p) => ({ ...p, [fid]: v }))}
-                      disabled={savedEditSaving}
-                      variant="nested"
-                    />
-                  </details>
-                )}
-              </div>
+              <LogEntryEditFormFields
+                entryId={savedEditEntry.id}
+                draft={savedEditDraft}
+                setDraftField={setSavedEditDraftField}
+                sourceLabelId={savedEditSourceLabelId}
+                disabled={savedEditSaving}
+                customEntryFields={customEntryFields}
+                customDraft={savedEditCustomDraft}
+                setCustomDraft={setSavedEditCustomDraft}
+              />
               {savedEditSaveError && <p className="error-inline log-edit-error">{savedEditSaveError}</p>}
             </div>
             <div className="log-edit-footer">

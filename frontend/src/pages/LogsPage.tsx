@@ -9,24 +9,19 @@ import {
 } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { deleteLog, fetchLogsRange, patchLog, putLogEntryCustomValues } from "../api";
-import CalmSelect from "../components/CalmSelect";
-import CustomFieldsForm from "../components/CustomFieldsForm";
-import OptionalAngerMetric from "../components/OptionalAngerMetric";
 import { IconRowEdit, IconRowTrash } from "../components/RowActionIcons";
 import EntryDetailModal from "../components/EntryDetailModal";
+import LogEntryEditFormFields from "../components/LogEntryEditFormFields";
 import SourceTypeIndicator from "../components/SourceTypeIndicator";
 import { TableAbbrevHint, TableCellMultilineHint } from "../components/tableHoverHints";
 import TodaySnapshot from "../components/TodaySnapshot";
-import MetricSelect from "../components/MetricSelect";
 import { buildCustomValuesPayload, customValuesToDraft, filterCustomFormFields } from "../customFieldValues";
 import { fetchTrackerConfig } from "../trackerConfigApi";
 import type { TrackerFieldDefinitionDTO } from "../trackerConfigTypes";
 import type { SavedLogEntry } from "../types";
 import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
-import { compactMetricSummary, draftToPatch, entryToDraft, type EditDraft, LOG_EDIT_SOURCE_OPTIONS } from "../logEditDraft";
+import { compactMetricSummary, draftToPatch, entryToDraft, type EditDraft } from "../logEditDraft";
 import { useSession } from "../session/SessionContext";
-import { optionsForMetricKey } from "../trackerOptions";
-
 const ENTRIES_VIEW_STORAGE_KEY = "emotiongraph_entries_view";
 
 /** First paint and “Show less” target for the entries list (both views). */
@@ -657,79 +652,16 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
                   Close
                 </button>
               </div>
-              <div className="log-edit-fields">
-                <label className="field field--stacked">
-                  <span>Log date</span>
-                  <input type="date" value={draft.log_date} onChange={(ev) => setDraftField("log_date", ev.target.value)} />
-                </label>
-                <label className="field field--stacked">
-                  <span id={editSourceLabelId}>Source</span>
-                  <CalmSelect
-                    variant="field"
-                    aria-labelledby={editSourceLabelId}
-                    value={draft.source_type}
-                    onChange={(v) => setDraftField("source_type", v as EditDraft["source_type"])}
-                    options={LOG_EDIT_SOURCE_OPTIONS}
-                  />
-                </label>
-                <label className="field field--stacked">
-                  <span>What happened</span>
-                  <input type="text" value={draft.event} onChange={(ev) => setDraftField("event", ev.target.value)} />
-                </label>
-                <div className="manual-add-time-row">
-                  <label className="field field--stacked">
-                    <span>Start</span>
-                    <input type="text" value={draft.start_time} onChange={(ev) => setDraftField("start_time", ev.target.value)} />
-                  </label>
-                  <label className="field field--stacked">
-                    <span>End</span>
-                    <input type="text" value={draft.end_time} onChange={(ev) => setDraftField("end_time", ev.target.value)} />
-                  </label>
-                </div>
-                {(["energy_level", "anxiety", "contentment", "focus"] as const).map((key) => {
-                  const opts = optionsForMetricKey(key);
-                  if (!opts) return null;
-                  return (
-                    <MetricSelect
-                      key={key}
-                      label={key === "energy_level" ? "Energy" : key === "anxiety" ? "Anxiety" : key === "contentment" ? "Contentment" : "Focus"}
-                      value={draft[key]}
-                      onChange={(v) => setDraftField(key, v)}
-                      options={opts}
-                    />
-                  );
-                })}
-                <OptionalAngerMetric value={draft.anger} onChange={(v) => setDraftField("anger", v)} disabled={saving} />
-                {optionsForMetricKey("music") && (
-                  <MetricSelect
-                    label="Music"
-                    value={draft.music}
-                    onChange={(v) => setDraftField("music", v)}
-                    options={optionsForMetricKey("music")!}
-                  />
-                )}
-                <label className="field field--stacked">
-                  <span>Comments</span>
-                  <textarea
-                    className="log-edit-comments"
-                    rows={3}
-                    value={draft.comments}
-                    onChange={(ev) => setDraftField("comments", ev.target.value)}
-                  />
-                </label>
-                {customEntryFields.length > 0 && (
-                  <details className="log-edit-custom-disclosure">
-                    <summary className="log-edit-custom-summary muted small">Optional team fields</summary>
-                    <CustomFieldsForm
-                      fields={customEntryFields}
-                      draft={editCustomDraft}
-                      onChange={(fid, v) => setEditCustomDraft((p) => ({ ...p, [fid]: v }))}
-                      disabled={saving}
-                      variant="nested"
-                    />
-                  </details>
-                )}
-              </div>
+              <LogEntryEditFormFields
+                entryId={editing.id}
+                draft={draft}
+                setDraftField={setDraftField}
+                sourceLabelId={editSourceLabelId}
+                disabled={saving}
+                customEntryFields={customEntryFields}
+                customDraft={editCustomDraft}
+                setCustomDraft={setEditCustomDraft}
+              />
               {saveError && <p className="error-inline log-edit-error">{saveError}</p>}
             </div>
             <div className="log-edit-footer">

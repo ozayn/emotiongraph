@@ -6604,6 +6604,10 @@ button.profile-account-secondary {
   gap: 0.65rem;
 }
 
+.log-edit-fields--compact-first {
+  gap: 0.5rem;
+}
+
 .log-edit-comments {
   width: 100%;
   resize: vertical;
@@ -6614,6 +6618,37 @@ button.profile-account-secondary {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--frost-a75);
+}
+
+.log-edit-comments--compact {
+  min-height: 3.1rem;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.9rem;
+}
+
+.log-edit-disclose-more {
+  margin-top: 0.1rem;
+  padding-top: 0.4rem;
+  border-top: 1px solid var(--ink-a07);
+}
+
+.log-edit-disclose-more--after-full {
+  margin-top: 0;
+  padding-top: 0.35rem;
+}
+
+.log-edit-disclose-more-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 0.4rem 0.5rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.log-edit-disclose-more-btn:hover,
+.log-edit-disclose-more-btn:focus-visible {
+  color: var(--text);
 }
 
 .log-edit-error {
