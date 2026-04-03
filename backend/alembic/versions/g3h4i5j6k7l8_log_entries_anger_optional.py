@@ -79,10 +79,10 @@ def upgrade() -> None:
                 INSERT INTO tracker_select_options
                     (field_definition_id, value, label, display_order, is_active)
                 VALUES
-                    (:fid, :val, :lab, :ord_, 1)
+                    (:fid, :val, :lab, :ord_, :is_active)
                 """
             ),
-            {"fid": fid, "val": val, "lab": lab, "ord_": ord_},
+            {"fid": fid, "val": val, "lab": lab, "ord_": ord_, "is_active": True},
         )
 
 
