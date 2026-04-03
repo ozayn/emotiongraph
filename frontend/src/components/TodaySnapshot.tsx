@@ -167,17 +167,17 @@ export default function TodaySnapshot({ userId, logDate, entries, entriesLoading
     return bits.join(" · ");
   }, [trackerDay]);
 
-  /** Short headline only — metrics belong in the chart and toggles. */
-  const checkInsHeadline = useMemo(() => {
-    if (entries.length === 0) return "No check-ins yet";
+  /** Count only — page title is “Today”; avoids repeating “today”. */
+  const checkInsCountLine = useMemo(() => {
+    if (entries.length === 0) return "None yet";
     const n = entries.length;
-    return n === 1 ? "1 check-in today" : `${n} check-ins today`;
+    return n === 1 ? "1 check-in" : `${n} check-ins`;
   }, [entries.length]);
 
   if (entriesLoading) {
     return (
       <section className="today-snapshot" aria-label="Today snapshot">
-        <p className="muted small today-snapshot-loading">Loading snapshot…</p>
+        <p className="muted small today-snapshot-loading">Loading…</p>
       </section>
     );
   }
@@ -185,32 +185,34 @@ export default function TodaySnapshot({ userId, logDate, entries, entriesLoading
   return (
     <section className="today-snapshot" aria-labelledby="today-snapshot-title">
       <div className="today-snapshot-surface">
-        <header className="today-snapshot-head">
-          <h2 id="today-snapshot-title" className="today-snapshot-head-title">
-            Check-ins by time
-          </h2>
-          <p className="today-snapshot-head-meta muted small">{checkInsHeadline}</p>
-        </header>
         <div className="today-snapshot-body">
+          <header className="today-snapshot-topline">
+            <h2 id="today-snapshot-title" className="today-snapshot-head-title">
+              By time
+            </h2>
+            <p className="today-snapshot-head-meta muted small">{checkInsCountLine}</p>
+          </header>
+
           {dayContextLine ? (
-            <p className="today-snapshot-dayctx muted small">
-              <span className="today-snapshot-dayctx-label">Day</span> {dayContextLine}
-            </p>
+            <details className="today-snapshot-dayctx-details">
+              <summary className="today-snapshot-dayctx-summary">Sleep &amp; cycle</summary>
+              <p className="today-snapshot-dayctx-body muted small">{dayContextLine}</p>
+            </details>
           ) : null}
 
           <div className="today-snapshot-chart-panel">
             {entries.length === 0 ? (
-              <p className="muted small today-snapshot-chart-empty">Nothing logged yet.</p>
+              <p className="muted small today-snapshot-chart-empty">No entries to plot.</p>
             ) : !hasScatter ? (
               <p className="muted small today-snapshot-chart-empty">
-                Add energy, anxiety, contentment, or focus on entries to plot by time of day.
+                Log numeric metrics on entries to see points here.
               </p>
             ) : (
               <>
                 <div
                   className="today-snapshot-metric-toggles"
                   role="group"
-                  aria-label="Metrics on chart"
+                  aria-label="Series"
                 >
                   {SNAPSHOT_METRICS.map(({ key, label, colorVar }) => {
                     const hasData = series[key].length > 0;
@@ -361,7 +363,7 @@ export default function TodaySnapshot({ userId, logDate, entries, entriesLoading
                   </div>
                 ) : (
                   <p className="muted small today-snapshot-chart-empty today-snapshot-chart-empty--toggle-hint">
-                    Turn on at least one metric above to show the chart.
+                    Turn on a series above.
                   </p>
                 )}
               </>

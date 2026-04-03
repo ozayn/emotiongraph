@@ -3098,6 +3098,21 @@ body {
   max-width: 100%;
 }
 
+.entries-nav-dot {
+  user-select: none;
+  opacity: 0.55;
+}
+
+.entries-nav-secondary {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.entries-nav-secondary:hover {
+  color: var(--accent-blue-mid);
+}
+
 .entries-page--today {
   gap: 0.65rem;
 }
@@ -3124,25 +3139,16 @@ body {
   gap: 0.35rem;
 }
 
-.entries-today-actions {
-  margin: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.2rem 0.35rem;
-  line-height: 1.4;
-}
-
-.entries-today-actions-sep {
-  color: var(--ink-a22);
-  user-select: none;
-}
-
 .entries-page--today .entries-view-bar {
   margin-bottom: 0.35rem;
 }
 
-/* Today snapshot: compact card — header + day line + chart always visible (logging stays primary below). */
+.entries-page--today .entries-list-status {
+  font-size: 0.72rem;
+  opacity: 0.88;
+}
+
+/* Today snapshot: single surface, flat chart area, optional day disclosure. */
 .today-snapshot {
   width: 100%;
 }
@@ -3155,14 +3161,13 @@ body {
   box-shadow: none;
 }
 
-.today-snapshot-head {
+.today-snapshot-topline {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   justify-content: space-between;
-  gap: 0.3rem 0.6rem;
-  padding: 0.45rem 0.65rem 0.4rem;
-  border-bottom: 1px solid var(--ink-a07);
+  gap: 0.25rem 0.5rem;
+  margin: 0 0 0.35rem;
 }
 
 .today-snapshot-head-title {
@@ -3176,29 +3181,59 @@ body {
 
 .today-snapshot-head-meta {
   margin: 0;
-  flex: 1 1 10rem;
+  flex: 1 1 8rem;
   text-align: right;
   min-width: 0;
   line-height: 1.35;
-  font-size: 0.75rem;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .today-snapshot-body {
-  padding: 0.4rem 0.65rem 0.55rem;
+  padding: 0.5rem 0.65rem 0.55rem;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.35rem;
 }
 
-.today-snapshot-dayctx {
+.today-snapshot-dayctx-details {
   margin: 0;
-  line-height: 1.4;
+  border-radius: var(--radius);
+  border: 1px solid var(--ink-a07);
+  background: var(--frost-a32);
+  padding: 0;
 }
 
-.today-snapshot-dayctx-label {
+.today-snapshot-dayctx-summary {
+  margin: 0;
+  padding: 0.32rem 0.45rem;
+  font-size: 0.7rem;
   font-weight: 600;
-  color: var(--ink-a42);
-  margin-right: 0.2rem;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.today-snapshot-dayctx-summary::-webkit-details-marker {
+  display: none;
+}
+
+.today-snapshot-dayctx-summary:focus-visible {
+  outline: 2px solid var(--blue-a12);
+  outline-offset: 2px;
+}
+
+.today-snapshot-dayctx-details[open] .today-snapshot-dayctx-summary {
+  border-bottom: 1px solid var(--ink-a07);
+  color: var(--text);
+}
+
+.today-snapshot-dayctx-body {
+  margin: 0;
+  padding: 0.4rem 0.45rem 0.45rem;
+  line-height: 1.4;
 }
 
 .today-snapshot-loading {
@@ -3208,8 +3243,8 @@ body {
 .today-snapshot-chart-panel {
   border: none;
   border-radius: var(--radius);
-  background: var(--frost-a32);
-  padding: 0.45rem 0.45rem 0.3rem;
+  background: transparent;
+  padding: 0.15rem 0 0;
 }
 
 .today-snapshot-metric-toggles {
@@ -3217,7 +3252,7 @@ body {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.3rem 0.35rem;
-  margin: 0 0 0.45rem;
+  margin: 0 0 0.4rem;
 }
 
 .today-snapshot-metric-toggle {
@@ -3228,8 +3263,8 @@ body {
   padding: 0.22rem 0.42rem;
   min-height: 30px;
   border-radius: 999px;
-  border: 1px solid var(--ink-a10);
-  background: var(--surface);
+  border: 1px solid var(--ink-a08);
+  background: transparent;
   font: inherit;
   font-size: 0.6875rem;
   font-weight: 600;
@@ -3258,8 +3293,8 @@ body {
 }
 
 .today-snapshot-metric-toggle--on {
-  border-color: var(--ink-a18);
-  background: var(--frost-a42);
+  border-color: var(--ink-a16);
+  background: var(--frost-a32);
   color: var(--text);
 }
 

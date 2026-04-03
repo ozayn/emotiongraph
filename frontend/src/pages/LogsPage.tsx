@@ -249,16 +249,15 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
   };
 
   const todayIso = todayIsoInTimeZone(timeZone);
-  const todayHeading = (() => {
+  const todayDateDisplay = (() => {
     if (variant !== "today") return "";
     const parts = todayIso.split("-").map(Number);
     const [y, m, d] = parts;
     if (!y || !m || !d || parts.length !== 3) return todayIso;
     return new Date(y, m - 1, d).toLocaleDateString(undefined, {
-      weekday: "long",
-      month: "long",
+      weekday: "short",
+      month: "short",
       day: "numeric",
-      year: "numeric",
     });
   })();
 
@@ -269,9 +268,17 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
           ← Home
         </Link>
         {variant === "today" ? (
-          <Link className="linkish entries-back" to={pathFor("/entries")}>
-            All entries →
-          </Link>
+          <div className="entries-nav-inline">
+            <Link className="linkish entries-nav-secondary" to={`${pathFor("/add-entry")}?day=${todayIso}`}>
+              Add entry
+            </Link>
+            <span className="entries-nav-dot muted" aria-hidden="true">
+              ·
+            </span>
+            <Link className="linkish entries-back" to={pathFor("/entries")}>
+              All entries →
+            </Link>
+          </div>
         ) : (
           <Link className="linkish entries-back" to={pathFor("/profile#data")}>
             Profile →
@@ -284,26 +291,9 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
             <div className="entries-title-row">
               <h1 className="entries-title">Today</h1>
               <p className="muted small entries-today-date" aria-live="polite">
-                {todayHeading}
+                {todayDateDisplay}
               </p>
             </div>
-            <p className="muted small entries-today-actions">
-              <Link className="linkish" to={pathFor("/")}>
-                Home
-              </Link>
-              <span className="entries-today-actions-sep" aria-hidden="true">
-                ·
-              </span>
-              <Link className="linkish" to={`${pathFor("/add-entry")}?day=${todayIso}`}>
-                Add entry
-              </Link>
-              <span className="entries-today-actions-sep" aria-hidden="true">
-                ·
-              </span>
-              <Link className="linkish" to={pathFor("/profile#data")}>
-                Data
-              </Link>
-            </p>
           </>
         ) : (
           <>
@@ -373,7 +363,10 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
         {!loading && !loadError && entries.length > 0 && (
         <>
           <div className="entries-view-bar" role="group" aria-label="Entry list layout">
-            <span className="entries-view-bar-label muted small" id="entries-view-mode-label">
+            <span
+              className={`entries-view-bar-label muted small${variant === "today" ? " sr-only" : ""}`}
+              id="entries-view-mode-label"
+            >
               View
             </span>
             <div className="entries-view-toggle" role="tablist" aria-labelledby="entries-view-mode-label">
