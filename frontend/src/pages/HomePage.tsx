@@ -1,17 +1,53 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { blobFailsMinimumSpeechEnergy } from "../audioSilence";
-import { extractLogs, fetchLogs, saveLogs, transcribeAudio } from "../api";
+import {
+  deleteLog,
+  extractLogs,
+  fetchLogs,
+  patchLog,
+  saveLogs,
+  transcribeAudio,
+  type LogEntryPatchBody,
+} from "../api";
 import { useSession } from "../session/SessionContext";
 import { todayIsoInTimeZone } from "../datesTz";
 import AudioRecorder from "../components/AudioRecorder";
-import ReviewExtractionModal from "../components/ReviewExtractionModal";
+import ReviewExtractionModal, { type ReviewSaveMeta } from "../components/ReviewExtractionModal";
 import { displayNameForUser } from "../userDisplay";
 import type { ExtractLogsResponse, LogRow, User } from "../types";
 
 type Props = { userId: number; timeZone: string; users?: User[] };
 
 type CaptureMode = "voice" | "text";
+
+function normalizeExtractedRows(raw: LogRow[]): LogRow[] {
+  return raw.map((row) => ({
+    start_time: row.start_time ?? null,
+    end_time: row.end_time ?? null,
+    event: row.event ?? null,
+    energy_level: row.energy_level ?? null,
+    anxiety: row.anxiety ?? null,
+    contentment: row.contentment ?? null,
+    focus: row.focus ?? null,
+    music: row.music ?? null,
+    comments: row.comments ?? null,
+  }));
+}
+
+function logRowToPatchBody(row: LogRow): LogEntryPatchBody {
+  return {
+    start_time: row.start_time,
+    end_time: row.end_time,
+    event: row.event,
+    energy_level: row.energy_level,
+    anxiety: row.anxiety,
+    contentment: row.contentment,
+    focus: row.focus,
+    music: row.music,
+    comments: row.comments,
+  };
+}
 
 export default function HomePage({ userId, timeZone, users }: Props) {
   const { pathFor } = useSession();
@@ -27,6 +63,7 @@ export default function HomePage({ userId, timeZone, users }: Props) {
   const [pipelineLoading, setPipelineLoading] = useState(false);
   const [pipelinePhase, setPipelinePhase] = useState<"transcribe" | "extract">("transcribe");
   const [stepError, setStepError] = useState<string | null>(null);
+  const [postExtractSaveError, setPostExtractSaveError] = useState<string | null>(null);
 
   const [reviewOpen, setReviewOpen] = useState(false);
   const [transcript, setTranscript] = useState("");
@@ -34,15 +71,19 @@ export default function HomePage({ userId, timeZone, users }: Props) {
   const [extractionLoading, setExtractionLoading] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
 
+  /** After auto-save on home: server ids for this capture (enables review without duplicate insert). */
+  const [pendingReviewEntryIds, setPendingReviewEntryIds] = useState<number[] | null>(null);
+
   const [recordingActive, setRecordingActive] = useState(false);
   const [todayLogCount, setTodayLogCount] = useState<number | null>(null);
-  const [textSavedAck, setTextSavedAck] = useState(false);
-  const textSavedAckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [captureSavedAck, setCaptureSavedAck] = useState(false);
+  const captureSavedAckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reviewSessionInitialIdsRef = useRef<number[] | null>(null);
 
-  const clearTextSavedAckTimer = useCallback(() => {
-    if (textSavedAckTimerRef.current != null) {
-      clearTimeout(textSavedAckTimerRef.current);
-      textSavedAckTimerRef.current = null;
+  const clearCaptureAckTimer = useCallback(() => {
+    if (captureSavedAckTimerRef.current != null) {
+      clearTimeout(captureSavedAckTimerRef.current);
+      captureSavedAckTimerRef.current = null;
     }
   }, []);
 
@@ -68,15 +109,65 @@ export default function HomePage({ userId, timeZone, users }: Props) {
   }, [refreshTodayLogCount]);
 
   useEffect(() => {
-    return () => clearTextSavedAckTimer();
-  }, [clearTextSavedAckTimer]);
+    return () => clearCaptureAckTimer();
+  }, [clearCaptureAckTimer]);
+
+  useEffect(() => {
+    if (reviewOpen) {
+      reviewSessionInitialIdsRef.current = pendingReviewEntryIds;
+    }
+  }, [reviewOpen, pendingReviewEntryIds]);
 
   useEffect(() => {
     if (captureMode !== "text") {
-      setTextSavedAck(false);
-      clearTextSavedAckTimer();
+      setCaptureSavedAck(false);
+      clearCaptureAckTimer();
     }
-  }, [captureMode, clearTextSavedAckTimer]);
+  }, [captureMode, clearCaptureAckTimer]);
+
+  const resetCaptureDraft = useCallback(() => {
+    setReviewOpen(false);
+    setTranscript("");
+    setExtraction(null);
+    setExtractionError(null);
+    setExtractionLoading(false);
+    setBlob(null);
+    setPendingReviewEntryIds(null);
+    reviewSessionInitialIdsRef.current = null;
+    setPostExtractSaveError(null);
+  }, []);
+
+  const closeReviewSheet = useCallback(() => {
+    setReviewOpen(false);
+    setExtractionLoading(false);
+  }, []);
+
+  const closeReviewAfterSave = useCallback(() => {
+    closeReviewSheet();
+    setTranscript("");
+    setExtraction(null);
+    setExtractionError(null);
+    setBlob(null);
+    setPendingReviewEntryIds(null);
+    reviewSessionInitialIdsRef.current = null;
+  }, [closeReviewSheet]);
+
+  const handleReviewDiscard = useCallback(() => {
+    if (pendingReviewEntryIds != null && pendingReviewEntryIds.length > 0) {
+      closeReviewSheet();
+      return;
+    }
+    resetCaptureDraft();
+  }, [pendingReviewEntryIds, closeReviewSheet, resetCaptureDraft]);
+
+  const triggerCaptureAck = useCallback(() => {
+    clearCaptureAckTimer();
+    setCaptureSavedAck(true);
+    captureSavedAckTimerRef.current = setTimeout(() => {
+      setCaptureSavedAck(false);
+      captureSavedAckTimerRef.current = null;
+    }, 3200);
+  }, [clearCaptureAckTimer]);
 
   const runExtraction = useCallback(
     async (text: string) => {
@@ -95,7 +186,64 @@ export default function HomePage({ userId, timeZone, users }: Props) {
     [logDate, timeZone, reviewCaptureKind],
   );
 
+  const retryExtract = useCallback(async () => {
+    const ids = pendingReviewEntryIds;
+    setPendingReviewEntryIds(null);
+    if (ids && ids.length > 0) {
+      for (const id of ids) {
+        try {
+          await deleteLog(userId, id);
+        } catch {
+          /* best-effort: avoid blocking retry */
+        }
+      }
+      void refreshTodayLogCount();
+    }
+    void runExtraction(transcript);
+  }, [pendingReviewEntryIds, userId, runExtraction, transcript, refreshTodayLogCount]);
+
+  const finishAutoSaveAfterExtract = useCallback(
+    async (normalizedRows: LogRow[], sourceKind: "voice" | "text") => {
+      const sourceType = sourceKind === "text" ? ("text" as const) : ("voice" as const);
+      try {
+        const saved = await saveLogs(
+          userId,
+          logDate,
+          normalizedRows.map((r) => ({ ...r, source_type: sourceType })),
+        );
+        const ids = saved.map((s) => s.id);
+        setPendingReviewEntryIds(ids);
+        setReviewOpen(false);
+        setBlob(null);
+        setStepError(null);
+        if (sourceKind === "text") {
+          setTextDraft("");
+        }
+        setPostExtractSaveError(null);
+        triggerCaptureAck();
+        void refreshTodayLogCount();
+      } catch (e) {
+        setPostExtractSaveError(e instanceof Error ? e.message : "Save failed");
+        setPendingReviewEntryIds(null);
+        setReviewOpen(true);
+      }
+    },
+    [userId, logDate, refreshTodayLogCount, triggerCaptureAck],
+  );
+
+  const beginNewVoiceClip = useCallback(() => {
+    setPostExtractSaveError(null);
+    setPendingReviewEntryIds(null);
+    setReviewOpen(false);
+    setTranscript("");
+    setExtraction(null);
+    setExtractionError(null);
+    setCaptureSavedAck(false);
+    clearCaptureAckTimer();
+  }, [clearCaptureAckTimer]);
+
   const handleRecordingComplete = async (recording: Blob) => {
+    beginNewVoiceClip();
     setReviewCaptureKind("voice");
     setBlob(recording);
     setStepError(null);
@@ -115,16 +263,30 @@ export default function HomePage({ userId, timeZone, users }: Props) {
       setExtractionLoading(true);
       setExtractionError(null);
       setExtraction(null);
+      let extractErr: string | null = null;
+      let res: ExtractLogsResponse | null = null;
       try {
-        const res = await extractLogs(text, logDate, { timezone: timeZone, captureKind: "voice" });
+        res = await extractLogs(text, logDate, { timezone: timeZone, captureKind: "voice" });
         setExtraction(res);
       } catch (e) {
-        setExtractionError(e instanceof Error ? e.message : "Extraction failed");
+        extractErr = e instanceof Error ? e.message : "Extraction failed";
+        setExtractionError(extractErr);
       } finally {
         setExtractionLoading(false);
       }
 
-      setReviewOpen(true);
+      if (extractErr) {
+        setPendingReviewEntryIds(null);
+        setReviewOpen(true);
+        return;
+      }
+      const rawRows = res?.rows ?? [];
+      if (rawRows.length === 0) {
+        setPendingReviewEntryIds(null);
+        setReviewOpen(true);
+        return;
+      }
+      await finishAutoSaveAfterExtract(normalizeExtractedRows(rawRows), "voice");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
       if (msg.includes("No usable speech detected")) {
@@ -140,49 +302,85 @@ export default function HomePage({ userId, timeZone, users }: Props) {
   const handleTextExtract = async () => {
     const t = textDraft.trim();
     if (!t) return;
+    setPostExtractSaveError(null);
+    setPendingReviewEntryIds(null);
+    setReviewOpen(false);
     setReviewCaptureKind("text");
     setTranscript(t);
     setExtractionLoading(true);
     setExtractionError(null);
     setExtraction(null);
+    let extractErr: string | null = null;
+    let res: ExtractLogsResponse | null = null;
     try {
-      const res = await extractLogs(t, logDate, { timezone: timeZone, captureKind: "text" });
+      res = await extractLogs(t, logDate, { timezone: timeZone, captureKind: "text" });
       setExtraction(res);
     } catch (e) {
-      setExtractionError(e instanceof Error ? e.message : "Extraction failed");
+      extractErr = e instanceof Error ? e.message : "Extraction failed";
+      setExtractionError(extractErr);
     } finally {
       setExtractionLoading(false);
-      setReviewOpen(true);
     }
+
+    if (extractErr) {
+      setPendingReviewEntryIds(null);
+      setReviewOpen(true);
+      return;
+    }
+    const rawRows = res?.rows ?? [];
+    if (rawRows.length === 0) {
+      setPendingReviewEntryIds(null);
+      setReviewOpen(true);
+      return;
+    }
+    await finishAutoSaveAfterExtract(normalizeExtractedRows(rawRows), "text");
   };
 
-  const closeReview = () => {
-    setReviewOpen(false);
-    setTranscript("");
-    setExtraction(null);
-    setExtractionError(null);
-    setExtractionLoading(false);
-    setBlob(null);
-  };
-
-  const handleSaveRows = async (rows: LogRow[]) => {
+  const handleSaveRows = async (rows: LogRow[], meta?: ReviewSaveMeta) => {
     const fromTextCapture = reviewCaptureKind === "text";
     const sourceType = fromTextCapture ? ("text" as const) : ("voice" as const);
-    await saveLogs(
-      userId,
-      logDate,
-      rows.map((r) => ({ ...r, source_type: sourceType })),
-    );
-    closeReview();
+    const serverIds = meta?.serverIds;
+    const sessionInitial = reviewSessionInitialIdsRef.current;
+
+    const insertAll = async () => {
+      await saveLogs(
+        userId,
+        logDate,
+        rows.map((r) => ({ ...r, source_type: sourceType })),
+      );
+    };
+
+    if (
+      sessionInitial &&
+      sessionInitial.length > 0 &&
+      serverIds &&
+      serverIds.length === rows.length
+    ) {
+      const currentNumeric = serverIds.filter((x): x is number => typeof x === "number");
+      for (const id of sessionInitial) {
+        if (!currentNumeric.includes(id)) {
+          await deleteLog(userId, id);
+        }
+      }
+      for (let i = 0; i < rows.length; i++) {
+        const sid = serverIds[i];
+        if (sid != null) {
+          await patchLog(userId, sid, logRowToPatchBody(rows[i]));
+        } else {
+          await saveLogs(userId, logDate, [{ ...rows[i], source_type: sourceType }]);
+        }
+      }
+    } else {
+      await insertAll();
+    }
+
+    reviewSessionInitialIdsRef.current = null;
+    setPendingReviewEntryIds(null);
+    closeReviewAfterSave();
     if (fromTextCapture) {
       setTextDraft("");
-      clearTextSavedAckTimer();
-      setTextSavedAck(true);
-      textSavedAckTimerRef.current = setTimeout(() => {
-        setTextSavedAck(false);
-        textSavedAckTimerRef.current = null;
-      }, 2600);
     }
+    triggerCaptureAck();
     void refreshTodayLogCount();
   };
 
@@ -194,6 +392,12 @@ export default function HomePage({ userId, timeZone, users }: Props) {
     extractionLoading ||
     recordingActive ||
     (captureMode === "voice" && blob != null && !pipelineLoading && !reviewOpen);
+
+  const showPostSaveRow =
+    !reviewOpen &&
+    extraction != null &&
+    pendingReviewEntryIds != null &&
+    pendingReviewEntryIds.length > 0;
 
   const recordPanelClass = [
     "today-record",
@@ -218,6 +422,25 @@ export default function HomePage({ userId, timeZone, users }: Props) {
 
   const profileSelf = users?.find((u) => u.id === userId);
   const profileName = profileSelf ? displayNameForUser(profileSelf) : "there";
+
+  const postSaveStatus = (
+    <div className="home-capture-post-save" aria-live="polite">
+      {captureSavedAck ? (
+        <p className="home-capture-saved-hint home-capture-saved-hint--pulse" role="status">
+          Saved to Today
+        </p>
+      ) : null}
+      {showPostSaveRow ? (
+        <button
+          type="button"
+          className="home-capture-review-link"
+          onClick={() => setReviewOpen(true)}
+        >
+          Review entry
+        </button>
+      ) : null}
+    </div>
+  );
 
   return (
     <div className="today-page today-page--voice-home">
@@ -297,6 +520,10 @@ export default function HomePage({ userId, timeZone, users }: Props) {
                   </div>
                 )}
                 {stepError && <p className="error-inline error-inline--spaced">{stepError}</p>}
+                {postExtractSaveError && !reviewOpen ? (
+                  <p className="error-inline error-inline--spaced">{postExtractSaveError}</p>
+                ) : null}
+                {postSaveStatus}
               </>
             ) : (
               <>
@@ -322,11 +549,10 @@ export default function HomePage({ userId, timeZone, users }: Props) {
                     {extractionLoading && !reviewOpen ? "Extracting…" : "Extract"}
                   </button>
                 </div>
-                {textSavedAck ? (
-                  <p className="home-capture-saved-hint" role="status" aria-live="polite">
-                    Saved to Today
-                  </p>
+                {postExtractSaveError && !reviewOpen ? (
+                  <p className="error-inline error-inline--spaced">{postExtractSaveError}</p>
                 ) : null}
+                {postSaveStatus}
               </>
             )}
           </section>
@@ -353,9 +579,10 @@ export default function HomePage({ userId, timeZone, users }: Props) {
         extraction={extraction}
         extractionLoading={extractionLoading}
         extractionError={extractionError}
-        onRetryExtract={() => void runExtraction(transcript)}
+        initialServerIds={pendingReviewEntryIds}
+        onRetryExtract={() => void retryExtract()}
         onSave={handleSaveRows}
-        onDiscard={closeReview}
+        onDiscard={handleReviewDiscard}
       />
     </div>
   );

@@ -38,6 +38,11 @@ function extractDownloadFilename(sourceType: ExtractSourceType, logDate: string)
   return `emotiongraph_extract_${sourceType}_${logDate}_${hh}${mm}.json`;
 }
 
+export type ReviewSaveMeta = {
+  /** Parallel to `rows`: existing log entry id after auto-save, or undefined for new rows. */
+  serverIds: (number | undefined)[];
+};
+
 type Props = {
   open: boolean;
   transcript: string;
@@ -49,8 +54,10 @@ type Props = {
   extraction: ExtractLogsResponse | null;
   extractionLoading: boolean;
   extractionError: string | null;
+  /** When set and lengths match extracted rows, saves become updates (PATCH) instead of duplicate inserts. */
+  initialServerIds?: number[] | null;
   onRetryExtract: () => void;
-  onSave: (rows: LogRow[]) => Promise<void>;
+  onSave: (rows: LogRow[], meta?: ReviewSaveMeta) => Promise<void>;
   onDiscard: () => void;
 };
 
@@ -87,11 +94,13 @@ export default function ReviewExtractionModal({
   extraction,
   extractionLoading,
   extractionError,
+  initialServerIds = null,
   onRetryExtract,
   onSave,
   onDiscard,
 }: Props) {
   const [rows, setRows] = useState<LogRow[]>([]);
+  const [rowServerIds, setRowServerIds] = useState<(number | undefined)[]>([]);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const rowsTouched = useRef(false);
@@ -103,12 +112,15 @@ export default function ReviewExtractionModal({
       rowsTouched.current = false;
       lastExtractionKey.current = null;
       setRows([]);
+      setRowServerIds([]);
       setFullDetailsOpen(false);
       return;
     }
     setSaveError(null);
     rowsTouched.current = false;
     setRows([]);
+    setRowServerIds([]);
+    lastExtractionKey.current = null;
   }, [open]);
 
   useEffect(() => {
@@ -119,7 +131,10 @@ export default function ReviewExtractionModal({
     if (rowsTouched.current) return;
     const r = extraction.rows ?? [];
     setRows(r.map((row) => ({ ...emptyRow(), ...row })));
-  }, [open, extraction]);
+    const ids =
+      initialServerIds != null && initialServerIds.length === r.length ? initialServerIds : undefined;
+    setRowServerIds(ids ?? r.map(() => undefined));
+  }, [open, extraction, initialServerIds]);
 
   if (!open) return null;
 
@@ -155,17 +170,19 @@ export default function ReviewExtractionModal({
   const addRow = () => {
     rowsTouched.current = true;
     setRows((prev) => [...prev, emptyRow()]);
+    setRowServerIds((prev) => [...prev, undefined]);
   };
   const removeRow = (i: number) => {
     rowsTouched.current = true;
     setRows((prev) => prev.filter((_, j) => j !== i));
+    setRowServerIds((prev) => prev.filter((_, j) => j !== i));
   };
 
   const handleSave = async () => {
     setSaveError(null);
     setSaving(true);
     try {
-      await onSave(rows);
+      await onSave(rows, { serverIds: rowServerIds });
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Save failed");
     } finally {

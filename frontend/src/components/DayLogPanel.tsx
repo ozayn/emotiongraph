@@ -13,7 +13,7 @@ import {
 import { todayIsoInTimeZone } from "../datesTz";
 import CalmSelect from "./CalmSelect";
 import MetricSelect from "./MetricSelect";
-import ReviewExtractionModal from "./ReviewExtractionModal";
+import ReviewExtractionModal, { type ReviewSaveMeta } from "./ReviewExtractionModal";
 import {
   compactMetricSummary,
   draftToPatch,
@@ -474,7 +474,7 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
     setExtractionLoading(false);
   };
 
-  const handleSaveRows = async (rows: LogRow[]) => {
+  const handleSaveRows = async (rows: LogRow[], _meta?: ReviewSaveMeta) => {
     await saveLogs(
       userId,
       logDate,

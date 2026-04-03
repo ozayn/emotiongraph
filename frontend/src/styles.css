@@ -985,6 +985,40 @@ body {
   color: var(--accent-blue-mid);
 }
 
+.header-link:focus {
+  outline: none;
+}
+
+.header-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Quieter than text nav: account / profile entry (see MainNav). */
+.header-link--profile-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0.4rem;
+  color: var(--accent-blue);
+}
+
+.header-link--profile-icon:hover {
+  color: var(--accent-blue-mid);
+}
+
+.header-link-profile-icon-svg {
+  display: block;
+  flex-shrink: 0;
+  opacity: 0.92;
+}
+
+.header-link--profile-icon:hover .header-link-profile-icon-svg {
+  opacity: 1;
+}
+
 /* Secondary: lighter than primary nav — text-style, no pill emphasis */
 .app-header-secondary-link {
   font-size: 0.72rem;
@@ -1224,24 +1258,37 @@ body {
   margin-top: 0.55rem;
 }
 
+.home-capture-post-save {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  width: 100%;
+  max-width: 100%;
+}
+
 .home-capture-saved-hint {
-  margin: 0.45rem 0 0;
+  margin: 0;
   font-size: 0.8125rem;
   line-height: 1.35;
   font-weight: 500;
   letter-spacing: 0.01em;
   color: var(--muted);
-  animation: home-capture-saved-fade 2.6s var(--ease-soft) forwards;
+}
+
+.home-capture-saved-hint--pulse {
+  animation: home-capture-saved-fade 3.2s var(--ease-soft) forwards;
 }
 
 @keyframes home-capture-saved-fade {
   0% {
     opacity: 0;
   }
-  12% {
+  10% {
     opacity: 1;
   }
-  72% {
+  78% {
     opacity: 1;
   }
   100% {
@@ -1249,8 +1296,36 @@ body {
   }
 }
 
+.home-capture-review-link {
+  margin: 0;
+  padding: 0.35rem 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--ink-a22);
+  text-underline-offset: 0.18em;
+}
+
+.home-capture-review-link:hover,
+.home-capture-review-link:focus-visible {
+  color: var(--ink);
+  text-decoration-color: var(--ink-a45);
+}
+
+.home-capture-review-link:focus-visible {
+  outline: 2px solid var(--accent-a40);
+  outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .home-capture-saved-hint {
+  .home-capture-saved-hint--pulse {
     animation: none;
     opacity: 1;
   }
