@@ -3729,7 +3729,7 @@ body {
   max-width: 20rem;
 }
 
-/* Account: one action group — primary link, secondary row, admin tail */
+/* Account: one action group — secondary row, admin tail */
 .profile-page--premium .profile-settings-group--primary > .profile-settings-field.profile-account-actions {
   padding-top: 0.75rem;
   padding-bottom: 0.55rem;
@@ -3767,6 +3767,12 @@ body {
   margin-top: 0.55rem;
   padding-top: 0.55rem;
   border-top: 1px solid color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+.profile-account-actions-inner > .profile-account-actions-secondary:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
 }
 
 .profile-account-action-secondary {

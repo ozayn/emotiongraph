@@ -128,9 +128,6 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
 
           <div className="profile-settings-field profile-account-actions" aria-label="Account actions">
             <div className="profile-account-actions-inner">
-              <Link className="profile-account-action-primary" to={pathFor("/add-entry")}>
-                Add entry
-              </Link>
               <div className="profile-account-actions-secondary">
                 {authMode !== "google_oauth" ? (
                   <Link className="profile-account-action-secondary" to={pathFor("/switch-profile")}>
@@ -215,7 +212,7 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
                   disabled={exportBusy || exportStart > exportEnd}
                   onClick={() => void handleExportCsv()}
                 >
-                  {exportBusy ? "Preparing…" : "Download CSV"}
+                  {exportBusy ? "Preparing…" : "Download"}
                 </button>
               </div>
               {exportError && (
