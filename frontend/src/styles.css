@@ -5199,13 +5199,57 @@ button.profile-account-secondary {
 .entries-table-actions {
   display: flex;
   flex-wrap: nowrap;
-  gap: 0.1rem;
+  gap: 0.12rem;
   align-items: center;
+  justify-content: flex-end;
 }
 
-.entries-table-action {
-  min-height: 2rem;
-  padding: 0.2rem 0.4rem;
+.entries-row-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.35rem;
+  height: 2.35rem;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: calc(var(--radius) - 3px);
+  background: transparent;
+  color: var(--ink-a45);
+  cursor: pointer;
+  transition:
+    color 0.16s var(--ease-soft),
+    background 0.16s var(--ease-soft);
+}
+
+.entries-row-icon-btn:hover {
+  color: var(--text);
+  background: var(--ink-a06);
+}
+
+.entries-row-icon-btn:focus {
+  outline: none;
+}
+
+.entries-row-icon-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  color: var(--text);
+  background: var(--ink-a045);
+}
+
+.entries-row-icon-btn--delete:hover {
+  color: var(--danger);
+  background: var(--danger-item-hover-bg);
+}
+
+.entries-row-icon-btn--delete:focus-visible {
+  outline-color: var(--danger);
+}
+
+.entries-row-icon-btn svg {
+  flex-shrink: 0;
+  display: block;
 }
 
 .entries-list {
@@ -5323,7 +5367,7 @@ button.profile-account-secondary {
   right: 0;
   top: calc(100% + 2px);
   z-index: 20;
-  min-width: 7.5rem;
+  min-width: 5.25rem;
   margin: 0;
   padding: 0.2rem 0;
   list-style: none;
@@ -5345,6 +5389,20 @@ button.profile-account-secondary {
   text-align: left;
   cursor: pointer;
   color: inherit;
+}
+
+.entries-item-menu-item--icon-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.48rem 0.5rem;
+  min-height: 2.65rem;
+  color: var(--ink-a52);
+}
+
+.entries-item-menu-item--icon-action svg {
+  flex-shrink: 0;
+  display: block;
 }
 
 .entries-item-menu-item:hover {
@@ -5384,8 +5442,11 @@ button.profile-account-secondary {
   opacity: 0.92;
 }
 
-.entries-delete:hover:not(:disabled) {
-  color: var(--danger);
+@media (max-width: 479px) {
+  .entries-row-icon-btn {
+    width: 2.75rem;
+    height: 2.75rem;
+  }
 }
 
 .log-edit-backdrop {

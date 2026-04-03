@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { deleteLog, fetchLogsRange, patchLog, putLogEntryCustomValues } from "../api";
 import CalmSelect from "../components/CalmSelect";
 import CustomFieldsForm from "../components/CustomFieldsForm";
+import { IconRowEdit, IconRowTrash } from "../components/RowActionIcons";
 import TodaySnapshot from "../components/TodaySnapshot";
 import MetricSelect from "../components/MetricSelect";
 import { buildCustomValuesPayload, customValuesToDraft, filterCustomFormFields } from "../customFieldValues";
@@ -426,27 +427,29 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
                             <li role="presentation">
                               <button
                                 type="button"
-                                className="entries-item-menu-item"
+                                className="entries-item-menu-item entries-item-menu-item--icon-action"
                                 role="menuitem"
+                                aria-label={`Edit entry ${e.id}`}
                                 onClick={() => {
                                   setCardMenuOpenId(null);
                                   openEdit(e);
                                 }}
                               >
-                                Edit
+                                <IconRowEdit />
                               </button>
                             </li>
                             <li role="presentation">
                               <button
                                 type="button"
-                                className="entries-item-menu-item entries-item-menu-item--danger"
+                                className="entries-item-menu-item entries-item-menu-item--danger entries-item-menu-item--icon-action"
                                 role="menuitem"
+                                aria-label={`Delete entry ${e.id}`}
                                 onClick={() => {
                                   setCardMenuOpenId(null);
                                   void handleDelete(e);
                                 }}
                               >
-                                Delete
+                                <IconRowTrash />
                               </button>
                             </li>
                           </ul>
@@ -491,7 +494,7 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
                       Fo
                     </th>
                     <th scope="col" className="entries-table-actions-col">
-                      Actions
+                      <span className="sr-only">Row actions</span>
                     </th>
                   </tr>
                 </thead>
@@ -510,15 +513,21 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
                       <td className="mono entries-table-num">{tableMetricCell(e.contentment)}</td>
                       <td className="mono entries-table-num">{tableMetricCell(e.focus)}</td>
                       <td className="entries-table-actions">
-                        <button type="button" className="btn btn-text small entries-table-action" onClick={() => openEdit(e)}>
-                          Edit
+                        <button
+                          type="button"
+                          className="entries-row-icon-btn"
+                          aria-label={`Edit entry ${e.id}`}
+                          onClick={() => openEdit(e)}
+                        >
+                          <IconRowEdit />
                         </button>
                         <button
                           type="button"
-                          className="btn btn-text small entries-table-action entries-delete"
+                          className="entries-row-icon-btn entries-row-icon-btn--delete"
+                          aria-label={`Delete entry ${e.id}`}
                           onClick={() => void handleDelete(e)}
                         >
-                          Delete
+                          <IconRowTrash />
                         </button>
                       </td>
                     </tr>

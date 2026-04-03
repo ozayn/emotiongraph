@@ -22,6 +22,7 @@ import {
   LOG_EDIT_SOURCE_OPTIONS,
 } from "../logEditDraft";
 import CustomFieldsForm from "./CustomFieldsForm";
+import { IconRowEdit, IconRowTrash } from "./RowActionIcons";
 import {
   buildCustomValuesPayload,
   countFilledCustomDraft,
@@ -949,21 +950,31 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
                     {menuOpen && (
                       <ul id={menuDomId} className="entries-item-menu" role="menu">
                         <li role="presentation">
-                          <button type="button" className="entries-item-menu-item" role="menuitem" onClick={() => openSavedEdit(e)}>
-                            Edit
+                          <button
+                            type="button"
+                            className="entries-item-menu-item entries-item-menu-item--icon-action"
+                            role="menuitem"
+                            aria-label={`Edit entry ${e.id}`}
+                            onClick={() => {
+                              setSavedMenuOpenId(null);
+                              openSavedEdit(e);
+                            }}
+                          >
+                            <IconRowEdit />
                           </button>
                         </li>
                         <li role="presentation">
                           <button
                             type="button"
-                            className="entries-item-menu-item entries-item-menu-item--danger"
+                            className="entries-item-menu-item entries-item-menu-item--danger entries-item-menu-item--icon-action"
                             role="menuitem"
+                            aria-label={`Delete entry ${e.id}`}
                             onClick={() => {
                               setSavedMenuOpenId(null);
                               void handleSavedDelete(e);
                             }}
                           >
-                            Delete
+                            <IconRowTrash />
                           </button>
                         </li>
                       </ul>
