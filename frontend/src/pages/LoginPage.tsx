@@ -138,6 +138,7 @@ export default function LoginPage() {
         <div className="login-backdrop" aria-hidden="true" />
         <div className="login-stage">
           <div className="login-cluster">
+            <h1 className="login-welcome">Welcome — a calm place for voice check-ins.</h1>
             <div className="login-ambient" aria-hidden="true">
               <svg className="login-ambient__svg" viewBox="0 0 480 160" preserveAspectRatio="xMidYMid meet">
                 <g className="login-ambient__layer login-ambient__layer--lines">
@@ -158,7 +159,6 @@ export default function LoginPage() {
                 </g>
               </svg>
             </div>
-            <h1 className="login-welcome">Welcome — a calm place for voice check-ins.</h1>
             <div className="login-panel">
               {!clientId ? (
                 <p className="login-config-hint muted small" role="status">
