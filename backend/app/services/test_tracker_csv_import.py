@@ -252,10 +252,11 @@ def _consume_reader(
         ax = _parse_scale_cell(row.get("anxiety"), {0, 1, 2, 3})
         ct = _parse_scale_cell(row.get("contentment"), {1, 2, 3})
         fo = _parse_scale_cell(row.get("focus"), {1, 2, 3, 4, 5})
+        ag = _parse_scale_cell(row.get("anger"), {0, 1, 2, 3})
         mu = _parse_music(row.get("music"))
         co = _parse_str(row.get("comments"), 50_000)
 
-        has_entry = any(x is not None for x in (event, st, et, el, ax, ct, fo, mu, co))
+        has_entry = any(x is not None for x in (event, st, et, el, ax, ct, fo, ag, mu, co))
         if not has_entry:
             continue
 
@@ -270,6 +271,7 @@ def _consume_reader(
                 anxiety=ax,
                 contentment=ct,
                 focus=fo,
+                anger=ag,
                 music=mu,
                 comments=co,
                 source_type="import",

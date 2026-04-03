@@ -3,6 +3,9 @@ Build a CSV export of log entries for one user and date range, shaped like the l
 
 Day-level fields (cycle day, sleep hours, sleep quality) are repeated on *every* row for that
 calendar day so each line is self-contained in Excel/Sheets (no sparse "first row only" merge logic).
+
+The optional secondary ``anger`` field is stored in the database but omitted from this default export
+so bulk downloads stay aligned with primary metrics only.
 """
 
 from __future__ import annotations

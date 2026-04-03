@@ -27,6 +27,8 @@ export type LogRow = {
   anxiety: number | null;
   contentment: number | null;
   focus: number | null;
+  /** Optional experimental 0–3 intensity; not used in core summaries or extraction. */
+  anger: number | null;
   /** Prefer tracker option strings; legacy free text may still appear from older rows. */
   music: string | null;
   comments: string | null;
@@ -61,6 +63,7 @@ export type LogImportRow = {
   anxiety: number | null;
   contentment: number | null;
   focus: number | null;
+  anger: number | null;
   music: string | null;
   comments: string | null;
   cycle_day: number | null;
@@ -118,6 +121,7 @@ export type InsightsRecentEntry = {
   anxiety: number | null;
   contentment: number | null;
   focus: number | null;
+  anger: number | null;
   source_type: string;
 };
 

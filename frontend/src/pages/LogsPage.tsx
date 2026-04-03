@@ -11,6 +11,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { deleteLog, fetchLogsRange, patchLog, putLogEntryCustomValues } from "../api";
 import CalmSelect from "../components/CalmSelect";
 import CustomFieldsForm from "../components/CustomFieldsForm";
+import OptionalAngerMetric from "../components/OptionalAngerMetric";
 import { IconRowEdit, IconRowTrash } from "../components/RowActionIcons";
 import EntryDetailModal from "../components/EntryDetailModal";
 import SourceTypeIndicator from "../components/SourceTypeIndicator";
@@ -698,6 +699,7 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
                     />
                   );
                 })}
+                <OptionalAngerMetric value={draft.anger} onChange={(v) => setDraftField("anger", v)} disabled={saving} />
                 {optionsForMetricKey("music") && (
                   <MetricSelect
                     label="Music"

@@ -27,6 +27,7 @@ import {
 } from "../logEditDraft";
 import CustomFieldsForm from "./CustomFieldsForm";
 import EntryDetailModal from "./EntryDetailModal";
+import OptionalAngerMetric from "./OptionalAngerMetric";
 import SourceTypeIndicator from "./SourceTypeIndicator";
 import { IconRowEdit, IconRowTrash } from "./RowActionIcons";
 import {
@@ -59,6 +60,7 @@ function emptyManualDraft(): Record<keyof LogRow, string> {
     anxiety: "",
     contentment: "",
     focus: "",
+    anger: "",
     music: "",
     comments: "",
     source_type: "",
@@ -88,6 +90,7 @@ function draftToLogRow(d: Record<keyof LogRow, string>): LogRow {
     anxiety: num(d.anxiety),
     contentment: num(d.contentment),
     focus: num(d.focus),
+    anger: num(d.anger),
     music: parseMusicSelect(d.music),
     comments: trim(d.comments),
     source_type: "manual",
@@ -122,6 +125,7 @@ function normalizeExtractedRows(raw: LogRow[]): LogRow[] {
     anxiety: row.anxiety ?? null,
     contentment: row.contentment ?? null,
     focus: row.focus ?? null,
+    anger: row.anger ?? null,
     music: row.music ?? null,
     comments: row.comments ?? null,
   }));
@@ -136,6 +140,7 @@ function logRowToPatchBody(row: LogRow): LogEntryPatchBody {
     anxiety: row.anxiety,
     contentment: row.contentment,
     focus: row.focus,
+    anger: row.anger,
     music: row.music,
     comments: row.comments,
   };
@@ -1045,6 +1050,11 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
                       </label>
                     );
                   })}
+                  <OptionalAngerMetric
+                    value={manualDraft.anger}
+                    onChange={(v) => setManualField("anger", v)}
+                    disabled={manualSaving}
+                  />
                   {customEntryFields.length > 0 && (
                     <div className="manual-add-custom-nested">
                       <p className="muted small manual-add-custom-nested-lead">Team-added fields (all optional).</p>
@@ -1471,6 +1481,11 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
                     />
                   );
                 })}
+                <OptionalAngerMetric
+                  value={savedEditDraft.anger}
+                  onChange={(v) => setSavedEditDraftField("anger", v)}
+                  disabled={savedEditSaving}
+                />
                 {optionsForMetricKey("music") && (
                   <MetricSelect
                     label="Music"

@@ -24,12 +24,13 @@ export type EditDraft = {
   anxiety: string;
   contentment: string;
   focus: string;
+  anger: string;
   music: string;
   comments: string;
   source_type: "manual" | "voice" | "text" | "import";
 };
 
-/** Collapsed list: short metric tokens (E=energy, A=anxiety, C=contentment, F=focus). */
+/** Collapsed list: short tokens for the four core metrics only (anger is omitted — see entry detail). */
 export function compactMetricSummary(e: SavedLogEntry): string | null {
   const parts: string[] = [];
   if (e.energy_level != null) parts.push(`E${e.energy_level}`);
@@ -55,6 +56,7 @@ export function entryToDraft(e: SavedLogEntry): EditDraft {
     anxiety: e.anxiety != null ? String(e.anxiety) : "",
     contentment: e.contentment != null ? String(e.contentment) : "",
     focus: e.focus != null ? String(e.focus) : "",
+    anger: e.anger != null ? String(e.anger) : "",
     music: e.music ?? "",
     comments: e.comments ?? "",
     source_type: normalizeSourceType(e.source_type ?? "manual"),
@@ -77,6 +79,7 @@ export function draftToNewLogRow(d: EditDraft): LogRow {
     anxiety: p.anxiety ?? null,
     contentment: p.contentment ?? null,
     focus: p.focus ?? null,
+    anger: p.anger ?? null,
     music: p.music ?? null,
     comments: p.comments ?? null,
     source_type: p.source_type,
@@ -93,6 +96,7 @@ export function emptyDraftForDate(logDate: string): EditDraft {
     anxiety: "",
     contentment: "",
     focus: "",
+    anger: "",
     music: "",
     comments: "",
     source_type: "manual",
@@ -115,6 +119,7 @@ export function draftToPatch(d: EditDraft): LogEntryPatchBody {
     anxiety: num(d.anxiety),
     contentment: num(d.contentment),
     focus: num(d.focus),
+    anger: num(d.anger),
     music: parseMusic(d.music),
     comments: d.comments.trim() || null,
     source_type: d.source_type,

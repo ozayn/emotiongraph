@@ -95,6 +95,7 @@ def build_insights_payload(db: Session, user_id: int, start: date, end: date) ->
             "anxiety": e.anxiety,
             "contentment": e.contentment,
             "focus": e.focus,
+            "anger": e.anger,
             "source_type": (e.source_type or "manual").strip() or "manual",
         }
         for e in recent

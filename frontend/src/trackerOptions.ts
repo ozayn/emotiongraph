@@ -15,6 +15,9 @@ export const ANXIETY_OPTIONS: { value: string; label: string }[] = [
   { value: "3", label: "3 — Very much" },
 ];
 
+/** Same scale as anxiety; optional / experimental metric. */
+export const ANGER_OPTIONS: { value: string; label: string }[] = [...ANXIETY_OPTIONS];
+
 export const CONTENTMENT_OPTIONS: { value: string; label: string }[] = [
   { value: "", label: "—" },
   { value: "1", label: "1 — A little" },
@@ -70,6 +73,10 @@ export function formatEnergy(n: number): string {
 export function formatAnxiety(n: number): string {
   return anxietyLabel[n] ?? String(n);
 }
+
+export function formatAnger(n: number): string {
+  return anxietyLabel[n] ?? String(n);
+}
 export function formatContentment(n: number): string {
   return contentmentLabel[n] ?? String(n);
 }
@@ -98,6 +105,8 @@ export function optionsForMetricKey(key: keyof Omit<LogRow, "source_type">): { v
       return ENERGY_OPTIONS;
     case "anxiety":
       return ANXIETY_OPTIONS;
+    case "anger":
+      return ANGER_OPTIONS;
     case "contentment":
       return CONTENTMENT_OPTIONS;
     case "focus":

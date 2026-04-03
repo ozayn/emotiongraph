@@ -51,6 +51,8 @@ class LogEntry(Base):
     anxiety: Mapped[int | None] = mapped_column(Integer, nullable=True)
     contentment: Mapped[int | None] = mapped_column(Integer, nullable=True)
     focus: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Optional experimental metric (same 0–3 scale as anxiety); not part of core summaries/insights.
+    anger: Mapped[int | None] = mapped_column(Integer, nullable=True)
     music: Mapped[str | None] = mapped_column(String(64), nullable=True)
     comments: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

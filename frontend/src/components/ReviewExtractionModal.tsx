@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { ExtractLogsResponse, LogRow } from "../types";
 import MetricSelect from "./MetricSelect";
+import OptionalAngerMetric from "./OptionalAngerMetric";
 import { optionsForMetricKey } from "../trackerOptions";
 
 const FIELDS: { key: keyof Omit<LogRow, "source_type">; label: string }[] = [
@@ -24,6 +25,7 @@ function emptyRow(): LogRow {
     anxiety: null,
     contentment: null,
     focus: null,
+    anger: null,
     music: null,
     comments: null,
   };
@@ -77,7 +79,8 @@ function compactEntrySubtitle(row: LogRow): string {
   if (row.anxiety != null) metrics.push(`Anxiety ${row.anxiety}`);
   if (row.contentment != null) metrics.push(`Contentment ${row.contentment}`);
   if (row.focus != null) metrics.push(`Focus ${row.focus}`);
-  const m = metrics.slice(0, 3).join(" · ");
+  if (row.anger != null) metrics.push(`Anger ${row.anger}`);
+  const m = metrics.slice(0, 4).join(" · ");
   const seg = [times, m].filter(Boolean).join(" · ");
   if (seg) return seg;
   const c = row.comments?.trim();
@@ -107,6 +110,7 @@ export default function ReviewExtractionModal({
   const lastExtractionKey = useRef<string | null>(null);
   /** `null` = entry list; index = editing that row’s fields. */
   const [expandedEntryIndex, setExpandedEntryIndex] = useState<number | null>(null);
+  const [originalInputOpen, setOriginalInputOpen] = useState(false);
 
   useEffect(() => {
     if (!open) {
@@ -143,6 +147,30 @@ export default function ReviewExtractionModal({
     }
   }, [rows.length, expandedEntryIndex]);
 
+  /** Auto-saved single row: lightweight read-only review (close with X / outside / Esc). */
+  const entriesAlreadyOnServer = initialServerIds != null && initialServerIds.length > 0;
+  const lightPostSaveReview = entriesAlreadyOnServer && rows.length === 1;
+  const preSaveReview = !entriesAlreadyOnServer;
+  const showFooter = !lightPostSaveReview;
+  const showAddEntry = preSaveReview && (rows.length === 0 || rows.length > 1);
+  const showRemoveRow = !lightPostSaveReview && rows.length > 1;
+
+  useEffect(() => {
+    if (!open || !lightPostSaveReview) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      onDiscard();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [open, lightPostSaveReview, onDiscard]);
+
+  useEffect(() => {
+    if (!open) return;
+    setOriginalInputOpen(lightPostSaveReview ? false : true);
+  }, [open, lightPostSaveReview]);
+
   if (!open) return null;
 
   const updateCell = (i: number, field: keyof Omit<LogRow, "source_type">, raw: string) => {
@@ -155,7 +183,8 @@ export default function ReviewExtractionModal({
         case "energy_level":
         case "anxiety":
         case "contentment":
-        case "focus": {
+        case "focus":
+        case "anger": {
           if (t === "") row[field] = null;
           else {
             const n = Number.parseInt(t, 10);
@@ -234,7 +263,6 @@ export default function ReviewExtractionModal({
 
   const canDownloadExtract = Boolean(!extractionLoading && extraction);
 
-  const entriesAlreadyOnServer = initialServerIds != null && initialServerIds.length > 0;
   const dismissLabel = entriesAlreadyOnServer ? "Close" : "Discard";
   const entryDetailOpen = expandedEntryIndex != null;
   const REMOVE_FROM_SAVE_HINT = "Exclude this row from what you save (not saved to your log yet).";
@@ -243,20 +271,42 @@ export default function ReviewExtractionModal({
     expandedDetailIndex != null && rows[expandedDetailIndex] !== undefined ? rows[expandedDetailIndex] : undefined;
 
   return (
-    <div className="review-backdrop" role="presentation">
+    <div
+      className="review-backdrop"
+      role="presentation"
+      onClick={lightPostSaveReview ? () => onDiscard() : undefined}
+    >
       <div
         className={`review-sheet ${entryDetailOpen ? "review-sheet--details-open" : "review-sheet--compact-first"}`}
         role="dialog"
         aria-labelledby="review-title"
         aria-modal="true"
+        onClick={(e) => e.stopPropagation()}
       >
         <div className={`review-sheet-scroll ${entryDetailOpen ? "" : "review-sheet-scroll--compact"}`}>
           <div className="review-sheet-head">
+            <button
+              type="button"
+              className="review-sheet-close"
+              onClick={() => onDiscard()}
+              disabled={saving}
+              aria-label="Close"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
             <p className="review-sheet-eyebrow">Review</p>
             <h2 id="review-title" className="review-sheet-title-date mono">
               {logDate}
             </h2>
-            {entryDetailOpen ? (
+            {lightPostSaveReview ? (
+              entryDetailOpen ? (
+                <p className="review-sheet-sub review-sheet-sub--light">
+                  Read-only here — edit from your log if needed.
+                </p>
+              ) : (
+                <p className="review-sheet-sub review-sheet-sub--light">Saved. Tap the row to view details.</p>
+              )
+            ) : entryDetailOpen ? (
               <p className="review-sheet-sub">Edits apply when you tap Save below.</p>
             ) : (
               <p className="review-sheet-sub review-sheet-sub--light">
@@ -296,7 +346,7 @@ export default function ReviewExtractionModal({
           <section className="review-block">
             <div className="review-block-head">
               <h3 className="review-block-title">Entries</h3>
-              {!entryDetailOpen ? (
+              {!entryDetailOpen && showAddEntry ? (
                 <button type="button" className="btn btn-minimal small" onClick={addRow}>
                   + Add
                 </button>
@@ -305,9 +355,13 @@ export default function ReviewExtractionModal({
 
             {!entryDetailOpen ? (
               <>
-                <p className="muted small review-entries-context-hint">
-                  Tap a row to edit. Remove drops it from this save only.
-                </p>
+                {!lightPostSaveReview ? (
+                  <p className="muted small review-entries-context-hint">
+                    {showRemoveRow
+                      ? "Tap a row to edit. Remove drops it from this save only."
+                      : "Tap a row to edit fields before saving."}
+                  </p>
+                ) : null}
                 <div className="review-entry-preview-stack">
                   {rows.length === 0 && !extractionLoading && (
                     <p className="muted review-rows-empty">No entries yet. Tap + Add or retry extraction.</p>
@@ -322,18 +376,20 @@ export default function ReviewExtractionModal({
                         <span className="review-entry-preview-title">{compactEntryTitle(row, i)}</span>
                         <span className="review-entry-preview-meta muted small">{compactEntrySubtitle(row)}</span>
                       </button>
-                      <button
-                        type="button"
-                        className="review-entry-preview-remove linkish"
-                        title={REMOVE_FROM_SAVE_HINT}
-                        aria-label={`Remove “${compactEntryTitle(row, i)}” from this save`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removeRow(i);
-                        }}
-                      >
-                        Remove
-                      </button>
+                      {showRemoveRow ? (
+                        <button
+                          type="button"
+                          className="review-entry-preview-remove linkish"
+                          title={REMOVE_FROM_SAVE_HINT}
+                          aria-label={`Remove “${compactEntryTitle(row, i)}” from this save`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeRow(i);
+                          }}
+                        >
+                          Remove
+                        </button>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -346,22 +402,24 @@ export default function ReviewExtractionModal({
                     className="btn btn-text small review-back-to-entries-btn"
                     onClick={() => setExpandedEntryIndex(null)}
                   >
-                    ← All entries
+                    {rows.length > 1 ? "← All entries" : "← Back"}
                   </button>
                 </div>
                 <div className="row-stack">
                   <article className="entry-card entry-card--review-focus">
                     <div className="entry-card-head">
                       <span className="entry-card-label">Entry {expandedDetailIndex + 1}</span>
-                      <button
-                        type="button"
-                        className="btn btn-minimal small"
-                        title={REMOVE_FROM_SAVE_HINT}
-                        aria-label={`Remove entry ${expandedDetailIndex + 1} from this save`}
-                        onClick={() => removeRow(expandedDetailIndex)}
-                      >
-                        Remove
-                      </button>
+                      {showRemoveRow ? (
+                        <button
+                          type="button"
+                          className="btn btn-minimal small"
+                          title={REMOVE_FROM_SAVE_HINT}
+                          aria-label={`Remove entry ${expandedDetailIndex + 1} from this save`}
+                          onClick={() => removeRow(expandedDetailIndex)}
+                        >
+                          Remove
+                        </button>
+                      ) : null}
                     </div>
                     <div className="entry-card-fields">
                       {FIELDS.map(({ key, label }) => {
@@ -374,6 +432,7 @@ export default function ReviewExtractionModal({
                               value={expandedDetailRow[key] == null ? "" : String(expandedDetailRow[key])}
                               onChange={(v) => updateCell(expandedDetailIndex, key, v)}
                               options={opts}
+                              disabled={lightPostSaveReview}
                             />
                           );
                         }
@@ -384,10 +443,16 @@ export default function ReviewExtractionModal({
                               type="text"
                               value={expandedDetailRow[key] ?? ""}
                               onChange={(e) => updateCell(expandedDetailIndex, key, e.target.value)}
+                              disabled={lightPostSaveReview}
                             />
                           </label>
                         );
                       })}
+                      <OptionalAngerMetric
+                        value={expandedDetailRow.anger == null ? "" : String(expandedDetailRow.anger)}
+                        onChange={(v) => updateCell(expandedDetailIndex, "anger", v)}
+                        disabled={lightPostSaveReview}
+                      />
                     </div>
                   </article>
                 </div>
@@ -395,7 +460,11 @@ export default function ReviewExtractionModal({
             ) : null}
           </section>
 
-          <details className="transcript-details">
+          <details
+            className="transcript-details"
+            open={originalInputOpen}
+            onToggle={(e) => setOriginalInputOpen(e.currentTarget.open)}
+          >
             <summary className="transcript-details-summary">
               <span className="transcript-details-label">Original input</span>
               <span className="transcript-details-cue" aria-hidden="true" />
@@ -405,35 +474,37 @@ export default function ReviewExtractionModal({
             </div>
           </details>
 
-          {canDownloadExtract && (
-            <details className="review-dev-details">
-              <summary className="review-dev-details-summary">Developer</summary>
+          {import.meta.env.DEV && canDownloadExtract ? (
+            <details className="review-dev-details review-dev-details--quiet">
+              <summary className="review-dev-details-summary review-dev-details-summary--quiet">Dev tools</summary>
               <div className="review-dev-details-body">
                 <button type="button" className="btn btn-text small review-dev-download" onClick={downloadExtractionJson}>
-                  Download JSON (dev)
+                  Download JSON
                 </button>
               </div>
             </details>
-          )}
+          ) : null}
 
           {saveError && <p className="error-inline review-save-error">{saveError}</p>}
         </div>
 
-        <div className="review-sticky-footer">
-          <button type="button" className="btn btn-discard-footer" onClick={onDiscard} disabled={saving}>
-            {dismissLabel}
-          </button>
-          <div className="review-footer-save-row">
-            <button
-              type="button"
-              className="btn primary btn-save-footer"
-              onClick={() => void handleSave()}
-              disabled={saving}
-            >
-              {saving ? "Saving…" : "Save"}
+        {showFooter ? (
+          <div className="review-sticky-footer">
+            <button type="button" className="btn btn-discard-footer" onClick={onDiscard} disabled={saving}>
+              {dismissLabel}
             </button>
+            <div className="review-footer-save-row">
+              <button
+                type="button"
+                className="btn primary btn-save-footer"
+                onClick={() => void handleSave()}
+                disabled={saving}
+              >
+                {saving ? "Saving…" : "Save"}
+              </button>
+            </div>
           </div>
-        </div>
+        ) : null}
       </div>
     </div>
   );

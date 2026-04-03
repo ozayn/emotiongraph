@@ -33,6 +33,7 @@ function normalizeExtractedRows(raw: LogRow[]): LogRow[] {
     anxiety: row.anxiety ?? null,
     contentment: row.contentment ?? null,
     focus: row.focus ?? null,
+    anger: row.anger ?? null,
     music: row.music ?? null,
     comments: row.comments ?? null,
   }));
@@ -47,6 +48,7 @@ function logRowToPatchBody(row: LogRow): LogEntryPatchBody {
     anxiety: row.anxiety,
     contentment: row.contentment,
     focus: row.focus,
+    anger: row.anger,
     music: row.music,
     comments: row.comments,
   };

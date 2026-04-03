@@ -128,6 +128,25 @@ def seed_tracker_config_if_empty(session: Session) -> None:
         },
         {
             "is_builtin": True,
+            "key": "anger",
+            "label": "Anger",
+            "scope": "entry",
+            "field_type": "select",
+            "is_required": False,
+            "is_active": False,
+            "display_order": 75,
+            "options": _opts(
+                [
+                    ("", "—", 0),
+                    ("0", "0 — Not at all", 10),
+                    ("1", "1 — A little", 20),
+                    ("2", "2 — Moderately", 30),
+                    ("3", "3 — Very much", 40),
+                ]
+            ),
+        },
+        {
+            "is_builtin": True,
             "key": "music",
             "label": "Music",
             "scope": "entry",

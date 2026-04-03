@@ -3,9 +3,10 @@ Parse user CSV uploads for bulk log import (source_type ``import``).
 
 Expected columns (case-insensitive; spaces/underscores normalized):
   - ``log_date`` or ``date`` — required per data row (YYYY-MM-DD)
-  - Same as export: ``start time``, ``end time``, ``event``, ``energy level``, ``anxiety``,
+  - Same as default export: ``start time``, ``end time``, ``event``, ``energy level``, ``anxiety``,
     ``contentment``, ``focus``, ``music``, ``comments``, ``cycle day``, ``sleep hours``,
     ``sleep quality``
+  - Optional: ``anger`` (0–3) — accepted on import though omitted from default CSV export
 
 Human-readable scale cells (e.g. ``2 - neutral``) are accepted; see parsers below.
 """
@@ -198,6 +199,7 @@ def _cells_to_payload(norm: dict[str, str]) -> dict[str, Any]:
     payload["anxiety"] = _parse_scale_cell(norm.get("anxiety"), {0, 1, 2, 3})
     payload["contentment"] = _parse_scale_cell(norm.get("contentment"), {1, 2, 3})
     payload["focus"] = _parse_scale_cell(norm.get("focus"), {1, 2, 3, 4, 5})
+    payload["anger"] = _parse_scale_cell(norm.get("anger"), {0, 1, 2, 3})
     payload["music"] = _parse_music_cell(norm.get("music"))
     payload["comments"] = _cell_str(norm.get("comments"))
     payload["cycle_day"] = _parse_cycle_day_cell(norm.get("cycle_day"))
@@ -254,6 +256,7 @@ def _has_log_fields(r: LogImportRowIn) -> bool:
             r.anxiety is not None,
             r.contentment is not None,
             r.focus is not None,
+            r.anger is not None,
             r.music,
             r.comments,
         ]
@@ -290,6 +293,7 @@ def execute_log_import(db: Session, user_id: int, rows: list[LogImportRowIn]) ->
             anxiety=r.anxiety,
             contentment=r.contentment,
             focus=r.focus,
+            anger=r.anger,
             music=r.music,
             comments=r.comments,
             source_type="import",

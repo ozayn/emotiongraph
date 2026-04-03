@@ -32,12 +32,12 @@ Return a single JSON object with exactly these keys:
 - "transcript_summary": string, optional brief neutral recap. Lower priority than accurate rows and day_context; keep it short. Prefer the same language mix as the transcript (do not force full translation into one language).
 - "day_context": optional object for whole-day facts that are NOT timed activities. Include only when clearly stated; otherwise omit the key or set fields to null. Keys (all optional): "cycle_day" (integer 1–366 menstrual/tracking day), "sleep_hours" (number 0–24), "sleep_quality" (integer 1–5). Never put cycle day, sleep duration, or sleep quality into "rows" as if they were events—only here.
 - "rows": array of objects for discrete activities, intervals, or present-state check-ins with situational context. Each object may include only these keys (omit a key or use null if unknown):
-  "start_time", "end_time", "event", "energy_level", "anxiety", "contentment", "focus", "music", "comments"
+  "start_time", "end_time", "event", "energy_level", "anxiety", "contentment", "focus", "anger", "music", "comments"
 - Do not include "source_type" or any other keys in row objects.
 
 Activity-only rows (critical):
-- An action, activity, or event described on its own is enough for a valid row. You MUST still output a row when the speaker states what they did—even if they say nothing about mood, emotion, energy, focus, anxiety, contentment, or music.
-- Examples (English; same idea in Farsi, Serbian, and mixed speech): "I took a walk yesterday morning.", "Had lunch.", "Reviewed Slack.", "Went to the gym." → each deserves at least one row with a concise "event" in the speaker’s language; leave energy_level, anxiety, contentment, focus, and music null unless the text explicitly supports them.
+- An action, activity, or event described on its own is enough for a valid row. You MUST still output a row when the speaker states what they did—even if they say nothing about mood, emotion, energy, focus, anxiety, contentment, anger, or music.
+- Examples (English; same idea in Farsi, Serbian, and mixed speech): "I took a walk yesterday morning.", "Had lunch.", "Reviewed Slack.", "Went to the gym." → each deserves at least one row with a concise "event" in the speaker’s language; leave energy_level, anxiety, contentment, focus, anger, and music null unless the text explicitly supports them.
 - Never skip or omit a row solely because no metrics or feelings were mentioned. Never fill metrics by guessing from the type of activity (e.g. do not assume anxiety or energy from "gym" or "meeting").
 
 Day-level vs rows (critical):
@@ -55,19 +55,27 @@ Event vs comments (critical):
 - Put emotional arcs, nuance, secondary details, and mixed feelings in "comments", not in a bloated "event".
 
 Affect mapping (conservative):
-- energy_level, anxiety, contentment, and focus are NEVER required. Omit them or use null whenever the transcript does not clearly state them—this includes pure activity descriptions with no affect or rating language.
-- energy_level (1 low … 3 high): use only when the text clearly refers to physical energy, alertness, fatigue, exhaustion, or vitality—not general mood or happiness.
-- contentment / relief / feeling better / lighter / at peace / glad things improved: map to "contentment" first when the wording is about mood or satisfaction, not energy. If both energy and mood are explicit, set both scales appropriately; otherwise prefer the scale that matches the wording.
-- anxiety and focus: only when clearly supported; otherwise null.
+- Structured numeric fields are: energy_level, anxiety, contentment, focus, and optionally anger (secondary—see below). Emotions we do NOT model structurally (e.g. jealousy, shame, grief without a clear fit) stay in "comments" and/or "transcript_summary" only—never coerce them into these five.
+
+- energy_level (1 low … 3 high): use only when the text clearly refers to physical energy, alertness, fatigue, exhaustion, or vitality—not general mood or emotional arousal alone.
+
+- anxiety (0–3): use only when the text clearly refers to worry, nervousness, unease, dread, feeling anxious, or on-edge about outcomes—NOT for anger, frustration, or feeling mad alone. Phrases like "a little angry", "pissed off", "furious", "irritated" (and close equivalents in any language) must NOT set anxiety unless separate clear anxiety/worry language is also present.
+
+- contentment (1–3): satisfaction, peace, relief, glad, feeling better about how things are—when the wording is about mood or life satisfaction, not physical vitality. Do not use contentment as a proxy for anger.
+
+- focus (1–5): attention, concentration, distractibility—only when clearly supported; otherwise null.
+
+- anger (0–3, secondary field): same numeric scale as anxiety (0 = not at all … 3 = very much) but ONLY for clear anger / mad / furious / rage / resentment / strong irritation framed as anger—not for worry, not as a substitute for anxiety. Never set anxiety from an anger-only statement; never set anger from worry-only language. If both anger and anxiety are clearly expressed, you may set both appropriately. If intensity is vague ("upset" without clear axis), prefer null for anger and anxiety and keep nuance in "comments". When in doubt, null.
 
 Rules:
 - Use null for any field you cannot infer with high confidence from the transcript. Do not invent times, ratings, or emotions. An activity-only row is valid with "event" set and all numeric or music fields null.
 - Prefer fewer, broader rows over guessing fine-grained times. Split into multiple rows only when the transcript clearly describes distinct time-bounded episodes or clearly separable situations.
 - start_time and end_time: strings "HH:MM" in 24-hour form using Western digits (0-9), e.g. "09:30" or "14:00", if mentioned; map from Persian/Arabic/Cyrillic digit forms if the transcript uses them; otherwise null.
-- energy_level: integer 1 (low energy), 2 (neutral), or 3 (high energy) only if clearly stated (in any language); otherwise null.
-- anxiety: integer 0 (not at all), 1 (a little), 2 (moderately), or 3 (very much); otherwise null.
-- contentment: integer 1 (a little), 2 (moderately), or 3 (very much); otherwise null.
+- energy_level: integer 1 (low energy), 2 (neutral), or 3 (high energy) only if clearly stated (in any language); otherwise null. Follow the "Affect mapping" section above—do not use this field for unsupported emotions.
+- anxiety: integer 0 (not at all), 1 (a little), 2 (moderately), or 3 (very much); otherwise null. Never use anxiety for anger-only statements.
+- contentment: integer 1 (a little), 2 (moderately), or 3 (very much); otherwise null. Never use contentment as a proxy for unsupported emotions.
 - focus: integer 1 (distracted) through 5 (deep focus): 1 distracted, 2 mostly distracted, 3 mixed, 4 mostly focused, 5 deep focus; otherwise null.
+- anger: integer 0 (not at all), 1 (a little), 2 (moderately), or 3 (very much); otherwise null. Optional secondary field—only when anger is clearly expressed per "Affect mapping"; never infer from activity type alone.
 - music: map what the speaker said (any language) to one of exactly these English strings if clearly stated, otherwise null: "No", "Yes, upbeat", "Yes, calm", "Yes, other".
 - Do not invent music or numeric ratings.
 - Output must be valid JSON only, no markdown fences.
@@ -112,6 +120,8 @@ SYSTEM_PROMPT = """You extract structured daily log data from spoken or written 
 The input may be English, Persian (Farsi), Serbian, or mixed—including code-switching. Understand all of it. Put cycle/sleep day metadata in day_context, not rows. Use rows for activities, actions, events, timed or situational episodes, and justified present-state check-ins—even when the speaker only says what they did and mentions no feelings or metrics.
 Preserve the speaker’s original language(s) in "event" and "comments" naturally; do not normalize mixed speech into awkward single-language paraphrases. transcript_summary is optional flavor—accuracy of rows and day_context matters more.
 Be conservative. Never fabricate emotions, scores, or clock times. Use null for unknown fields; metrics are optional and must not be inferred from activity type alone.
+
+Structured affect (critical): Fill energy_level, anxiety, contentment, and focus only when wording clearly matches each scale (see user message). You may also fill optional secondary field "anger" when anger is clearly expressed—use a separate 0–3 scale; never treat anger as anxiety or vice versa. Other emotions we do not model structurally belong in "comments" / transcript_summary only.
 The user will review and edit before anything is saved.
 Do not output source_type on rows; only the schema keys listed in the user message."""
 

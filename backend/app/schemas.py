@@ -30,6 +30,7 @@ class _LogRowCore(BaseModel):
     anxiety: int | None = None
     contentment: int | None = None
     focus: int | None = None
+    anger: int | None = None
     music: str | None = None
     comments: str | None = None
 
@@ -64,6 +65,14 @@ class _LogRowCore(BaseModel):
         if n is None:
             return None
         return n if n in (1, 2, 3, 4, 5) else None
+
+    @field_validator("anger", mode="before")
+    @classmethod
+    def anger_scale(cls, v: Any) -> int | None:
+        n = _coerce_int(v)
+        if n is None:
+            return None
+        return n if n in (0, 1, 2, 3) else None
 
     @field_validator("music", mode="before")
     @classmethod
@@ -205,6 +214,7 @@ class LogImportRowIn(BaseModel):
     anxiety: int | None = None
     contentment: int | None = None
     focus: int | None = None
+    anger: int | None = None
     music: str | None = None
     comments: str | None = None
     cycle_day: int | None = Field(None, ge=1, le=366)
@@ -242,6 +252,14 @@ class LogImportRowIn(BaseModel):
         if n is None:
             return None
         return n if n in (1, 2, 3, 4, 5) else None
+
+    @field_validator("anger", mode="before")
+    @classmethod
+    def anger_scale(cls, v: Any) -> int | None:
+        n = _coerce_int(v)
+        if n is None:
+            return None
+        return n if n in (0, 1, 2, 3) else None
 
     @field_validator("music", mode="before")
     @classmethod
@@ -319,6 +337,7 @@ class LogEntryPatch(BaseModel):
     anxiety: int | None = None
     contentment: int | None = None
     focus: int | None = None
+    anger: int | None = None
     music: str | None = None
     comments: str | None = None
     source_type: Literal["manual", "voice", "text", "import"] | None = None
@@ -355,6 +374,14 @@ class LogEntryPatch(BaseModel):
         if n is None:
             return None
         return n if n in (1, 2, 3, 4, 5) else None
+
+    @field_validator("anger", mode="before")
+    @classmethod
+    def anger_scale(cls, v: Any) -> int | None:
+        n = _coerce_int(v)
+        if n is None:
+            return None
+        return n if n in (0, 1, 2, 3) else None
 
     @field_validator("music", mode="before")
     @classmethod
@@ -508,6 +535,7 @@ class InsightsRecentEntry(BaseModel):
     anxiety: int | None = None
     contentment: int | None = None
     focus: int | None = None
+    anger: int | None = None
     source_type: str = "manual"
 
     @field_validator("source_type", mode="before")

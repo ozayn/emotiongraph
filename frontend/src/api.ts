@@ -283,6 +283,7 @@ export type LogEntryPatchBody = {
   anxiety?: number | null;
   contentment?: number | null;
   focus?: number | null;
+  anger?: number | null;
   music?: string | null;
   comments?: string | null;
   source_type?: "manual" | "voice" | "text" | "import";

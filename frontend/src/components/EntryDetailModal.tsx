@@ -5,6 +5,7 @@ import {
   formatContentment,
   formatEnergy,
   formatFocus,
+  formatAnger,
 } from "../trackerOptions";
 import DetailSheet from "./DetailSheet";
 import SourceTypeIndicator from "./SourceTypeIndicator";
@@ -79,6 +80,7 @@ export default function EntryDetailModal({ open, onClose, entry, fieldDefinition
         {metricRow("Anxiety", entry.anxiety != null ? formatAnxiety(entry.anxiety) : null)}
         {metricRow("Contentment", entry.contentment != null ? formatContentment(entry.contentment) : null)}
         {metricRow("Focus", entry.focus != null ? formatFocus(entry.focus) : null)}
+        {metricRow("Anger level", entry.anger != null ? formatAnger(entry.anger) : null)}
       </div>
       {entry.music?.trim() ? (
         <div className="entry-detail-extra">
