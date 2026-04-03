@@ -294,19 +294,15 @@ body {
   flex-direction: column;
 }
 
-.app-header-right {
+/* Theme + Demo — desktop: grouped with nav on the right (margin-left: auto); mobile: top row with brand */
+.app-header-utilities {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.6rem 1rem;
-  min-width: 0;
-}
-
-.app-header-chrome {
+  gap: 0.4rem 0.55rem;
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
+  margin-left: auto;
 }
 
 .theme-toggle-wrap {
@@ -930,33 +926,34 @@ body {
   margin-inline: auto;
   width: 100%;
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: row;
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.85rem 1.35rem;
+  gap: 0.65rem 0.85rem;
   padding-left: max(1rem, env(safe-area-inset-left));
   padding-right: max(1rem, env(safe-area-inset-right));
 }
 
 .app-header-nav {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
   gap: 0.35rem 0.55rem;
-  flex-shrink: 0;
+  flex-shrink: 1;
   min-width: 0;
-  margin-inline-start: clamp(0.35rem, 2vw, 0.85rem);
-  padding-inline-start: clamp(0.5rem, 2vw, 0.85rem);
+  margin-inline-start: clamp(0.25rem, 1.5vw, 0.65rem);
+  padding-inline-start: clamp(0.45rem, 1.5vw, 0.75rem);
   border-inline-start: 1px solid var(--ink-a09);
 }
 
 .app-header-nav-primary {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
   gap: 0.12rem 0.2rem;
+  min-width: 0;
 }
 
 /* Subtle separator before secondary account action (hidden when rule not rendered). */
@@ -1071,6 +1068,129 @@ body {
   border-radius: var(--radius);
 }
 
+/* Mobile / narrow: two-row header — brand + utilities, then full-width main nav */
+@media (max-width: 767px) {
+  .app-header-inner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand utilities"
+      "nav nav";
+    column-gap: 0.55rem;
+    row-gap: 0.32rem;
+    align-items: center;
+  }
+
+  .brand {
+    grid-area: brand;
+    justify-self: start;
+    min-width: 0;
+  }
+
+  .app-header-utilities {
+    grid-area: utilities;
+    margin-left: 0;
+    justify-self: end;
+    align-self: center;
+  }
+
+  .app-header-nav {
+    grid-area: nav;
+    margin-left: 0;
+    margin-top: 0.08rem;
+    padding-left: 0;
+    padding-inline-start: 0;
+    border-left: none;
+    border-top: 1px solid var(--ink-a08);
+    padding-top: 0.38rem;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.28rem;
+    width: 100%;
+    flex-shrink: 0;
+  }
+
+  .app-header-nav-primary {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: 0.18rem;
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-bottom: 0.12rem;
+    scrollbar-width: thin;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .header-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    padding: 0.48rem 0.4rem;
+    font-size: 0.74rem;
+    white-space: nowrap;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+
+  .header-link--profile-icon {
+    flex: 0 0 2.75rem;
+    min-width: 2.75rem;
+    max-width: 2.75rem;
+    padding: 0.42rem;
+  }
+
+  .header-link--active {
+    background: color-mix(in srgb, var(--accent-blue-soft) 58%, transparent);
+    box-shadow: none;
+    border-radius: calc(var(--radius) - 2px);
+    color: var(--text);
+    font-weight: 650;
+  }
+
+  .header-link--active:hover {
+    background: color-mix(in srgb, var(--accent-blue-soft) 75%, transparent);
+    box-shadow: none;
+  }
+
+  .header-link--profile-icon.header-link--active {
+    background: color-mix(in srgb, var(--accent-blue-soft) 52%, transparent);
+  }
+
+  .app-header-nav-rule {
+    display: none;
+  }
+
+  .app-header-secondary-link {
+    align-self: center;
+    justify-content: center;
+    text-align: center;
+    padding: 0.45rem 0.75rem;
+    min-height: 44px;
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    border-top: 1px solid var(--ink-a07);
+    margin-top: 0.08rem;
+    padding-top: 0.48rem;
+    width: 100%;
+    max-width: 18rem;
+  }
+
+  .app-header-tertiary-link {
+    padding: 0.26rem 0.46rem;
+    border: 1px solid var(--ink-a10);
+    background: color-mix(in srgb, var(--surface) 92%, transparent);
+    font-size: 0.72rem;
+    line-height: 1.2;
+  }
+}
+
 .brand {
   display: inline-flex;
   align-items: center;
@@ -1079,6 +1199,7 @@ body {
   color: inherit;
   flex-shrink: 0;
   min-width: 0;
+  max-width: 100%;
   border-radius: var(--radius);
   margin: -0.15rem;
   padding: 0.15rem 0.22rem;

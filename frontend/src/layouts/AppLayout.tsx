@@ -6,8 +6,8 @@ import MainNav from "./MainNav";
 type Props = { children: React.ReactNode };
 
 /**
- * Shell: brand, theme, main nav (when scoped), error banner, main content.
- * Scoped routes render inside `children`; profile picker renders without main nav.
+ * Shell: header (brand, utilities, main nav when scoped), error banner, main content.
+ * Mobile: two-row header — brand + utilities, then full-width nav. Scoped routes render inside `children`.
  */
 export default function AppLayout({ children }: Props) {
   const { pathname } = useLocation();
@@ -22,21 +22,20 @@ export default function AppLayout({ children }: Props) {
             <img className="brand-mark" src="/logo-mark.svg" alt="" width="28" height="28" />
             <span className="logo">EmotionGraph</span>
           </Link>
-          <div className="app-header-right">
-            <div className="app-header-chrome">
-              <ThemeToggle />
-            </div>
+          <div className="app-header-utilities">
+            <ThemeToggle />
             {realm === "private" && (
               <Link className="app-header-tertiary-link" to="/demo/">
                 Demo
               </Link>
             )}
-            {usersReady && userScopeReady && (
-              <nav className="app-header-nav" aria-label="Main">
-                <MainNav />
-                {authMode !== "google_oauth" &&
-                  !(realm === "demo" && users.length === 1) &&
-                  pathname !== switchProfilePath && (
+          </div>
+          {usersReady && userScopeReady && (
+            <nav className="app-header-nav" aria-label="Main">
+              <MainNav />
+              {authMode !== "google_oauth" &&
+                !(realm === "demo" && users.length === 1) &&
+                pathname !== switchProfilePath && (
                   <>
                     <span className="app-header-nav-rule" aria-hidden="true" />
                     <Link className="app-header-secondary-link" to={switchProfilePath}>
@@ -44,9 +43,8 @@ export default function AppLayout({ children }: Props) {
                     </Link>
                   </>
                 )}
-              </nav>
-            )}
-          </div>
+            </nav>
+          )}
         </div>
       </header>
       {realm === "demo" && (
