@@ -424,6 +424,7 @@ class UserRead(BaseModel):
     timezone: str | None
     created_at: datetime
     is_admin: bool = False
+    is_owner: bool = False
 
     model_config = {"from_attributes": True}
 

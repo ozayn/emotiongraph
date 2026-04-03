@@ -202,23 +202,8 @@ export default function AdminTrackerPage() {
       </nav>
 
       <header className="admin-header">
-        <h1 className="admin-title">Log fields</h1>
-        <p className="muted small admin-lead">
-          Relabel or hide built-ins; add optional text, number, or dropdown fields (no new DB columns).
-        </p>
-        <details className="admin-doc-disclosure">
-          <summary className="admin-doc-disclosure-summary">Technical reference</summary>
-          <div className="admin-doc-disclosure-body muted small">
-            <p>
-              Built-in fields use fixed internal keys (e.g. <span className="mono">start_time</span>) tied to core storage.
-              Rename labels freely; do not change those keys here without a developer.
-            </p>
-            <p>
-              Custom fields get a system-generated key and store values separately—adding them from this page is supported and
-              does not require schema migrations.
-            </p>
-          </div>
-        </details>
+        <h1 className="admin-title">Tracker configuration</h1>
+        <p className="muted small admin-lead">Log entry and day form fields for this workspace.</p>
       </header>
 
       {loading && <p className="muted">Loading…</p>}
@@ -230,12 +215,35 @@ export default function AdminTrackerPage() {
       )}
 
       {!loading && (
-        <>
-          <section className="admin-section admin-section--create" aria-labelledby="admin-create-heading">
-            <h2 id="admin-create-heading" className="admin-section-title">
+        <div className="internal-tool-stack">
+          <section className="internal-tool-card" aria-labelledby="admin-overview-heading">
+            <h2 id="admin-overview-heading" className="internal-tool-card-title">
+              Overview
+            </h2>
+            <p className="internal-tool-card-hint muted small">
+              Relabel or hide built-ins; add optional text, number, or dropdown fields. Custom fields use separate storage—no
+              new core columns.
+            </p>
+            <details className="admin-doc-disclosure admin-doc-disclosure--in-card">
+              <summary className="admin-doc-disclosure-summary">Technical reference</summary>
+              <div className="admin-doc-disclosure-body muted small">
+                <p>
+                  Built-in fields use fixed internal keys (e.g. <span className="mono">start_time</span>) tied to core storage.
+                  Rename labels freely; do not change those keys here without a developer.
+                </p>
+                <p>
+                  Custom fields get a system-generated key and store values separately—adding them from this page is supported and
+                  does not require schema migrations.
+                </p>
+              </div>
+            </details>
+          </section>
+
+          <section className="internal-tool-card" aria-labelledby="admin-create-heading">
+            <h2 id="admin-create-heading" className="internal-tool-card-title">
               Add custom field
             </h2>
-            <p className="admin-section-hint muted small">
+            <p className="internal-tool-card-hint muted small">
               Shown in Add entry / day log. Hide with Visible off — data is kept.
             </p>
             <div className="admin-create-custom">
@@ -325,14 +333,14 @@ export default function AdminTrackerPage() {
             </div>
           </section>
 
-          <section className="admin-section" aria-labelledby="admin-entry-heading">
-            <div className="admin-section-head">
-              <h2 id="admin-entry-heading" className="admin-section-title">
+          <section className="internal-tool-card" aria-labelledby="admin-entry-heading">
+            <div className="internal-tool-card-head">
+              <h2 id="admin-entry-heading" className="internal-tool-card-title">
                 Log entry fields
               </h2>
-              <p className="admin-section-hint muted small">When saving or editing a log row.</p>
+              <p className="internal-tool-card-hint muted small">Built-in and custom fields when saving or editing a log row.</p>
             </div>
-            <div className="admin-field-list">
+            <div className="admin-field-list admin-field-list--in-card">
               {entryFields.map((f) => (
                 <FieldEditorRow
                   key={f.id}
@@ -348,14 +356,14 @@ export default function AdminTrackerPage() {
             </div>
           </section>
 
-          <section className="admin-section" aria-labelledby="admin-day-heading">
-            <div className="admin-section-head">
-              <h2 id="admin-day-heading" className="admin-section-title">
+          <section className="internal-tool-card" aria-labelledby="admin-day-heading">
+            <div className="internal-tool-card-head">
+              <h2 id="admin-day-heading" className="internal-tool-card-title">
                 Day fields
               </h2>
-              <p className="admin-section-hint muted small">Once per calendar day (e.g. sleep, cycle).</p>
+              <p className="internal-tool-card-hint muted small">Once per calendar day (e.g. sleep, cycle).</p>
             </div>
-            <div className="admin-field-list">
+            <div className="admin-field-list admin-field-list--in-card">
               {dayFields.map((f) => (
                 <FieldEditorRow
                   key={f.id}
@@ -370,7 +378,16 @@ export default function AdminTrackerPage() {
               ))}
             </div>
           </section>
-        </>
+
+          <section className="internal-tool-card internal-tool-card--quiet" aria-labelledby="admin-shared-heading">
+            <h2 id="admin-shared-heading" className="internal-tool-card-title">
+              Workspace settings
+            </h2>
+            <p className="internal-tool-card-hint muted small">
+              Reserved for future product-wide options (defaults, feature toggles). Nothing here yet.
+            </p>
+          </section>
+        </div>
       )}
     </div>
   );

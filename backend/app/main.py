@@ -18,11 +18,12 @@ from app.db import (
     get_db,
     upgrade_rdbms_schema_for_multiuser,
 )
-from app.deps import require_user_id, resolve_bearer_user_id
+from app.deps import require_owner_user, require_user_id, resolve_bearer_user_id
 from app.models import LogEntry, TrackerDay, User
 from app.routers.auth_google import router as auth_google_router
 from app.routers.export_csv import router as export_csv_router
 from app.routers.insights import router as insights_router
+from app.routers.owner_tools import router as owner_tools_router
 from app.routers.tracker_config import router as tracker_config_router
 from app.services.tracker_config_seed import seed_tracker_config_if_empty
 from app.services.user_seed import DEMO_SANDBOX_EMAIL, seed_users_if_empty
@@ -193,6 +194,7 @@ app.add_middleware(
 )
 
 app.include_router(tracker_config_router)
+app.include_router(owner_tools_router)
 app.include_router(insights_router, prefix="/insights", tags=["insights"])
 app.include_router(export_csv_router, prefix="/export", tags=["export"])
 app.include_router(auth_google_router, prefix="/auth", tags=["auth"])
@@ -577,12 +579,17 @@ def save_logs(
     return _log_entries_read_with_custom(db, created)
 
 
+# --- Owner-only operational API (extend with DB stats, analytics config, etc.) ---
+# Gated: GET /owner/summary (read-only dashboard), POST /debug/logs (dry-run log save).
+# Public GET /health stays unauthenticated for probes.
+
+
 @app.post("/debug/logs", response_model=DebugLogsSaveResponse)
 def debug_logs_save_dry_run(
     body: SaveLogsRequest,
-    user_id: int = Depends(require_user_id),
+    user_id: int = Depends(require_owner_user),
 ):
-    """Temporary: same body validation and ORM row build as POST /logs; does not persist."""
+    """Dry-run: same body validation and ORM row build as POST /logs; does not persist. Owner allowlist only."""
     for r in body.rows:
         LogEntry(
             user_id=user_id,

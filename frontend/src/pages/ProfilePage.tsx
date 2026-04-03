@@ -7,30 +7,9 @@ import UserDisplayNamePreferences from "../components/UserDisplayNamePreferences
 import UserTimezonePreferences from "../components/UserTimezonePreferences";
 import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
 import { usePrivateAuthOptional } from "../auth/privateAuthContext";
-import SoftHoverHint from "../components/SoftHoverHint";
-import { useFinePointerTitle } from "../hooks/useFinePointerTitle";
 import { useSession } from "../session/SessionContext";
 import type { User } from "../types";
 import { displayNameForUser } from "../userDisplay";
-
-function TrackerConfigGearIcon() {
-  return (
-    <svg
-      className="profile-account-action-config__icon"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-    </svg>
-  );
-}
 
 function profileContextLine(realm: string, authMode: string): string | null {
   if (realm === "demo") return "Demo profile — avoid sensitive data.";
@@ -69,7 +48,9 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
           ? "profile-data"
           : hash === "#profile" || hash === "#identity"
             ? "profile-identity"
-            : null;
+            : hash === "#workspace"
+              ? "profile-workspace"
+              : null;
     if (!scrollId) return;
     const id = window.requestAnimationFrame(() => {
       document.getElementById(scrollId)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -80,9 +61,8 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
   const accountContext = profileContextLine(realm, authMode);
   const showSwitchProfile = authMode !== "google_oauth";
   const showSignOut = realm === "private" && authMode === "google_oauth" && Boolean(privateAuth);
-  const showAdminConfigGear = realm === "private" && user.is_admin;
-  const showOutlineTray = showSignOut || showAdminConfigGear;
-  const adminConfigLinkTitle = useFinePointerTitle("Open tracker field admin");
+  const showOutlineTray = showSignOut;
+  const showWorkspaceLinks = realm === "private" && (user.is_admin || user.is_owner);
 
   const handleExportCsv = () => {
     setExportError(null);
@@ -159,19 +139,6 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
                           Sign out
                         </button>
                       ) : null}
-                      {showAdminConfigGear ? (
-                        <Link
-                          className="profile-account-action-config"
-                          to={pathFor("/admin")}
-                          aria-label="Tracker fields and labels (admin)"
-                        >
-                          <SoftHoverHint hint={adminConfigLinkTitle}>
-                            <span className="profile-account-action-config__hint-inner">
-                              <TrackerConfigGearIcon />
-                            </span>
-                          </SoftHoverHint>
-                        </Link>
-                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -180,6 +147,50 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
           </div>
         </div>
       </section>
+
+      {showWorkspaceLinks ? (
+        <section
+          id="profile-workspace"
+          className="profile-section profile-section--workspace-slot"
+          aria-labelledby="profile-workspace-heading"
+        >
+          <div className="profile-workspace-panel">
+            <div className="profile-workspace-panel__accent" aria-hidden="true" />
+            <div className="profile-workspace-panel__body">
+              <p className="profile-workspace-eyebrow">Product &amp; operations</p>
+              <h2 id="profile-workspace-heading" className="profile-workspace-title">
+                Workspace
+              </h2>
+              <p className="profile-workspace-lead muted small">
+                Configuration and internal tools for this app. Only shown when your account is allowlisted — separate from personal
+                preferences below.
+              </p>
+              <ul className="profile-workspace-actions">
+                {user.is_admin ? (
+                  <li>
+                    <Link className="profile-workspace-action" to={pathFor("/admin")}>
+                      <span className="profile-workspace-action-main">Tracker configuration</span>
+                      <span className="profile-workspace-action-cue" aria-hidden="true">
+                        →
+                      </span>
+                    </Link>
+                  </li>
+                ) : null}
+                {user.is_owner ? (
+                  <li>
+                    <Link className="profile-workspace-action" to={pathFor("/owner")}>
+                      <span className="profile-workspace-action-main">Internal tools</span>
+                      <span className="profile-workspace-action-cue" aria-hidden="true">
+                        →
+                      </span>
+                    </Link>
+                  </li>
+                ) : null}
+              </ul>
+            </div>
+          </div>
+        </section>
+      ) : null}
 
       <section id="profile-preferences" className="profile-section profile-section--settings profile-section--utility" aria-labelledby="profile-preferences-heading">
         <h2 id="profile-preferences-heading" className="profile-section-heading profile-section-heading--utility">

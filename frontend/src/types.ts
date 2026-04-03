@@ -9,6 +9,36 @@ export type User = {
   created_at: string;
   /** From server allowlist (ADMIN_EMAIL_ALLOWLIST); used to gate /admin UI. */
   is_admin?: boolean;
+  /** From server allowlist (OWNER_EMAIL_ALLOWLIST); used to gate /owner and owner-only APIs. */
+  is_owner?: boolean;
+};
+
+/** GET /owner/summary (owner allowlist + Bearer). */
+export type OwnerSummary = {
+  environment: {
+    database_profile: string;
+    cors_allowed_origin_count: number;
+    allow_unauthenticated_full_user_list: boolean;
+    allow_public_demo_user_list: boolean;
+    allow_x_user_id_any: boolean;
+    admin_allowlist_configured: boolean;
+    owner_allowlist_configured: boolean;
+  };
+  migrations: {
+    current_revisions: string[];
+    script_head_revision: string | null;
+    script_has_multiple_heads: boolean;
+    database_at_head: boolean | null;
+  };
+  usage: {
+    user_count: number;
+    log_entry_count: number;
+    tracker_field_definition_count: number;
+  };
+  debug: {
+    log_save_dry_run_post_path: string;
+    note: string;
+  };
 };
 
 /** Phase 1 custom tracker values (manual-only); not used in CSV/extraction/insights. */
@@ -45,7 +75,7 @@ export type SavedLogEntry = LogRow & {
   custom_values?: LogCustomValue[];
 };
 
-/** Response from POST /debug/logs (dry-run save diagnostics). TEMP: remove when debugging is done. */
+/** Response from POST /debug/logs (dry-run save diagnostics). Requires owner allowlist on the server. */
 export type DebugLogsSaveResponse = {
   user_id: number;
   log_date: string;

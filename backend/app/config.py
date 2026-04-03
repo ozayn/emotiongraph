@@ -52,6 +52,9 @@ class Settings(BaseSettings):
 
     # Comma-separated Google (or local) emails allowed to use /admin and /tracker-config. Empty = no admins.
     admin_email_allowlist: str = ""
+    # Comma-separated emails for owner-only API routes and /owner UI (internal tools). Empty = no owners.
+    # Independent of admin: admins configure product fields; owners get operational/debug surfaces.
+    owner_email_allowlist: str = ""
 
     @field_validator("cors_origins", mode="before")
     @classmethod

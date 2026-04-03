@@ -1,8 +1,8 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
-/** Same-origin API path collides with React route `/insights` — only XHR/fetch should hit the backend. */
-function bypassInsightsForSpaNavigation(req: { headers: { accept?: string | string[] } }) {
+/** Same-origin API path collides with a React route — HTML navigations get the SPA; fetch/XHR hit the backend. */
+function bypassSpaNavigationWhenHtml(req: { headers: { accept?: string | string[] } }) {
   const raw = req.headers.accept;
   const accept = Array.isArray(raw) ? raw.join(",") : (raw ?? "");
   if (accept.includes("text/html")) {
@@ -28,7 +28,12 @@ export default defineConfig({
       "/insights": {
         target: "http://127.0.0.1:8100",
         changeOrigin: true,
-        bypass: bypassInsightsForSpaNavigation,
+        bypass: bypassSpaNavigationWhenHtml,
+      },
+      "/owner": {
+        target: "http://127.0.0.1:8100",
+        changeOrigin: true,
+        bypass: bypassSpaNavigationWhenHtml,
       },
       "/export": { target: "http://127.0.0.1:8100", changeOrigin: true },
     },

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from app.config import settings
 from app.models import User
+from app.owner_access import is_owner_email
 from app.schemas import UserRead
 
 
@@ -25,4 +26,9 @@ def is_admin_email(email: str | None) -> bool:
 
 def user_read_from_user(row: User) -> UserRead:
     base = UserRead.model_validate(row)
-    return base.model_copy(update={"is_admin": is_admin_email(row.email)})
+    return base.model_copy(
+        update={
+            "is_admin": is_admin_email(row.email),
+            "is_owner": is_owner_email(row.email),
+        }
+    )

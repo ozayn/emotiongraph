@@ -126,6 +126,7 @@ Set these **per environment** in Railway (do not copy production DB secrets to s
 | **`GROQ_API_KEY`**, **`ANTHROPIC_API_KEY`** | Same keys are fine; separate keys if you want usage/cost isolation. |
 | **`GOOGLE_OAUTH_CLIENT_ID`** / **`VITE_GOOGLE_CLIENT_ID`** | Same client ID if staging origin is added to Google Console. |
 | **`ADMIN_EMAIL_ALLOWLIST`** | Often identical; adjust if staging admins differ. |
+| **`OWNER_EMAIL_ALLOWLIST`** | Stricter operational gate (`/owner`, `POST /debug/logs`, future internal tools). Often your own email only; can match admin or be a subset. |
 
 ### Review for parity vs lock-down
 

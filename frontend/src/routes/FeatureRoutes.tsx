@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Navigate, Route, Routes, useNavigate } from "react-router-dom";
 import AdminPrivateRoute from "../components/AdminPrivateRoute";
+import OwnerPrivateRoute from "../components/OwnerPrivateRoute";
 import UsersGate from "../components/UsersGate";
 import { useSession } from "../session/SessionContext";
 import AddEntryPage from "../pages/AddEntryPage";
@@ -12,7 +13,7 @@ import PreferencesPage from "../pages/PreferencesPage";
 import ProfilePage from "../pages/ProfilePage";
 
 /**
- * Shared IA for private (`/…`) and demo (`/demo/…`) realms. Admin and legacy preferences stay private-only.
+ * Shared IA for private (`/…`) and demo (`/demo/…`) realms. Admin, owner stub, and legacy preferences stay private-only.
  */
 export default function FeatureRoutes() {
   const navigate = useNavigate();
@@ -107,6 +108,7 @@ export default function FeatureRoutes() {
       <Route path="/entries" element={gate((uid) => <LogsPage key={uid} userId={uid} timeZone={userTimeZone} />)} />
       <Route path="/insights" element={gate((uid) => <InsightsPage key={uid} userId={uid} timeZone={userTimeZone} />)} />
       <Route path="/admin" element={<AdminPrivateRoute />} />
+      <Route path="/owner" element={<OwnerPrivateRoute />} />
       <Route path="/preferences" element={<PreferencesPage />} />
       <Route path="/profile" element={profileEl} />
     </Routes>

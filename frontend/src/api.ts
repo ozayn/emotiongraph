@@ -7,6 +7,7 @@ import type {
   LogImportRow,
   LogRow,
   LogsImportPreviewResponse,
+  OwnerSummary,
   SavedLogEntry,
   TrackerDay,
   User,
@@ -100,6 +101,17 @@ async function parseJson<T>(res: Response): Promise<T> {
     throw new Error(detail || res.statusText);
   }
   return text ? (JSON.parse(text) as T) : ({} as T);
+}
+
+export type { OwnerSummary };
+
+/** Owner-only dashboard payload; requires Bearer JWT and OWNER_EMAIL_ALLOWLIST. */
+export async function fetchOwnerSummary(): Promise<OwnerSummary> {
+  const res = await fetch(`${base()}/owner/summary`, { headers: { ...authHeaders() } });
+  if (res.status === 401) {
+    throw new ApiUnauthorizedError();
+  }
+  return parseJson(res);
 }
 
 export async function fetchUsers(isDemoRealm = false): Promise<User[]> {
@@ -203,7 +215,7 @@ export async function saveLogs(userId: number, logDate: string, rows: LogRow[]):
   return parseJson(res);
 }
 
-/** TEMP: same JSON body as saveLogs but POST /debug/logs (no DB write). Remove when debugging is done. */
+/** Same JSON body as saveLogs but POST /debug/logs (no DB write). Server requires owner allowlist. */
 export async function debugSaveLogsPayload(
   userId: number,
   logDate: string,
