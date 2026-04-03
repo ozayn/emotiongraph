@@ -11,18 +11,28 @@ import { useSession } from "../session/SessionContext";
 import type { User } from "../types";
 import { displayNameForUser } from "../userDisplay";
 
-function profileMonogramLetter(user: User): string {
-  const d = user.display_name?.trim();
-  if (d) return d.charAt(0).toUpperCase();
-  const n = user.name?.trim();
-  if (n) return n.charAt(0).toUpperCase();
-  return "?";
+function TrackerConfigGearIcon() {
+  return (
+    <svg
+      className="profile-account-action-config__icon"
+      viewBox="0 0 24 24"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
 }
 
 function profileContextLine(realm: string, authMode: string): string | null {
   if (realm === "demo") return "Demo profile — avoid sensitive data.";
-  if (realm === "private" && authMode === "google_oauth") return "Same Google account as sign-in.";
-  if (realm === "private") return "Stored on this device until you switch profiles.";
+  if (realm === "private" && authMode !== "google_oauth") return "Stored on this device until you switch profiles.";
   return null;
 }
 
@@ -66,6 +76,10 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
   }, [hash]);
 
   const accountContext = profileContextLine(realm, authMode);
+  const showSwitchProfile = authMode !== "google_oauth";
+  const showSignOut = realm === "private" && authMode === "google_oauth" && Boolean(privateAuth);
+  const showAdminConfigGear = realm === "private" && user.is_admin;
+  const showOutlineTray = showSignOut || showAdminConfigGear;
 
   const handleExportCsv = () => {
     setExportError(null);
@@ -104,23 +118,11 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
         </h2>
         <div className="profile-settings-group profile-settings-group--primary">
           <div className="profile-account-hero">
-            <div className="profile-account-hero-main">
-              <span className="profile-account-monogram" aria-hidden="true">
-                {profileMonogramLetter(user)}
-              </span>
-              <div className="profile-account-identity">
-                <p className="profile-account-name">{displayNameForUser(user)}</p>
-                <p className="profile-account-legal muted small">{user.name}</p>
-                <p className="profile-account-meta mono muted small">
-                  #{user.id}
-                  <span className="profile-account-meta-sep" aria-hidden="true">
-                    {" "}
-                    ·{" "}
-                  </span>
-                  <span>{authMode === "google_oauth" ? "Google" : "Local"}</span>
-                </p>
-                {accountContext ? <p className="profile-account-context muted small">{accountContext}</p> : null}
-              </div>
+            <div className="profile-account-identity">
+              <p className="profile-account-name">{displayNameForUser(user)}</p>
+              <p className="profile-account-legal muted small">{user.name}</p>
+              <p className="profile-account-type">{authMode === "google_oauth" ? "Google" : "Local"}</p>
+              {accountContext ? <p className="profile-account-context muted small">{accountContext}</p> : null}
             </div>
           </div>
 
@@ -128,30 +130,44 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
 
           <div className="profile-settings-field profile-account-actions" aria-label="Account actions">
             <div className="profile-account-actions-inner">
-              <div className="profile-account-actions-secondary">
-                {authMode !== "google_oauth" ? (
-                  <Link className="profile-account-action-secondary" to={pathFor("/switch-profile")}>
-                    Switch profile
-                  </Link>
-                ) : null}
-                {realm === "private" && authMode === "google_oauth" && privateAuth ? (
-                  <button
-                    type="button"
-                    className="profile-account-action-signout"
-                    onClick={() => {
-                      privateAuth.setAccessToken(null);
-                      window.location.assign("/");
-                    }}
-                  >
-                    Sign out
-                  </button>
-                ) : null}
-              </div>
-              {realm === "private" && user.is_admin ? (
-                <div className="profile-account-actions-admin">
-                  <Link className="profile-account-config-link" to={pathFor("/admin")} title="Tracker fields and labels">
-                    Config
-                  </Link>
+              {showSwitchProfile || showOutlineTray ? (
+                <div
+                  className={
+                    "profile-account-actions-secondary" +
+                    (showSwitchProfile && showOutlineTray ? " profile-account-actions-secondary--split" : "")
+                  }
+                >
+                  {showSwitchProfile ? (
+                    <Link className="profile-account-action-secondary" to={pathFor("/switch-profile")}>
+                      Switch profile
+                    </Link>
+                  ) : null}
+                  {showOutlineTray ? (
+                    <div className="profile-account-actions-outline-row">
+                      {showSignOut ? (
+                        <button
+                          type="button"
+                          className="profile-account-action-signout"
+                          onClick={() => {
+                            privateAuth?.setAccessToken(null);
+                            window.location.assign("/");
+                          }}
+                        >
+                          Sign out
+                        </button>
+                      ) : null}
+                      {showAdminConfigGear ? (
+                        <Link
+                          className="profile-account-action-config"
+                          to={pathFor("/admin")}
+                          aria-label="Tracker config"
+                          title="Tracker fields and labels"
+                        >
+                          <TrackerConfigGearIcon />
+                        </Link>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>

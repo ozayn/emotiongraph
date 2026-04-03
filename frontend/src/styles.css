@@ -3674,36 +3674,11 @@ body {
   padding: 1.2rem 1.15rem 1.05rem;
 }
 
-.profile-account-hero-main {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.profile-account-monogram {
-  flex-shrink: 0;
-  width: 3.35rem;
-  height: 3.35rem;
-  border-radius: 1.05rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.28rem;
-  font-weight: 650;
-  letter-spacing: -0.04em;
-  line-height: 1;
-  color: color-mix(in srgb, var(--accent-blue-mid) 92%, var(--text) 8%);
-  background: color-mix(in srgb, var(--accent-blue-soft) 50%, var(--surface) 50%);
-  border: 1px solid color-mix(in srgb, var(--accent-blue-mid) 22%, transparent);
-  box-shadow: 0 1px 2px var(--ink-a045);
-}
-
 .profile-account-identity {
   min-width: 0;
-  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.22rem;
 }
 
 .profile-page--premium .profile-account-name {
@@ -3717,10 +3692,13 @@ body {
   line-height: 1.4;
 }
 
-.profile-page--premium .profile-account-meta {
-  margin-top: 0.15rem;
+.profile-page--premium .profile-account-type {
+  margin: 0.08rem 0 0;
   font-size: 0.72rem;
-  opacity: 0.9;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--ink-a45);
 }
 
 .profile-account-context {
@@ -3729,7 +3707,7 @@ body {
   max-width: 20rem;
 }
 
-/* Account: one action group — secondary row, admin tail */
+/* Account: secondary row — optional Switch + outline tray (Sign out + admin gear) */
 .profile-page--premium .profile-settings-group--primary > .profile-settings-field.profile-account-actions {
   padding-top: 0.75rem;
   padding-bottom: 0.55rem;
@@ -3787,36 +3765,87 @@ body {
   color: var(--accent-blue-mid);
 }
 
-.profile-account-action-signout {
+.profile-account-actions-secondary--split {
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+}
+
+/* Keeps Sign out + gear on one line; tray sits end-aligned when Switch profile is present */
+.profile-account-actions-outline-row {
+  display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0.45rem;
+  flex-shrink: 0;
+}
+
+/* Account: Sign out & admin Config — quiet outline controls (secondary to links & Save) */
+.profile-page--premium .profile-account-action-signout,
+.profile-page--premium .profile-account-action-config {
   margin: 0;
-  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 2rem;
+  padding: 0.32rem 0.78rem;
   font: inherit;
-  font-size: 0.78rem;
+  font-size: 0.8125rem;
   font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.2;
   color: var(--ink-a52);
-  background: none;
-  border: none;
+  background: color-mix(in srgb, var(--surface) 93%, #fff 7%);
+  border: 1px solid var(--ink-a10);
+  border-radius: calc(var(--radius) - 6px);
   cursor: pointer;
-  text-align: left;
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  text-decoration-color: color-mix(in srgb, var(--muted) 70%, transparent);
-  transition: color 0.2s var(--ease-soft), text-decoration-color 0.2s var(--ease-soft);
+  text-align: center;
+  text-decoration: none;
+  box-shadow: none;
+  transition:
+    border-color 0.2s var(--ease-soft),
+    background 0.2s var(--ease-soft),
+    color 0.2s var(--ease-soft),
+    box-shadow 0.2s var(--ease-soft);
 }
 
-.profile-account-action-signout:hover {
+/* Icon-only admin control — same chrome as Sign out, quieter footprint */
+.profile-page--premium .profile-account-action-config {
+  min-width: 2.35rem;
+  min-height: 2.35rem;
+  padding: 0.38rem;
+  font-size: 0;
+  letter-spacing: 0;
+}
+
+.profile-page--premium .profile-account-action-config__icon {
+  width: 1.0625rem;
+  height: 1.0625rem;
+  display: block;
+  flex-shrink: 0;
+}
+
+.profile-page--premium .profile-account-action-signout:hover,
+.profile-page--premium .profile-account-action-config:hover {
+  border-color: var(--ink-a14);
+  background: var(--surface);
   color: var(--muted);
-  text-decoration-color: var(--muted);
+  box-shadow: 0 1px 2px var(--ink-a045);
 }
 
-.profile-account-actions-admin {
-  margin-top: 0.5rem;
-  padding-top: 0.4rem;
+.profile-page--premium .profile-account-action-signout:focus-visible,
+.profile-page--premium .profile-account-action-config:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--import-focus-ring);
 }
 
-.profile-account-actions-admin .profile-account-config-link {
-  font-size: 0.72rem;
-  letter-spacing: 0.02em;
+.profile-page--premium .profile-account-action-signout:focus-visible:hover,
+.profile-page--premium .profile-account-action-config:focus-visible:hover {
+  box-shadow: 0 1px 2px var(--ink-a045), 0 0 0 2px var(--import-focus-ring);
 }
 
 /* Compact display name row inside account card */
@@ -4349,15 +4378,6 @@ body {
   background: var(--surface);
 }
 
-.profile-account-meta {
-  margin: 0;
-  letter-spacing: 0.02em;
-}
-
-.profile-account-meta-sep {
-  opacity: 0.65;
-}
-
 .profile-account-footer-sep {
   user-select: none;
   opacity: 0.55;
@@ -4381,19 +4401,6 @@ button.profile-account-secondary {
   padding: 0;
   font: inherit;
   cursor: pointer;
-}
-
-.profile-account-config-link {
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  text-decoration: none;
-  color: var(--muted);
-  transition: color 0.2s var(--ease-soft);
-}
-
-.profile-account-config-link:hover {
-  color: var(--accent-blue-mid);
 }
 
 .profile-settings-group--primary .btn.ghost {
@@ -4453,17 +4460,42 @@ button.profile-account-secondary {
     padding: 1.05rem 1rem 0.95rem;
   }
 
-  .profile-account-monogram {
-    width: 3rem;
-    height: 3rem;
-    font-size: 1.15rem;
-    border-radius: 0.95rem;
-  }
-
   .profile-account-actions-secondary {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.35rem;
+  }
+
+  .profile-account-actions-secondary--split {
+    align-items: stretch;
+  }
+
+  .profile-account-actions-outline-row {
+    width: 100%;
+    max-width: 100%;
+    justify-content: flex-start;
+  }
+
+  .profile-page--premium .profile-account-actions-outline-row .profile-account-action-signout {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .profile-page--premium .profile-account-action-signout {
+    min-height: 44px;
+    padding: 0.4rem 1rem;
+  }
+
+  .profile-page--premium .profile-account-action-config {
+    flex-shrink: 0;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.5rem;
+  }
+
+  .profile-page--premium .profile-account-action-config__icon {
+    width: 1.125rem;
+    height: 1.125rem;
   }
 
   .profile-account-action-primary {
