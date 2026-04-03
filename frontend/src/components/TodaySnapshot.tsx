@@ -19,6 +19,7 @@ import {
 import { fetchTrackerDay } from "../api";
 import type { SavedLogEntry, TrackerDay } from "../types";
 import {
+  EMOTION_METRIC_ABBR,
   formatAnxiety,
   formatContentment,
   formatEnergy,
@@ -131,12 +132,18 @@ type MetricKey = EmotionMetricKey;
 const SNAPSHOT_METRICS: {
   key: MetricKey;
   label: string;
+  abbr: string;
   colorVar: string;
 }[] = [
-  { key: "energy", label: "Energy", colorVar: "var(--chart-energy)" },
-  { key: "anxiety", label: "Anxiety", colorVar: "var(--chart-anxiety)" },
-  { key: "contentment", label: "Contentment", colorVar: "var(--chart-contentment)" },
-  { key: "focus", label: "Focus", colorVar: "var(--chart-focus)" },
+  { key: "energy", label: "Energy", abbr: EMOTION_METRIC_ABBR.energy, colorVar: "var(--chart-energy)" },
+  { key: "anxiety", label: "Anxiety", abbr: EMOTION_METRIC_ABBR.anxiety, colorVar: "var(--chart-anxiety)" },
+  {
+    key: "contentment",
+    label: "Contentment",
+    abbr: EMOTION_METRIC_ABBR.contentment,
+    colorVar: "var(--chart-contentment)",
+  },
+  { key: "focus", label: "Focus", abbr: EMOTION_METRIC_ABBR.focus, colorVar: "var(--chart-focus)" },
 ];
 
 const defaultMetricVisibility: Record<MetricKey, boolean> = {
@@ -269,7 +276,7 @@ export default function TodaySnapshot({ userId, logDate, entries, entriesLoading
                   role="group"
                   aria-label="Series"
                 >
-                  {SNAPSHOT_METRICS.map(({ key, label, colorVar }) => {
+                  {SNAPSHOT_METRICS.map(({ key, label, abbr, colorVar }) => {
                     const hasData = series[key].length > 0;
                     const on = metricVisible[key];
                     return (
@@ -283,7 +290,11 @@ export default function TodaySnapshot({ userId, logDate, entries, entriesLoading
                         }
                         aria-pressed={hasData ? on : undefined}
                         disabled={!hasData}
-                        title={!hasData ? `No ${label.toLowerCase()} values logged today` : undefined}
+                        aria-label={
+                          hasData
+                            ? `${label} — ${on ? "shown" : "hidden"} in chart`
+                            : `No ${label.toLowerCase()} values logged today`
+                        }
                         onClick={() => {
                           if (!hasData) return;
                           setMetricVisible((v) => ({ ...v, [key]: !v[key] }));
@@ -291,7 +302,9 @@ export default function TodaySnapshot({ userId, logDate, entries, entriesLoading
                         style={{ "--today-metric-color": colorVar } as CSSProperties}
                       >
                         <span className="today-snapshot-metric-toggle-dot" aria-hidden />
-                        {label}
+                        <span className="today-snapshot-metric-toggle-abbr mono" aria-hidden="true">
+                          {abbr}
+                        </span>
                       </button>
                     );
                   })}

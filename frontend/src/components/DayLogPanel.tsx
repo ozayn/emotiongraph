@@ -23,6 +23,7 @@ import {
 } from "../logEditDraft";
 import CustomFieldsForm from "./CustomFieldsForm";
 import EntryDetailModal from "./EntryDetailModal";
+import SourceTypeIndicator from "./SourceTypeIndicator";
 import { IconRowEdit, IconRowTrash } from "./RowActionIcons";
 import {
   buildCustomValuesPayload,
@@ -938,7 +939,9 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
                           {metricsShort}
                         </span>
                       )}
-                      <span className="today-saved-item-source">{e.source_type}</span>
+                      <span className="today-saved-item-source">
+                        <SourceTypeIndicator source={e.source_type} />
+                      </span>
                     </div>
                     <p className="today-saved-item-event">{e.event?.trim() ? e.event : "(no event)"}</p>
                     {(e.comments || e.music) && (

@@ -10,6 +10,8 @@ import {
   type KeyboardEvent,
 } from "react";
 import { createPortal } from "react-dom";
+import { useFinePointerTitle } from "../hooks/useFinePointerTitle";
+import SoftHoverHint from "./SoftHoverHint";
 
 export type CalmSelectOption = { value: string; label: string; hint?: string };
 
@@ -31,7 +33,7 @@ type Props = {
   placeholder?: string;
   /** Disabled trigger label when there are no options */
   emptyStateLabel?: string;
-  /** Native tooltip on the trigger (e.g. email) */
+  /** Themed hover hint on the trigger (fine pointer only; e.g. full email when label is truncated) */
   title?: string;
   "aria-busy"?: boolean;
   "aria-describedby"?: string;
@@ -229,6 +231,7 @@ export default function CalmSelect({
     .join(" ");
 
   const triggerLabel = empty ? emptyStateLabel : displayLabel;
+  const triggerHint = useFinePointerTitle(title);
 
   return (
     <div className={rootClass}>
@@ -245,12 +248,13 @@ export default function CalmSelect({
         aria-label={ariaLabel}
         aria-labelledby={ariaLabelledBy}
         aria-describedby={ariaDescribedBy}
-        title={title}
         onClick={() => !isDisabled && setOpen((o) => !o)}
         onKeyDown={onTriggerKeyDown}
       >
-        <span className="calm-select-value">{triggerLabel}</span>
-        <Chevron open={open} />
+        <SoftHoverHint hint={triggerHint} className="calm-select-trigger-hint">
+          <span className="calm-select-value">{triggerLabel}</span>
+          <Chevron open={open} />
+        </SoftHoverHint>
       </button>
 
       {open &&

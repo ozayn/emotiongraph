@@ -7,6 +7,7 @@ import {
   formatFocus,
 } from "../trackerOptions";
 import DetailSheet from "./DetailSheet";
+import SourceTypeIndicator from "./SourceTypeIndicator";
 
 type Props = {
   open: boolean;
@@ -55,23 +56,25 @@ function metricRow(label: string, value: string | null) {
   );
 }
 
+const ENTRY_DETAIL_TITLE = "Check-in details";
+
 export default function EntryDetailModal({ open, onClose, entry, fieldDefinitions = [] }: Props) {
   if (!entry) return null;
 
-  const title = `Entry #${entry.id}`;
   const when = `${shortDate(entry.log_date)} · ${entry.start_time ?? "—"}–${entry.end_time ?? "—"}`;
 
   return (
-    <DetailSheet open={open} onClose={onClose} title={title}>
+    <DetailSheet open={open} onClose={onClose} title={ENTRY_DETAIL_TITLE}>
       <p className="metric-detail-modal-context muted small">{when}</p>
       <p className="entry-detail-source muted small">
-        Source · <span className="entry-detail-source-val">{entry.source_type}</span>
+        <span className="entry-detail-source-key">Source</span>
+        <SourceTypeIndicator source={entry.source_type} />
       </p>
       <div className="entry-detail-event-block">
         <p className="entry-detail-event-label muted small">Event</p>
         <p className="entry-detail-event-text">{entry.event?.trim() ? entry.event : "—"}</p>
       </div>
-      <div className="entry-detail-metrics" role="group" aria-label="Metrics for this entry">
+      <div className="entry-detail-metrics" role="group" aria-label="Metrics for this check-in">
         {metricRow("Energy", entry.energy_level != null ? formatEnergy(entry.energy_level) : null)}
         {metricRow("Anxiety", entry.anxiety != null ? formatAnxiety(entry.anxiety) : null)}
         {metricRow("Contentment", entry.contentment != null ? formatContentment(entry.contentment) : null)}

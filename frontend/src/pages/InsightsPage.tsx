@@ -14,6 +14,7 @@ import {
 } from "recharts";
 import { fetchInsights } from "../api";
 import MetricDetailModal from "../components/MetricDetailModal";
+import SoftHoverHint from "../components/SoftHoverHint";
 import {
   EMOTION_MODAL_META,
   formatEmotionModalValue,
@@ -21,6 +22,7 @@ import {
   TRACKER_MODAL_META,
   type MetricModalState,
 } from "../metricDetailModal";
+import { useFinePointerTitle } from "../hooks/useFinePointerTitle";
 import { useSession } from "../session/SessionContext";
 import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
 import type { InsightsPayload, InsightsRecentEntry, InsightsSummary } from "../types";
@@ -391,6 +393,34 @@ function SingleDayCheckinsChart({ entries }: { entries: InsightsRecentEntry[] })
   );
 }
 
+function InsightsRangePreset({
+  label,
+  days,
+  onPick,
+}: {
+  label: string;
+  days: number;
+  onPick: (d: number) => void;
+}) {
+  const hintLine =
+    days === 1
+      ? "Today only (this profile’s timezone)"
+      : `Last ${days} days (${label}) in this profile’s timezone`;
+  const hint = useFinePointerTitle(hintLine);
+  return (
+    <button
+      type="button"
+      className="insights-preset"
+      onClick={() => onPick(days)}
+      aria-label={days === 1 ? "Today only (this profile’s timezone)" : `Last ${days} days`}
+    >
+      <SoftHoverHint hint={hint}>
+        <span aria-hidden="true">{label}</span>
+      </SoftHoverHint>
+    </button>
+  );
+}
+
 function InsightsEntriesSection({
   id,
   title,
@@ -603,26 +633,36 @@ export default function InsightsPage({ userId, timeZone }: Props) {
             { label: "30d", days: 30 },
             { label: "90d", days: 90 },
           ].map(({ label, days }) => (
-            <button
-              key={label}
-              type="button"
-              className="insights-preset"
-              onClick={() => applyPreset(days)}
-              title={days === 1 ? "Today only (this profile’s timezone)" : undefined}
-            >
-              {label}
-            </button>
+            <InsightsRangePreset key={label} label={label} days={days} onPick={applyPreset} />
           ))}
         </div>
-        <div className="insights-date-row">
-          <label className="insights-date-field">
-            <span className="insights-date-label">From</span>
-            <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="insights-date-input" />
-          </label>
-          <label className="insights-date-field">
-            <span className="insights-date-label">To</span>
-            <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="insights-date-input" />
-          </label>
+        <div className={`insights-date-row${singleDay ? " insights-date-row--single-day" : ""}`}>
+          {singleDay ? (
+            <label className="insights-date-field insights-date-field--single-day">
+              <span className="insights-date-label">Day</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setStartDate(v);
+                  setEndDate(v);
+                }}
+                className="insights-date-input"
+              />
+            </label>
+          ) : (
+            <>
+              <label className="insights-date-field">
+                <span className="insights-date-label">From</span>
+                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="insights-date-input" />
+              </label>
+              <label className="insights-date-field">
+                <span className="insights-date-label">To</span>
+                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="insights-date-input" />
+              </label>
+            </>
+          )}
         </div>
       </section>
 

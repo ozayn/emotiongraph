@@ -13,6 +13,8 @@ import CalmSelect from "../components/CalmSelect";
 import CustomFieldsForm from "../components/CustomFieldsForm";
 import { IconRowEdit, IconRowTrash } from "../components/RowActionIcons";
 import EntryDetailModal from "../components/EntryDetailModal";
+import SourceTypeIndicator from "../components/SourceTypeIndicator";
+import { TableAbbrevHint, TableCellMultilineHint } from "../components/tableHoverHints";
 import TodaySnapshot from "../components/TodaySnapshot";
 import MetricSelect from "../components/MetricSelect";
 import { buildCustomValuesPayload, customValuesToDraft, filterCustomFormFields } from "../customFieldValues";
@@ -46,6 +48,12 @@ function readStoredEntriesViewMode(): EntriesViewMode {
 
 function tableMetricCell(v: number | null | undefined): string {
   return v != null ? String(v) : "—";
+}
+
+function tableCommentsCell(comments: string | null | undefined): { text: string; title?: string } {
+  const t = comments?.trim() ?? "";
+  if (!t) return { text: "—" };
+  return { text: t, title: t };
 }
 
 function shortDate(iso: string): string {
@@ -429,7 +437,9 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
                         <span className="entries-item-times mono muted" aria-label="Start to end time">
                           {e.start_time ?? "—"}–{e.end_time ?? "—"}
                         </span>
-                        <span className="entries-item-source">{e.source_type}</span>
+                        <span className="entries-item-source">
+                          <SourceTypeIndicator source={e.source_type} />
+                        </span>
                       </div>
                       <div
                         className="entries-item-menu-wrap"
@@ -507,18 +517,29 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
                     <th scope="col">Start</th>
                     <th scope="col">End</th>
                     <th scope="col">Event</th>
-                    <th scope="col">Source</th>
-                    <th scope="col" className="entries-table-num" title="Energy level">
-                      En
+                    <th scope="col" className="entries-table-comments-col">
+                      <span className="sr-only">Comments</span>
+                      <TableAbbrevHint abbr="Cm" hint="Comments" />
                     </th>
-                    <th scope="col" className="entries-table-num" title="Anxiety">
-                      Ax
+                    <th scope="col" className="entries-table-src-head">
+                      <span className="sr-only">Source type</span>
+                      <TableAbbrevHint abbr="Src" hint="Source type" />
                     </th>
-                    <th scope="col" className="entries-table-num" title="Contentment">
-                      Co
+                    <th scope="col" className="entries-table-num">
+                      <span className="sr-only">Energy level</span>
+                      <TableAbbrevHint abbr="En" hint="Energy level" />
                     </th>
-                    <th scope="col" className="entries-table-num" title="Focus">
-                      Fo
+                    <th scope="col" className="entries-table-num">
+                      <span className="sr-only">Anxiety</span>
+                      <TableAbbrevHint abbr="Ax" hint="Anxiety" />
+                    </th>
+                    <th scope="col" className="entries-table-num">
+                      <span className="sr-only">Contentment</span>
+                      <TableAbbrevHint abbr="Co" hint="Contentment" />
+                    </th>
+                    <th scope="col" className="entries-table-num">
+                      <span className="sr-only">Focus</span>
+                      <TableAbbrevHint abbr="Fo" hint="Focus" />
                     </th>
                     <th scope="col" className="entries-table-actions-col">
                       <span className="sr-only">Row actions</span>
@@ -526,49 +547,61 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
                   </tr>
                 </thead>
                 <tbody>
-                  {displayedEntries.map((e) => (
-                    <tr
-                      key={e.id}
-                      className="entries-table-row entries-table-row--interactive"
-                      tabIndex={0}
-                      onClick={() => setEntryDetail(e)}
-                      onKeyDown={(ev) => {
-                        if (ev.key !== "Enter" && ev.key !== " ") return;
-                        ev.preventDefault();
-                        setEntryDetail(e);
-                      }}
-                    >
-                      <td className="mono entries-table-date">{e.log_date}</td>
-                      <td className="mono entries-table-time">{e.start_time ?? "—"}</td>
-                      <td className="mono entries-table-time">{e.end_time ?? "—"}</td>
-                      <td className="entries-table-event" title={e.event ?? undefined}>
-                        {e.event?.trim() ? e.event : "—"}
-                      </td>
-                      <td className="entries-table-src">{e.source_type}</td>
-                      <td className="mono entries-table-num">{tableMetricCell(e.energy_level)}</td>
-                      <td className="mono entries-table-num">{tableMetricCell(e.anxiety)}</td>
-                      <td className="mono entries-table-num">{tableMetricCell(e.contentment)}</td>
-                      <td className="mono entries-table-num">{tableMetricCell(e.focus)}</td>
-                      <td className="entries-table-actions" onClick={(ev) => ev.stopPropagation()}>
-                        <button
-                          type="button"
-                          className="entries-row-icon-btn"
-                          aria-label={`Edit entry ${e.id}`}
-                          onClick={() => openEdit(e)}
-                        >
-                          <IconRowEdit />
-                        </button>
-                        <button
-                          type="button"
-                          className="entries-row-icon-btn entries-row-icon-btn--delete"
-                          aria-label={`Delete entry ${e.id}`}
-                          onClick={() => void handleDelete(e)}
-                        >
-                          <IconRowTrash />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {displayedEntries.map((e) => {
+                    const commentCell = tableCommentsCell(e.comments);
+                    return (
+                      <tr
+                        key={e.id}
+                        className="entries-table-row entries-table-row--interactive"
+                        tabIndex={0}
+                        onClick={() => setEntryDetail(e)}
+                        onKeyDown={(ev) => {
+                          if (ev.key !== "Enter" && ev.key !== " ") return;
+                          ev.preventDefault();
+                          setEntryDetail(e);
+                        }}
+                      >
+                        <td className="mono entries-table-date">{e.log_date}</td>
+                        <td className="mono entries-table-time">{e.start_time ?? "—"}</td>
+                        <td className="mono entries-table-time">{e.end_time ?? "—"}</td>
+                        <td className="entries-table-event">
+                          <TableCellMultilineHint hintText={e.event?.trim() ? e.event : undefined}>
+                            <span className="entries-table-event-inner">{e.event?.trim() ? e.event : "—"}</span>
+                          </TableCellMultilineHint>
+                        </td>
+                        <td className="entries-table-comments-col">
+                          <TableCellMultilineHint hintText={commentCell.title}>
+                            <span className="entries-table-comments-inner">{commentCell.text}</span>
+                          </TableCellMultilineHint>
+                        </td>
+                        <td className="entries-table-src-cell">
+                          <SourceTypeIndicator source={e.source_type} />
+                        </td>
+                        <td className="mono entries-table-num">{tableMetricCell(e.energy_level)}</td>
+                        <td className="mono entries-table-num">{tableMetricCell(e.anxiety)}</td>
+                        <td className="mono entries-table-num">{tableMetricCell(e.contentment)}</td>
+                        <td className="mono entries-table-num">{tableMetricCell(e.focus)}</td>
+                        <td className="entries-table-actions" onClick={(ev) => ev.stopPropagation()}>
+                          <button
+                            type="button"
+                            className="entries-row-icon-btn"
+                            aria-label={`Edit entry ${e.id}`}
+                            onClick={() => openEdit(e)}
+                          >
+                            <IconRowEdit />
+                          </button>
+                          <button
+                            type="button"
+                            className="entries-row-icon-btn entries-row-icon-btn--delete"
+                            aria-label={`Delete entry ${e.id}`}
+                            onClick={() => void handleDelete(e)}
+                          >
+                            <IconRowTrash />
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

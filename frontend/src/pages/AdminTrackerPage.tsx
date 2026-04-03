@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
+import SoftHoverHint from "../components/SoftHoverHint";
+import { useFinePointerTitle } from "../hooks/useFinePointerTitle";
 import {
   createTrackerField,
   createTrackerSelectOption,
@@ -28,6 +30,28 @@ function typeDescription(t: TrackerFieldType): string {
     time: "Time",
   };
   return labels[t] ?? t;
+}
+
+function AdminOrdHashLabel({ hint }: { hint: string }) {
+  const h = useFinePointerTitle(hint);
+  return (
+    <SoftHoverHint hint={h}>
+      <span className="admin-tool-ord-hint" aria-hidden="true">
+        #
+      </span>
+    </SoftHoverHint>
+  );
+}
+
+function AdminOptionCodeLine({ value }: { value: string }) {
+  const h = useFinePointerTitle("Internal code — stable value stored with this choice");
+  return (
+    <SoftHoverHint hint={h} variant="multiline">
+      <p className="admin-option-stored muted small admin-option-stored--fold">
+        Code: <code className="admin-option-stored-code">{value === "" ? "—" : value}</code>
+      </p>
+    </SoftHoverHint>
+  );
 }
 
 export default function AdminTrackerPage() {
@@ -406,7 +430,7 @@ function FieldEditorRow({ f, userId, onReload, onChange, onOptionChange, onSaveF
         </div>
 
         <div className="admin-field-slab-meta">
-          <span className="admin-type-tag" title={typeDescription(f.field_type)}>
+          <span className="admin-type-tag">
             {!f.is_builtin ? "Custom · " : ""}
             {typeDescription(f.field_type)}
           </span>
@@ -432,10 +456,8 @@ function FieldEditorRow({ f, userId, onReload, onChange, onOptionChange, onSaveF
         </div>
 
         <div className="admin-field-slab-tools">
-          <div className="admin-tool-ord" title="Display order">
-            <span className="admin-tool-ord-hint" aria-hidden="true">
-              #
-            </span>
+          <div className="admin-tool-ord">
+            <AdminOrdHashLabel hint="Display order" />
             <input
               type="number"
               inputMode="numeric"
@@ -521,14 +543,10 @@ function FieldEditorRow({ f, userId, onReload, onChange, onOptionChange, onSaveF
                           onChange={(e) => onOptionChange(f.id, o.id, { label: e.target.value })}
                         />
                       </div>
-                      <p className="admin-option-stored muted small admin-option-stored--fold" title="Internal code for this choice">
-                        Code: <code className="admin-option-stored-code">{o.value === "" ? "—" : o.value}</code>
-                      </p>
+                      <AdminOptionCodeLine value={o.value} />
                       <div className="admin-option-fold-tools">
-                        <div className="admin-tool-ord" title="Choice order">
-                          <span className="admin-tool-ord-hint" aria-hidden="true">
-                            #
-                          </span>
+                        <div className="admin-tool-ord">
+                          <AdminOrdHashLabel hint="Choice order" />
                           <input
                             type="number"
                             inputMode="numeric"

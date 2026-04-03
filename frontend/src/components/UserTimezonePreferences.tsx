@@ -4,7 +4,9 @@ import { effectiveUserTimeZone, getBrowserIanaTimeZone } from "../datesTz";
 import { PRESET_TIMEZONES } from "../timezoneOptions";
 import type { User } from "../types";
 import CalmSelect, { type CalmSelectOption } from "./CalmSelect";
+import { useFinePointerTitle } from "../hooks/useFinePointerTitle";
 import InlineHelp from "./InlineHelp";
+import SoftHoverHint from "./SoftHoverHint";
 
 const DEVICE_VALUE = "__device__";
 
@@ -63,6 +65,7 @@ export default function UserTimezonePreferences({ user, onUpdated }: Props) {
   };
 
   const labelId = `prefs-tz-label-${user.id}`;
+  const tzSummaryHint = useFinePointerTitle(`Effective zone: ${effective}`);
 
   return (
     <details
@@ -74,9 +77,9 @@ export default function UserTimezonePreferences({ user, onUpdated }: Props) {
         <div className="preferences-tz-summary-main">
           <span className="preferences-tz-summary-eyebrow">Time zone</span>
           <span className="preferences-tz-summary-value">
-            <code className="preferences-tz-code preferences-tz-code--summary" title={effective}>
-              {effective}
-            </code>
+            <SoftHoverHint hint={tzSummaryHint}>
+              <code className="preferences-tz-code preferences-tz-code--summary">{effective}</code>
+            </SoftHoverHint>
             <span className="preferences-tz-pill">{saved == null ? "Device" : "Saved"}</span>
           </span>
         </div>

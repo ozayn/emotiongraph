@@ -7,6 +7,8 @@ import UserDisplayNamePreferences from "../components/UserDisplayNamePreferences
 import UserTimezonePreferences from "../components/UserTimezonePreferences";
 import { addCalendarDaysToIso, todayIsoInTimeZone } from "../datesTz";
 import { usePrivateAuthOptional } from "../auth/privateAuthContext";
+import SoftHoverHint from "../components/SoftHoverHint";
+import { useFinePointerTitle } from "../hooks/useFinePointerTitle";
 import { useSession } from "../session/SessionContext";
 import type { User } from "../types";
 import { displayNameForUser } from "../userDisplay";
@@ -80,6 +82,7 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
   const showSignOut = realm === "private" && authMode === "google_oauth" && Boolean(privateAuth);
   const showAdminConfigGear = realm === "private" && user.is_admin;
   const showOutlineTray = showSignOut || showAdminConfigGear;
+  const adminConfigLinkTitle = useFinePointerTitle("Open tracker field admin");
 
   const handleExportCsv = () => {
     setExportError(null);
@@ -160,10 +163,13 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
                         <Link
                           className="profile-account-action-config"
                           to={pathFor("/admin")}
-                          aria-label="Tracker config"
-                          title="Tracker fields and labels"
+                          aria-label="Tracker fields and labels (admin)"
                         >
-                          <TrackerConfigGearIcon />
+                          <SoftHoverHint hint={adminConfigLinkTitle}>
+                            <span className="profile-account-action-config__hint-inner">
+                              <TrackerConfigGearIcon />
+                            </span>
+                          </SoftHoverHint>
                         </Link>
                       ) : null}
                     </div>

@@ -82,6 +82,16 @@ export function formatSleepQuality(n: number): string {
   return o?.label.replace(/^\d+\s—\s/, "") ?? String(n);
 }
 
+/** Compact labels aligned with the entries table (En / Ax / Co / Fo). */
+export const EMOTION_METRIC_ABBR = {
+  energy: "En",
+  anxiety: "Ax",
+  contentment: "Co",
+  focus: "Fo",
+} as const;
+
+export type EmotionMetricAbbrKey = keyof typeof EMOTION_METRIC_ABBR;
+
 export function optionsForMetricKey(key: keyof Omit<LogRow, "source_type">): { value: string; label: string }[] | null {
   switch (key) {
     case "energy_level":

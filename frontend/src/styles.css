@@ -74,6 +74,22 @@
   --shadow-soft: 0 1px 3px var(--ink-a05);
   --shadow-primary: 0 2px 10px var(--blue-a10);
 
+  /* Hover hints & chart flyouts — one subtle language (see SoftHoverHint, .insights-tooltip) */
+  --hint-bg: var(--surface);
+  --hint-border: 1px solid var(--ink-a08);
+  --hint-radius: 0.4rem;
+  --hint-shadow: 0 1px 6px var(--ink-a045);
+  --hint-font-size: 0.7rem;
+  --hint-line-height: 1.35;
+  --hint-font-weight: 500;
+  --hint-letter-spacing: 0.015em;
+  --hint-color: var(--text);
+  --hint-pad-y: 0.22rem;
+  --hint-pad-x: 0.42rem;
+  --hint-chart-font-size: 0.72rem;
+  --hint-chart-pad-y: 0.32rem;
+  --hint-chart-pad-x: 0.48rem;
+
   /* Primary CTA — muted matte blue (Record update, Save, Retry) */
   --accent: #5a6f7d;
   --accent-mid: #4d606d;
@@ -217,6 +233,21 @@
   --shadow: 0 2px 14px var(--ink-a05);
   --shadow-soft: 0 1px 3px var(--ink-a06);
   --shadow-primary: 0 2px 12px var(--blue-a12);
+
+  --hint-bg: var(--surface);
+  --hint-border: 1px solid var(--ink-a08);
+  --hint-radius: 0.4rem;
+  --hint-shadow: 0 1px 6px var(--ink-a045);
+  --hint-font-size: 0.7rem;
+  --hint-line-height: 1.35;
+  --hint-font-weight: 500;
+  --hint-letter-spacing: 0.015em;
+  --hint-color: var(--text);
+  --hint-pad-y: 0.22rem;
+  --hint-pad-x: 0.42rem;
+  --hint-chart-font-size: 0.72rem;
+  --hint-chart-pad-y: 0.32rem;
+  --hint-chart-pad-x: 0.48rem;
 
   --accent: #8fa3b2;
   --accent-mid: #9eb0bd;
@@ -1087,13 +1118,20 @@ body {
 }
 
 .entry-detail-source {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.55rem;
   margin: 0.1rem 0 0;
   line-height: 1.4;
 }
 
-.entry-detail-source-val {
-  text-transform: lowercase;
-  color: var(--text);
+.entry-detail-source-key {
+  font-weight: 600;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-a48);
 }
 
 .entry-detail-event-block {
@@ -3618,9 +3656,9 @@ body {
 }
 
 .today-saved-item-source {
-  text-transform: lowercase;
-  font-size: 0.6rem;
-  letter-spacing: 0.035em;
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
   color: var(--ink-a48);
 }
 
@@ -3961,6 +3999,13 @@ body {
   border-radius: 50%;
   background: var(--today-metric-color, var(--muted));
   opacity: 0.35;
+}
+
+.today-snapshot-metric-toggle-abbr {
+  font-size: 0.65rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
 }
 
 .today-snapshot-metric-toggle--on .today-snapshot-metric-toggle-dot {
@@ -4330,6 +4375,13 @@ body {
   height: 1.0625rem;
   display: block;
   flex-shrink: 0;
+}
+
+.profile-page--premium .profile-account-action-config__hint-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
 }
 
 .profile-page--premium .profile-account-action-signout:hover,
@@ -5518,7 +5570,7 @@ button.profile-account-secondary {
 
 .entries-table {
   width: 100%;
-  min-width: 36rem;
+  min-width: 42rem;
   border-collapse: collapse;
   font-size: 0.76rem;
   line-height: 1.35;
@@ -5578,18 +5630,161 @@ button.profile-account-secondary {
   white-space: nowrap;
 }
 
-.entries-table-src {
-  text-transform: lowercase;
-  font-size: 0.72rem;
-  color: var(--ink-a52);
+.entries-table-src-head {
+  width: 2.6rem;
+  text-align: center;
   white-space: nowrap;
+}
+
+.entries-table-src-cell {
+  text-align: center;
+  vertical-align: middle;
+  padding-inline: 0.28rem;
+  width: 2.6rem;
+}
+
+/* Themed hover hints — uses --hint-* tokens */
+.soft-hover-hint {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+
+.soft-hover-hint--focusable {
+  cursor: default;
+  border-radius: calc(var(--hint-radius) * 0.65);
+}
+
+.soft-hover-hint--focusable:focus {
+  outline: none;
+}
+
+.soft-hover-hint--focusable:focus-visible {
+  outline: 2px solid var(--blue-a22);
+  outline-offset: 2px;
+}
+
+.soft-hover-hint__pop {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 5px);
+  transform: translateX(-50%);
+  z-index: 4000;
+  max-width: min(14rem, 78vw);
+  padding: var(--hint-pad-y) var(--hint-pad-x);
+  font-size: var(--hint-font-size);
+  line-height: var(--hint-line-height);
+  font-weight: var(--hint-font-weight);
+  letter-spacing: var(--hint-letter-spacing);
+  color: var(--hint-color);
+  background: var(--hint-bg);
+  border: var(--hint-border);
+  border-radius: var(--hint-radius);
+  box-shadow: var(--hint-shadow);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.soft-hover-hint__pop--multiline {
+  white-space: normal;
+  max-width: min(20rem, 88vw);
+  text-align: left;
+}
+
+.table-abbrev-hint {
+  justify-content: center;
+  width: 100%;
+}
+
+.table-abbrev-hint__txt {
+  display: inline-block;
+}
+
+.entries-table-cell-hint {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.source-type-indicator {
+  color: var(--ink-a52);
+}
+
+.source-type-indicator-target {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+}
+
+.source-type-indicator-icon {
+  display: inline-flex;
+  flex-shrink: 0;
+  line-height: 0;
+  color: inherit;
+}
+
+.source-type-indicator-icon svg {
+  display: block;
 }
 
 .entries-table-event {
   max-width: 11rem;
+  min-width: 0;
+}
+
+.entries-table-event .entries-table-cell-hint {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.entries-table-event-inner {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.entries-table-comments-col {
+  max-width: clamp(5rem, 22vw, 9.5rem);
+  min-width: 0;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--ink-a58);
+}
+
+.entries-table-comments-col .entries-table-cell-hint {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.entries-table-comments-inner {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.entries-table thead th.entries-table-comments-col {
+  text-align: center;
+}
+
+@media (min-width: 640px) {
+  .entries-table-comments-col {
+    max-width: clamp(6rem, 14vw, 11rem);
+  }
+}
+
+/* Very narrow viewports: hide Comments so the table stays scannable; full text remains in row detail. */
+@media (max-width: 380px) {
+  .entries-table {
+    min-width: 36rem;
+  }
+
+  .entries-table th.entries-table-comments-col,
+  .entries-table td.entries-table-comments-col {
+    display: none;
+  }
 }
 
 .entries-table-actions-col {
@@ -5717,9 +5912,9 @@ button.profile-account-secondary {
 }
 
 .entries-item-source {
-  text-transform: lowercase;
-  font-size: 0.65rem;
-  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
   color: var(--ink-a52);
 }
 
@@ -6947,6 +7142,16 @@ button.profile-account-secondary {
   font-weight: 600;
   min-height: 40px;
   padding: 0.35rem 0.5rem 0.35rem 0.65rem;
+}
+
+.calm-select-trigger-hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+  width: 100%;
 }
 
 .calm-select-value {
@@ -8206,9 +8411,18 @@ button.profile-account-secondary {
   gap: 0.75rem 1rem;
 }
 
+.insights-date-row--single-day {
+  grid-template-columns: 1fr;
+  max-width: min(100%, 16rem);
+}
+
 @media (max-width: 380px) {
   .insights-date-row {
     grid-template-columns: 1fr;
+  }
+
+  .insights-date-row--single-day {
+    max-width: 100%;
   }
 }
 
@@ -8457,19 +8671,31 @@ button.insights-metric-card.insights-metric-card--action:hover {
   width: 100%;
 }
 
+/* Recharts wrapper: avoid extra chrome; content uses .insights-tooltip */
+.recharts-tooltip-wrapper {
+  outline: none;
+}
+
 .insights-tooltip {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 0.5rem 0.65rem;
-  font-size: 0.75rem;
-  box-shadow: var(--shadow-soft);
+  background: var(--hint-bg);
+  border: var(--hint-border);
+  border-radius: var(--hint-radius);
+  padding: var(--hint-chart-pad-y) var(--hint-chart-pad-x);
+  font-size: var(--hint-chart-font-size);
+  line-height: var(--hint-line-height);
+  font-weight: var(--hint-font-weight);
+  letter-spacing: var(--hint-letter-spacing);
+  box-shadow: var(--hint-shadow);
+  color: var(--hint-color);
 }
 
 .insights-tooltip-date {
-  margin: 0 0 0.35rem;
+  margin: 0 0 0.3rem;
   font-weight: 600;
-  color: var(--text);
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink-a58);
 }
 
 .insights-tooltip-line {
