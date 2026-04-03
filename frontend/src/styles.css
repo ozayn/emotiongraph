@@ -5270,6 +5270,86 @@ button.profile-account-secondary {
   margin-top: 0;
 }
 
+.entries-day-panel-date-readout {
+  flex: 1 1 12rem;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.add-entry-input-mode-switch {
+  flex-wrap: wrap;
+  justify-content: center;
+  align-self: stretch;
+  max-width: 100%;
+  margin-top: 0.15rem;
+}
+
+.add-entry-mode-btn {
+  min-width: 3.35rem;
+  padding: 0.28rem 0.4rem;
+  font-size: 0.625rem;
+}
+
+.add-entry-mode-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 0;
+}
+
+.add-entry-mode-section-label {
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.add-entry-mode-hint {
+  margin: 0 0 0.35rem;
+  line-height: 1.45;
+}
+
+.add-entry-voice-block,
+.add-entry-text-block,
+.add-entry-day-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.add-entry-voice-panel {
+  padding: 0.85rem 0.75rem 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--ink-a08);
+  background: var(--surface-raise, var(--bg));
+  transition:
+    border-color 0.2s var(--ease-soft),
+    box-shadow 0.2s var(--ease-soft);
+}
+
+.add-entry-voice-panel--live {
+  border-color: var(--blue-a25, var(--ink-a15));
+  box-shadow: 0 0 0 1px var(--blue-a12, transparent);
+}
+
+.add-entry-voice-panel--processing {
+  opacity: 0.92;
+}
+
+.add-entry-voice-panel--captured {
+  border-color: var(--ink-a12);
+}
+
+.add-entry-manual-inner {
+  padding-top: 0.15rem;
+}
+
+.add-entry-extract-banner {
+  margin-top: 0.1rem;
+  margin-bottom: 0;
+}
+
 .entries-history-block {
   display: flex;
   flex-direction: column;

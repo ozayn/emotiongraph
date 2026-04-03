@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { blobFailsMinimumSpeechEnergy } from "../audioSilence";
 import {
   deleteLog,
   extractLogs,
@@ -9,8 +10,11 @@ import {
   putTrackerDayCustomValues,
   saveLogs,
   saveTrackerDay,
+  transcribeAudio,
+  type LogEntryPatchBody,
 } from "../api";
 import { todayIsoInTimeZone } from "../datesTz";
+import AudioRecorder from "./AudioRecorder";
 import CalmSelect from "./CalmSelect";
 import MetricSelect from "./MetricSelect";
 import ReviewExtractionModal, { type ReviewSaveMeta } from "./ReviewExtractionModal";
@@ -107,6 +111,53 @@ function isAbortError(e: unknown): boolean {
   return e instanceof Error && e.name === "AbortError";
 }
 
+type EntryInputMode = "voice" | "text" | "manual" | "day";
+
+function normalizeExtractedRows(raw: LogRow[]): LogRow[] {
+  return raw.map((row) => ({
+    start_time: row.start_time ?? null,
+    end_time: row.end_time ?? null,
+    event: row.event ?? null,
+    energy_level: row.energy_level ?? null,
+    anxiety: row.anxiety ?? null,
+    contentment: row.contentment ?? null,
+    focus: row.focus ?? null,
+    music: row.music ?? null,
+    comments: row.comments ?? null,
+  }));
+}
+
+function logRowToPatchBody(row: LogRow): LogEntryPatchBody {
+  return {
+    start_time: row.start_time,
+    end_time: row.end_time,
+    event: row.event,
+    energy_level: row.energy_level,
+    anxiety: row.anxiety,
+    contentment: row.contentment,
+    focus: row.focus,
+    music: row.music,
+    comments: row.comments,
+  };
+}
+
+/** Calendar YYYY-MM-DD label in the user’s IANA zone (noon-UTC anchor; fine for display). */
+function isoYmdLongInTimeZone(iso: string, timeZone: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  if (!y || !m || !d) return iso;
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      timeZone,
+      weekday: "long",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }).format(new Date(Date.UTC(y, m - 1, d, 12, 0, 0)));
+  } catch {
+    return iso;
+  }
+}
+
 type Props = {
   userId: number;
   timeZone: string;
@@ -138,18 +189,29 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
   const [saved, setSaved] = useState<SavedLogEntry[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
 
+  const [entryMode, setEntryMode] = useState<EntryInputMode>("voice");
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewCaptureKind, setReviewCaptureKind] = useState<"voice" | "text">("text");
   const [freeTextDraft, setFreeTextDraft] = useState("");
+  const [voiceTranscript, setVoiceTranscript] = useState("");
   const [extraction, setExtraction] = useState<ExtractLogsResponse | null>(null);
   const [extractionLoading, setExtractionLoading] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
+  const [pendingReviewEntryIds, setPendingReviewEntryIds] = useState<number[] | null>(null);
+  const reviewSessionInitialIdsRef = useRef<number[] | null>(null);
+
+  const [blob, setBlob] = useState<Blob | null>(null);
+  const [pipelineLoading, setPipelineLoading] = useState(false);
+  const [pipelinePhase, setPipelinePhase] = useState<"transcribe" | "extract">("transcribe");
+  const [stepError, setStepError] = useState<string | null>(null);
+  const [postExtractSaveError, setPostExtractSaveError] = useState<string | null>(null);
+  const [recordingActive, setRecordingActive] = useState(false);
+  const [extractSavedBanner, setExtractSavedBanner] = useState(false);
 
   const [manualDraft, setManualDraft] = useState(emptyManualDraft);
   const [manualSaving, setManualSaving] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
   const [manualSavedBanner, setManualSavedBanner] = useState(false);
-  const [manualSectionOpen, setManualSectionOpen] = useState(false);
-  const [textSectionOpen, setTextSectionOpen] = useState(false);
 
   const [savedMenuOpenId, setSavedMenuOpenId] = useState<number | null>(null);
   const [savedEntryDetail, setSavedEntryDetail] = useState<SavedLogEntry | null>(null);
@@ -168,7 +230,6 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
   const [daySaving, setDaySaving] = useState(false);
   const [dayError, setDayError] = useState<string | null>(null);
   const [daySavedBanner, setDaySavedBanner] = useState(false);
-  const [dayContextOpen, setDayContextOpen] = useState(false);
   const [dayContextEditing, setDayContextEditing] = useState(false);
 
   const customEntryFields = useMemo(() => filterCustomFormFields(trackerFields, "entry"), [trackerFields]);
@@ -370,13 +431,33 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
 
   useEffect(() => {
     setDayContextEditing(false);
-    setDayContextOpen(false);
     setFreeTextDraft("");
+    setVoiceTranscript("");
+    setBlob(null);
+    setStepError(null);
+    setPostExtractSaveError(null);
+    setPendingReviewEntryIds(null);
+    reviewSessionInitialIdsRef.current = null;
+    setRecordingActive(false);
+    setPipelineLoading(false);
+    setReviewOpen(false);
+    setExtraction(null);
+    setExtractionError(null);
+    setExtractionLoading(false);
+    setExtractSavedBanner(false);
   }, [logDate]);
 
   useEffect(() => {
-    if (manualError || manualSavedBanner) setManualSectionOpen(true);
-  }, [manualError, manualSavedBanner]);
+    if (reviewOpen) {
+      reviewSessionInitialIdsRef.current = pendingReviewEntryIds;
+    }
+  }, [reviewOpen, pendingReviewEntryIds]);
+
+  useEffect(() => {
+    if (!extractSavedBanner) return;
+    const t = window.setTimeout(() => setExtractSavedBanner(false), 5000);
+    return () => clearTimeout(t);
+  }, [extractSavedBanner]);
 
   useEffect(() => {
     if (!dayContextEditing) return;
@@ -473,20 +554,174 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
     }
   };
 
-  const closeReview = () => {
+  const closeReviewSheetOnly = useCallback(() => {
     setReviewOpen(false);
+    setExtractionLoading(false);
+  }, []);
+
+  const closeReviewAfterSave = useCallback(() => {
+    closeReviewSheetOnly();
     setExtraction(null);
     setExtractionError(null);
-    setExtractionLoading(false);
+    setBlob(null);
+    setVoiceTranscript("");
+    setPendingReviewEntryIds(null);
+    reviewSessionInitialIdsRef.current = null;
+  }, [closeReviewSheetOnly]);
+
+  const handleReviewDiscard = useCallback(() => {
+    if (pendingReviewEntryIds != null && pendingReviewEntryIds.length > 0) {
+      closeReviewSheetOnly();
+      return;
+    }
+    closeReviewSheetOnly();
+    setExtraction(null);
+    setExtractionError(null);
+    setPendingReviewEntryIds(null);
+    reviewSessionInitialIdsRef.current = null;
+    setBlob(null);
+    setVoiceTranscript("");
+  }, [pendingReviewEntryIds, closeReviewSheetOnly]);
+
+  const finishAutoSaveAfterExtract = useCallback(
+    async (normalizedRows: LogRow[], sourceKind: "voice" | "text") => {
+      const sourceType = sourceKind === "text" ? ("text" as const) : ("voice" as const);
+      try {
+        const saved = await saveLogs(
+          userId,
+          logDate,
+          normalizedRows.map((r) => ({ ...r, source_type: sourceType })),
+        );
+        setPendingReviewEntryIds(saved.map((s) => s.id));
+        setReviewOpen(false);
+        setBlob(null);
+        setStepError(null);
+        if (sourceKind === "text") {
+          setFreeTextDraft("");
+        }
+        setPostExtractSaveError(null);
+        setExtractSavedBanner(true);
+        await refreshSaved();
+        await onMutate?.();
+      } catch (e) {
+        setPostExtractSaveError(e instanceof Error ? e.message : "Save failed");
+        setPendingReviewEntryIds(null);
+        setReviewOpen(true);
+      }
+    },
+    [userId, logDate, refreshSaved, onMutate],
+  );
+
+  const beginNewVoiceClip = useCallback(() => {
+    setPostExtractSaveError(null);
+    setPendingReviewEntryIds(null);
+    setReviewOpen(false);
+    setVoiceTranscript("");
+    setExtraction(null);
+    setExtractionError(null);
+  }, []);
+
+  const handleRecordingComplete = async (recording: Blob) => {
+    beginNewVoiceClip();
+    setReviewCaptureKind("voice");
+    setBlob(recording);
+    setStepError(null);
+    setPipelineLoading(true);
+    setPipelinePhase("transcribe");
+    const likelySilent = await blobFailsMinimumSpeechEnergy(recording);
+    if (likelySilent === true) {
+      setStepError("No usable speech detected.");
+      setPipelineLoading(false);
+      return;
+    }
+    try {
+      const { transcript: text } = await transcribeAudio(recording, "recording.webm");
+      setVoiceTranscript(text);
+
+      setPipelinePhase("extract");
+      setExtractionLoading(true);
+      setExtractionError(null);
+      setExtraction(null);
+      let extractErr: string | null = null;
+      let res: ExtractLogsResponse | null = null;
+      try {
+        res = await extractLogs(text, logDate, { timezone: timeZone, captureKind: "voice" });
+        setExtraction(res);
+      } catch (e) {
+        extractErr = e instanceof Error ? e.message : "Extraction failed";
+        setExtractionError(extractErr);
+      } finally {
+        setExtractionLoading(false);
+      }
+
+      if (extractErr) {
+        setPendingReviewEntryIds(null);
+        setReviewOpen(true);
+        return;
+      }
+      const rawRows = res?.rows ?? [];
+      if (rawRows.length === 0) {
+        setPendingReviewEntryIds(null);
+        setReviewOpen(true);
+        return;
+      }
+      await finishAutoSaveAfterExtract(normalizeExtractedRows(rawRows), "voice");
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("No usable speech detected")) {
+        setStepError("No usable speech detected.");
+      } else {
+        setStepError(msg || "Transcription failed");
+      }
+    } finally {
+      setPipelineLoading(false);
+    }
   };
 
-  const handleSaveRows = async (rows: LogRow[], _meta?: ReviewSaveMeta) => {
-    await saveLogs(
-      userId,
-      logDate,
-      rows.map((r) => ({ ...r, source_type: "text" as const })),
-    );
-    closeReview();
+  const handleSaveRows = async (rows: LogRow[], meta?: ReviewSaveMeta) => {
+    const fromTextCapture = reviewCaptureKind === "text";
+    const sourceType = fromTextCapture ? ("text" as const) : ("voice" as const);
+    const serverIds = meta?.serverIds;
+    const sessionInitial = reviewSessionInitialIdsRef.current;
+
+    const insertAll = async () => {
+      await saveLogs(
+        userId,
+        logDate,
+        rows.map((r) => ({ ...r, source_type: sourceType })),
+      );
+    };
+
+    if (
+      sessionInitial &&
+      sessionInitial.length > 0 &&
+      serverIds &&
+      serverIds.length === rows.length
+    ) {
+      const currentNumeric = serverIds.filter((x): x is number => typeof x === "number");
+      for (const id of sessionInitial) {
+        if (!currentNumeric.includes(id)) {
+          await deleteLog(userId, id);
+        }
+      }
+      for (let i = 0; i < rows.length; i++) {
+        const sid = serverIds[i];
+        if (sid != null) {
+          await patchLog(userId, sid, logRowToPatchBody(rows[i]));
+        } else {
+          await saveLogs(userId, logDate, [{ ...rows[i], source_type: sourceType }]);
+        }
+      }
+    } else {
+      await insertAll();
+    }
+
+    reviewSessionInitialIdsRef.current = null;
+    setPendingReviewEntryIds(null);
+    closeReviewAfterSave();
+    if (fromTextCapture) {
+      setFreeTextDraft("");
+    }
     await refreshSaved();
     await onMutate?.();
   };
@@ -494,6 +729,10 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
   const handleTextExtract = async () => {
     const t = freeTextDraft.trim();
     if (!t) return;
+    setPostExtractSaveError(null);
+    setPendingReviewEntryIds(null);
+    setReviewOpen(false);
+    setReviewCaptureKind("text");
     setExtractionLoading(true);
     setExtractionError(null);
     setExtraction(null);
@@ -514,7 +753,10 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
       setExtractionError(null);
       setExtraction(null);
       try {
-        const res = await extractLogs(text, logDate, { timezone: timeZone, captureKind: "text" });
+        const res = await extractLogs(text, logDate, {
+          timezone: timeZone,
+          captureKind: reviewCaptureKind,
+        });
         setExtraction(res);
       } catch (e) {
         setExtractionError(e instanceof Error ? e.message : "Extraction failed");
@@ -522,89 +764,209 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
         setExtractionLoading(false);
       }
     },
-    [logDate, timeZone],
+    [logDate, timeZone, reviewCaptureKind],
   );
+
+  const retryExtract = useCallback(async () => {
+    const ids = pendingReviewEntryIds;
+    setPendingReviewEntryIds(null);
+    if (ids && ids.length > 0) {
+      for (const id of ids) {
+        try {
+          await deleteLog(userId, id);
+        } catch {
+          /* best-effort */
+        }
+      }
+      await refreshSaved();
+    }
+    const text = reviewCaptureKind === "voice" ? voiceTranscript : freeTextDraft;
+    await runExtraction(text);
+  }, [pendingReviewEntryIds, userId, reviewCaptureKind, voiceTranscript, freeTextDraft, runExtraction, refreshSaved]);
+
+  const recordingLocked = pipelineLoading || reviewOpen || extractionLoading;
+  const textInputLocked = reviewOpen || extractionLoading;
+  const modeSwitchLocked =
+    pipelineLoading ||
+    reviewOpen ||
+    extractionLoading ||
+    recordingActive ||
+    (entryMode === "voice" && blob != null && !pipelineLoading && !reviewOpen);
+
+  const reviewModalTranscript = reviewCaptureKind === "voice" ? voiceTranscript : freeTextDraft;
 
   return (
     <section className="entries-day-panel" aria-labelledby="day-log-panel-title">
+      {pipelineLoading && (
+        <div className="pipeline-overlay" aria-busy="true" aria-live="polite">
+          <div className="pipeline-card">
+            <div className="pipeline-spinner" aria-hidden="true" />
+            <p className="pipeline-title" key={pipelinePhase}>
+              {pipelinePhase === "transcribe" ? "Transcribing…" : "Extracting entries…"}
+            </p>
+          </div>
+        </div>
+      )}
+
       <h2 id="day-log-panel-title" className="entries-day-panel-title">
-        Day log
+        Add for this date
       </h2>
-      <p className="entries-day-panel-lead muted small">Choose a date, then add or review rows below.</p>
+      <p className="entries-day-panel-lead muted small">Pick a day, choose how to add, then review what&apos;s saved below.</p>
       <div className="entries-day-panel-date-row">
         <label className="entries-day-panel-date-label">
           <span className="sr-only">Log date</span>
           <input className="date-input date-input--entries-day" type="date" value={logDate} onChange={(e) => setLogDate(e.target.value)} />
         </label>
+        <span className="entries-day-panel-date-readout muted small">{isoYmdLongInTimeZone(logDate, timeZone)}</span>
       </div>
 
-      <section className="today-text-shell entries-day-sub" aria-label="Text extraction">
-        <details
-          className="today-text-disclosure today-secondary-disclosure"
-          open={textSectionOpen}
-          onToggle={(e) => setTextSectionOpen(e.currentTarget.open)}
+      <div className="home-capture-mode-switch add-entry-input-mode-switch" role="tablist" aria-label="How to add an entry">
+        <button
+          type="button"
+          role="tab"
+          id="add-entry-tab-voice"
+          aria-selected={entryMode === "voice"}
+          aria-controls="add-entry-mode-panel"
+          className="home-capture-mode-btn add-entry-mode-btn"
+          disabled={modeSwitchLocked && entryMode !== "voice"}
+          onClick={() => setEntryMode("voice")}
         >
-          <summary className="today-text-summary">
-            <span className="today-text-summary-stack">
-              <span className="today-text-summary-title" id={`text-mode-${textAreaId}`}>
-                Text
-              </span>
-              <span className="today-text-summary-hint muted">Note → extract</span>
-            </span>
-            <span className="today-text-summary-chevron" aria-hidden="true">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-          </summary>
-          <div className="today-text-body">
+          Voice
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="add-entry-tab-text"
+          aria-selected={entryMode === "text"}
+          aria-controls="add-entry-mode-panel"
+          className="home-capture-mode-btn add-entry-mode-btn"
+          disabled={modeSwitchLocked && entryMode !== "text"}
+          onClick={() => setEntryMode("text")}
+        >
+          Text
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="add-entry-tab-manual"
+          aria-selected={entryMode === "manual"}
+          aria-controls="add-entry-mode-panel"
+          className="home-capture-mode-btn add-entry-mode-btn"
+          disabled={modeSwitchLocked && entryMode !== "manual"}
+          onClick={() => setEntryMode("manual")}
+        >
+          Manual
+        </button>
+        <button
+          type="button"
+          role="tab"
+          id="add-entry-tab-day"
+          aria-selected={entryMode === "day"}
+          aria-controls="add-entry-mode-panel"
+          className="home-capture-mode-btn add-entry-mode-btn"
+          disabled={modeSwitchLocked && entryMode !== "day"}
+          onClick={() => setEntryMode("day")}
+        >
+          Day
+        </button>
+      </div>
+
+      <div
+        id="add-entry-mode-panel"
+        role="tabpanel"
+        aria-labelledby={`add-entry-tab-${entryMode}`}
+        className="add-entry-mode-panel entries-day-sub"
+      >
+        {entryMode === "voice" && (
+          <div className="add-entry-voice-block">
+            <p className="muted small add-entry-mode-hint">
+              Voice entries save to the date above — including past days. You can also use Text or Manual anytime.
+            </p>
+            <div
+              className={[
+                "add-entry-voice-panel",
+                "panel-elevated",
+                recordingActive && "add-entry-voice-panel--live",
+                pipelineLoading && "add-entry-voice-panel--processing",
+                Boolean(blob) && !pipelineLoading && !reviewOpen && "add-entry-voice-panel--captured",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+            >
+              <AudioRecorder
+                disabled={recordingLocked}
+                processing={pipelineLoading}
+                onRecorded={(b) => void handleRecordingComplete(b)}
+                onRecordingActiveChange={setRecordingActive}
+              />
+              {blob && !pipelineLoading && !reviewOpen && (
+                <div className="today-record-secondary">
+                  {stepError && (
+                    <button type="button" className="btn primary btn-retry" onClick={() => void handleRecordingComplete(blob)}>
+                      Try again
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-text btn-clear-recording"
+                    onClick={() => {
+                      setBlob(null);
+                      setStepError(null);
+                    }}
+                  >
+                    Discard recording
+                  </button>
+                </div>
+              )}
+              {stepError && <p className="error-inline error-inline--spaced">{stepError}</p>}
+              {postExtractSaveError && !reviewOpen ? (
+                <p className="error-inline error-inline--spaced">{postExtractSaveError}</p>
+              ) : null}
+            </div>
+          </div>
+        )}
+
+        {entryMode === "text" && (
+          <section className="add-entry-text-block" aria-labelledby={`text-mode-${textAreaId}`}>
+            <p id={`text-mode-${textAreaId}`} className="add-entry-mode-section-label">
+              Text
+            </p>
+            <p className="muted small add-entry-mode-hint">Write a note, then extract into one or more entries for this date.</p>
             <label className="sr-only" htmlFor={`entries-free-text-${textAreaId}`}>
               Natural-language log note for text extraction
             </label>
             <textarea
               id={`entries-free-text-${textAreaId}`}
               className="today-free-text-input today-free-text-input--compact"
-              rows={3}
+              rows={4}
               placeholder="e.g. Rough morning, better after lunch…"
               value={freeTextDraft}
               onChange={(e) => setFreeTextDraft(e.target.value)}
-              disabled={reviewOpen || extractionLoading}
+              disabled={textInputLocked}
             />
             <div className="today-text-extract-actions">
               <button
                 type="button"
                 className="btn primary small today-text-extract-btn"
-                disabled={!freeTextDraft.trim() || reviewOpen || extractionLoading}
+                disabled={!freeTextDraft.trim() || textInputLocked}
                 onClick={() => void handleTextExtract()}
               >
                 {extractionLoading && !reviewOpen ? "Extracting…" : "Extract"}
               </button>
             </div>
-          </div>
-        </details>
-      </section>
+            {postExtractSaveError && !reviewOpen ? (
+              <p className="error-inline error-inline--spaced">{postExtractSaveError}</p>
+            ) : null}
+          </section>
+        )}
 
-      <section className="today-manual-shell today-secondary-stack entries-day-sub" aria-labelledby="manual-add-heading-entries">
-        <details
-          className="today-manual today-manual--secondary today-manual-disclosure today-secondary-disclosure"
-          open={manualSectionOpen}
-          onToggle={(e) => setManualSectionOpen(e.currentTarget.open)}
-        >
-          <summary className="today-manual-summary">
-            <span className="today-manual-summary-stack">
-              <span id="manual-add-heading-entries" className="today-manual-summary-title">
-                Manual
-              </span>
-              <span className="today-manual-summary-hint muted">Direct save</span>
-            </span>
-            <span className="today-manual-summary-chevron" aria-hidden="true">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-          </summary>
-          <div className="today-manual-body">
-            <p className="today-manual-lead muted small">Fill fields and save — no extraction.</p>
+        {entryMode === "manual" && (
+          <section className="add-entry-manual-block" aria-labelledby="manual-add-heading-entries">
+            <p id="manual-add-heading-entries" className="add-entry-mode-section-label">
+              Manual
+            </p>
+            <p className="muted small add-entry-mode-hint">Fill fields and save directly — no extraction.</p>
+            <div className="today-manual-body add-entry-manual-inner">
             <div className="manual-add-fields">
               <label className="field field--stacked">
                 <span>What happened</span>
@@ -693,64 +1055,29 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
                 {manualSaving ? "Saving…" : "Save entry"}
               </button>
             </div>
-          </div>
-        </details>
-      </section>
+            </div>
+          </section>
+        )}
 
-      <section className="today-day-context today-day-context--quiet entries-day-sub" aria-labelledby="day-heading-entries">
-        <button
-          type="button"
-          className="day-context-trigger"
-          aria-expanded={dayContextOpen}
-          aria-controls="day-context-panel-entries"
-          onClick={() => {
-            setDayContextOpen((open) => {
-              if (open) setDayContextEditing(false);
-              return !open;
-            });
-          }}
-        >
-          <span className="day-context-trigger-text">
-            <span className="day-context-trigger-title" id="day-heading-entries">
+        {entryMode === "day" && (
+          <section className="today-day-context today-day-context--quiet add-entry-day-block" aria-labelledby="day-heading-entries">
+            <p id="day-heading-entries" className="add-entry-mode-section-label">
               Day context
-            </span>
-            <span className="day-context-trigger-hint muted">
-              Optional
+            </p>
+            <p className="muted small add-entry-mode-hint">
+              Optional signals for this date only — not each log row.
               {customDayFields.length > 0 && filledDayCustomCount > 0
-                ? ` · ${filledDayCustomCount} team field${filledDayCustomCount === 1 ? "" : "s"}`
+                ? ` ${filledDayCustomCount} team field${filledDayCustomCount === 1 ? "" : "s"} filled.`
                 : ""}
-            </span>
-          </span>
-          <span className="day-context-trigger-icon" aria-hidden="true">
-            {dayContextOpen ? (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path
-                  d="M6 15l6-6 6 6"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            ) : (
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
-              </svg>
+            </p>
+            {dayError && <p className="error-inline manual-add-error day-context-collapsed-msg">{dayError}</p>}
+            {daySavedBanner && (
+              <p className="manual-add-success day-context-collapsed-msg" role="status">
+                Day info saved.
+              </p>
             )}
-          </span>
-        </button>
 
-        {!dayContextOpen && dayError && (
-          <p className="error-inline manual-add-error day-context-collapsed-msg">{dayError}</p>
-        )}
-        {!dayContextOpen && daySavedBanner && (
-          <p className="manual-add-success day-context-collapsed-msg" role="status">
-            Day info saved.
-          </p>
-        )}
-
-        {dayContextOpen && (
-          <div id="day-context-panel-entries" className="day-context-panel">
+            <div id="day-context-panel-entries" className="day-context-panel">
             <div className="day-context-top">
               <div className="day-context-top-text">
                 <p className="day-context-panel-lead muted">
@@ -902,8 +1229,16 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
               </p>
             )}
           </div>
+          </section>
         )}
-      </section>
+
+      </div>
+
+      {extractSavedBanner && (
+        <p className="manual-add-success add-entry-extract-banner entries-day-sub" role="status">
+          Saved new entries for this date.
+        </p>
+      )}
 
       <section className="today-entries today-entries--integrated entries-day-sub" aria-labelledby="entries-day-saved-heading">
         <h2 id="entries-day-saved-heading" className="today-entries-heading">
@@ -1134,16 +1469,17 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
 
       <ReviewExtractionModal
         open={reviewOpen}
-        transcript={freeTextDraft}
+        transcript={reviewModalTranscript}
         logDate={logDate}
         userId={userId}
-        extractSourceType="text"
+        extractSourceType={reviewCaptureKind}
+        initialServerIds={pendingReviewEntryIds}
         extraction={extraction}
         extractionLoading={extractionLoading}
         extractionError={extractionError}
-        onRetryExtract={() => void runExtraction(freeTextDraft)}
+        onRetryExtract={() => void retryExtract()}
         onSave={handleSaveRows}
-        onDiscard={closeReview}
+        onDiscard={handleReviewDiscard}
       />
     </section>
   );

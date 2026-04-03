@@ -26,7 +26,7 @@ export default function AddEntryPage({ userId, timeZone }: Props) {
       </nav>
       <header className="entries-header">
         <h1 className="entries-title">Add entry</h1>
-        <p className="muted small entries-lead">One date: text extract, manual row, or day fields. Voice: Home.</p>
+        <p className="muted small entries-lead">Voice, text, manual row, or day context — all scoped to the date you pick.</p>
       </header>
 
       <DayLogPanel userId={userId} timeZone={timeZone} focusLogDate={focusLogDate} />
