@@ -180,8 +180,7 @@ export default function AdminTrackerPage() {
       <header className="admin-header">
         <h1 className="admin-title">Log fields</h1>
         <p className="muted small admin-lead">
-          Adjust labels and visibility for built-in fields, or add optional custom fields (text, number, or dropdown). Custom
-          fields are safe add-ons—they do not create new database columns.
+          Relabel or hide built-ins; add optional text, number, or dropdown fields (no new DB columns).
         </p>
         <details className="admin-doc-disclosure">
           <summary className="admin-doc-disclosure-summary">Technical reference</summary>
@@ -213,8 +212,7 @@ export default function AdminTrackerPage() {
               Add custom field
             </h2>
             <p className="admin-section-hint muted small">
-              Appears in manual day log flows for everyone. Use text, number, or dropdown. Turn off Visible to hide without
-              losing data.
+              Shown in Add entry / day log. Hide with Visible off — data is kept.
             </p>
             <div className="admin-create-custom">
               {createFieldError && <p className="error-inline admin-create-error">{createFieldError}</p>}

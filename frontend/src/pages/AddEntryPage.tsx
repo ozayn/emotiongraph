@@ -20,29 +20,13 @@ export default function AddEntryPage({ userId, timeZone }: Props) {
         <Link className="linkish entries-back" to={pathFor("/")}>
           ← Home
         </Link>
-        <span className="entries-nav-inline">
-          <Link className="linkish entries-back" to={pathFor("/today")}>
-            Today
-          </Link>
-          <span className="muted small" aria-hidden="true">
-            ·
-          </span>
-          <Link className="linkish entries-back" to={pathFor("/entries")}>
-            Entries
-          </Link>
-          <span className="muted small" aria-hidden="true">
-            ·
-          </span>
-          <Link className="linkish entries-back" to={pathFor("/profile")}>
-            Profile
-          </Link>
-        </span>
+        <Link className="linkish entries-nav-secondary" to={pathFor("/today")}>
+          Today
+        </Link>
       </nav>
       <header className="entries-header">
         <h1 className="entries-title">Add entry</h1>
-        <p className="muted small entries-lead">
-          Typed notes, manual rows, and day context for one date at a time. Voice capture stays on Home.
-        </p>
+        <p className="muted small entries-lead">One date: text extract, manual row, or day fields. Voice: Home.</p>
       </header>
 
       <DayLogPanel userId={userId} timeZone={timeZone} focusLogDate={focusLogDate} />

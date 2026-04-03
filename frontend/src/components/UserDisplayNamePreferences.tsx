@@ -29,19 +29,16 @@ export default function UserDisplayNamePreferences({ user, onUpdated }: Props) {
   };
 
   return (
-    <div className="profile-display-name panel-elevated" aria-labelledby="profile-display-name-heading">
+    <div className="profile-settings-field profile-display-name" aria-labelledby="profile-display-name-heading">
       <div className="profile-heading-with-help">
-        <h2 id="profile-display-name-heading" className="profile-display-name-title">
+        <h3 id="profile-display-name-heading" className="profile-display-name-title">
           Display name
-        </h2>
+        </h3>
         <InlineHelp label="Display name">
-          <p>This is how EmotionGraph addresses you in the app—for example on the home screen.</p>
-          <p>It does not change your account name or email.</p>
+          <p>How you’re greeted in the app. Does not change your account name.</p>
         </InlineHelp>
       </div>
-      <p className="profile-display-name-hint muted small">
-        Leave blank to use your account name ({user.name}).
-      </p>
+      <p className="profile-display-name-hint muted small">Blank uses account name.</p>
       <div className="profile-display-name-row">
         <label className="sr-only" htmlFor={`profile-display-name-${user.id}`}>
           Display name

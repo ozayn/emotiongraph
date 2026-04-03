@@ -13,8 +13,8 @@ export default function UsersGate({ usersReady, users }: Props) {
     return (
       <p className="muted gate-message">
         {realm === "demo"
-          ? "The Test sandbox didn’t load. Refresh and try again, or open the full app."
-          : "No profiles yet. Finish setup on the server, then refresh."}
+          ? "Demo didn’t load. Refresh or open the full app."
+          : "No profiles yet. Check server setup, then refresh."}
       </p>
     );
   }

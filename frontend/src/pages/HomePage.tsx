@@ -584,7 +584,7 @@ export default function HomePage({ userId, timeZone, users }: Props) {
           aria-atomic="true"
         >
           <div className="home-save-snackbar-inner">
-            <p className="home-save-snackbar-msg">Saved to Today</p>
+            <p className="home-save-snackbar-msg">Saved</p>
             <div className="home-save-snackbar-actions">
               {saveToastOfferReview ? (
                 <button type="button" className="home-save-snackbar-action" onClick={openReviewFromToast}>

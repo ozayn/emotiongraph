@@ -36,25 +36,25 @@ export default function UserTimezonePreferences({ user, onUpdated }: Props) {
   };
 
   return (
-    <section className="preferences-tz" aria-labelledby="prefs-tz-heading">
+    <section className="preferences-tz preferences-tz--profile-block" aria-labelledby="prefs-tz-heading">
       <div className="profile-heading-with-help">
-        <h2 id="prefs-tz-heading" className="preferences-tz-title">
+        <h3 id="prefs-tz-heading" className="profile-display-name-title">
           Time zone
-        </h2>
+        </h3>
         <InlineHelp label="Time zone">
-          <p>Calendar days and voice or text capture share one IANA time zone.</p>
           <p>
-            Default follows <strong>this device</strong> ({deviceTz}). Pick a fixed region only if you want calendar days to stay aligned to that place when you travel.
+            Defines calendar days for this profile. Default is this device ({deviceTz}); choose a fixed region if you want
+            dates to stay put when you travel.
           </p>
         </InlineHelp>
       </div>
       <p className="preferences-tz-effective small">
-        <span className="muted">Effective:</span> <code className="preferences-tz-code">{effective}</code>
+        <span className="muted">Now</span> <code className="preferences-tz-code">{effective}</code>
         <span className="muted">{saved == null ? " · device" : " · saved"}</span>
       </p>
       <div className="preferences-tz-control">
         <label className="preferences-tz-label" htmlFor={`prefs-tz-select-${user.id}`}>
-          Preference
+          Zone
         </label>
         <select
           id={`prefs-tz-select-${user.id}`}

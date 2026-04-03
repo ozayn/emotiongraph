@@ -66,7 +66,7 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
   };
 
   return (
-    <div className="profile-page">
+    <div className="profile-page profile-page--settings-v2">
       <nav className="entries-nav">
         <Link className="linkish entries-back" to={pathFor("/")}>
           ← Home
@@ -75,49 +75,51 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
 
       <header className="profile-page-header">
         <h1 className="profile-page-title">Profile</h1>
-        <p className="profile-page-tagline muted small">This device · this profile</p>
       </header>
 
-      <section id="profile-identity" className="profile-section profile-section--account" aria-labelledby="profile-account-heading">
-        <h2 id="profile-account-heading" className="sr-only">
+      <section
+        id="profile-identity"
+        className="profile-section profile-section--settings profile-section--account-primary"
+        aria-labelledby="profile-account-heading"
+      >
+        <h2 id="profile-account-heading" className="profile-section-heading profile-section-heading--primary">
           Account
         </h2>
-        <div className="profile-account-card">
-          <div className="profile-account-head">
+        <div className="profile-settings-group profile-settings-group--primary">
+          <div className="profile-settings-field profile-settings-identity">
             <p className="profile-account-name">{displayNameForUser(user)}</p>
-            <p className="profile-account-legal muted small">Account name: {user.name}</p>
+            <p className="profile-account-legal muted small">{user.name}</p>
             <p className="profile-account-meta mono muted small">
               #{user.id}
               <span className="profile-account-meta-sep" aria-hidden="true">
                 {" "}
                 ·{" "}
               </span>
-              <span>{authMode === "google_oauth" ? "Google account" : "local session"}</span>
+              <span>{authMode === "google_oauth" ? "Google" : "Local"}</span>
             </p>
           </div>
 
           <UserDisplayNamePreferences user={user} onUpdated={onUserUpdated} />
 
-          <div className="profile-account-toolbar">
-            <Link className="profile-account-add-link" to={pathFor("/add-entry")}>
+          <div className="profile-settings-field profile-settings-row profile-settings-row--spread">
+            <Link className="profile-settings-link" to={pathFor("/add-entry")}>
               Add entry
             </Link>
             <InlineHelp label="This profile">
-              <p>Voice capture and daily review live in the top bar.</p>
               {realm === "private" && authMode === "google_oauth" ? (
-                <p>This profile is tied to the Google account you signed in with.</p>
+                <p>Same Google account as sign-in.</p>
               ) : realm === "private" ? (
-                <p>Local profile on this device — use sign-in when your workspace enables Google.</p>
+                <p>Stored on this device until you switch.</p>
               ) : (
-                <p>This is the public demo: use only non-sensitive sample data.</p>
+                <p>Demo — avoid sensitive data.</p>
               )}
             </InlineHelp>
           </div>
 
-          <div className="profile-account-footer">
+          <div className="profile-settings-field profile-settings-row profile-settings-row--footer">
             {authMode !== "google_oauth" ? (
               <Link className="profile-account-secondary" to={pathFor("/switch-profile")}>
-                Use a different profile
+                Switch profile
               </Link>
             ) : null}
             {realm === "private" && authMode === "google_oauth" && privateAuth ? (
@@ -132,46 +134,42 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
                 Sign out
               </button>
             ) : null}
-            {realm === "private" && user.is_admin ? (
-              <>
-                {(authMode !== "google_oauth" || privateAuth) && (
-                  <span className="profile-account-footer-sep muted small" aria-hidden="true">
-                    ·
-                  </span>
-                )}
-                <Link className="profile-account-secondary" to={pathFor("/admin")}>
-                  Tracker config
-                </Link>
-              </>
-            ) : null}
           </div>
+          {realm === "private" && user.is_admin ? (
+            <div className="profile-settings-field profile-settings-field--quiet">
+              <Link
+                className="profile-account-config-link"
+                to={pathFor("/admin")}
+                title="Tracker fields and labels"
+              >
+                Config
+              </Link>
+            </div>
+          ) : null}
         </div>
       </section>
 
-      <section id="profile-preferences" className="profile-section" aria-labelledby="profile-preferences-kicker">
-        <h2 id="profile-preferences-kicker" className="profile-section-kicker">
+      <section id="profile-preferences" className="profile-section profile-section--settings profile-section--utility" aria-labelledby="profile-preferences-heading">
+        <h2 id="profile-preferences-heading" className="profile-section-heading profile-section-heading--utility">
           Preferences
         </h2>
-        <div className="profile-panel panel-elevated">
+        <div className="profile-settings-group profile-settings-group--utility">
           <UserTimezonePreferences user={user} onUpdated={onUserUpdated} />
         </div>
       </section>
 
-      <section id="profile-data" className="profile-section" aria-labelledby="profile-data-kicker">
-        <h2 id="profile-data-kicker" className="profile-section-kicker">
+      <section id="profile-data" className="profile-section profile-section--settings profile-section--utility" aria-labelledby="profile-data-heading">
+        <h2 id="profile-data-heading" className="profile-section-heading profile-section-heading--utility">
           Data
         </h2>
-        <div className="profile-data-panel panel-elevated">
+        <div className="profile-settings-group profile-settings-group--utility">
           <ProfileCsvImport userId={userId} />
 
-          <div className="profile-data-divider" aria-hidden="true" />
-
-          <div className="profile-data-group">
+          <div className="profile-settings-field">
             <div className="profile-data-kicker-row">
               <h3 className="profile-data-kicker">Export</h3>
               <InlineHelp label="CSV export">
-                <p>Download is limited to your own rows in the selected range.</p>
-                <p>Columns match the import template so you can round-trip edits in a spreadsheet.</p>
+                <p>Your rows in the range; columns match import.</p>
               </InlineHelp>
             </div>
             <div className="profile-export-range">
@@ -186,7 +184,7 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
             </div>
             <button
               type="button"
-              className="btn primary small profile-export-btn"
+              className="btn ghost small profile-export-btn"
               disabled={exportBusy || exportStart > exportEnd}
               onClick={() => void handleExportCsv()}
             >
@@ -198,8 +196,6 @@ export default function ProfilePage({ user, userId, timeZone, onUserUpdated }: P
               </p>
             )}
           </div>
-
-          <div className="profile-data-divider" aria-hidden="true" />
 
           <AddPastEntryFlow userId={userId} timeZone={timeZone} />
         </div>

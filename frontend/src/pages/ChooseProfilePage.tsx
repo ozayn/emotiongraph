@@ -37,13 +37,9 @@ export default function ChooseProfilePage({ users, switching = false, onChoose }
 
   const subtitle = (() => {
     if (isDemo) {
-      return switching
-        ? "Same Test sandbox — sample data only, not your private log."
-        : "You’re in the Test sandbox: sample entries for exploring the app, not your private log.";
+      return switching ? "Sample data only." : "Explore with sample entries.";
     }
-    return switching
-      ? "Choose who is using this device. No password — this only sets local preferences."
-      : "Pick your name to open the app. This device will remember until you switch.";
+    return switching ? "Who’s using this device now." : "Pick a name to continue.";
   })();
 
   return (

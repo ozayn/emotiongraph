@@ -65,14 +65,13 @@ export default function ProfileCsvImport({ userId, onCommitted }: Props) {
   };
 
   return (
-    <div className="profile-data-group">
+    <div className="profile-settings-field profile-import-field">
       <div className="profile-data-kicker-row">
         <h3 className="profile-data-kicker">Import</h3>
         <InlineHelp label="CSV import">
           <p>
-            UTF-8 <span className="mono">.csv</span>. Each row needs <span className="mono">log_date</span>; optional columns match your tracker export shape.
+            UTF-8 CSV with <span className="mono">log_date</span> per row. Preview before save; stored as <span className="mono">import</span>.
           </p>
-          <p>Imported rows are stored with source <span className="mono">import</span>. Preview checks the file before anything is saved.</p>
         </InlineHelp>
       </div>
       <div className="entries-import-upload">

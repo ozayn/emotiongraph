@@ -177,8 +177,8 @@ function SingleDayCheckinsChart({ entries }: { entries: InsightsRecentEntry[] })
   if (entries.length === 0) {
     return (
       <div className="insights-chart-card">
-        <p className="insights-chart-title">Check-ins by time</p>
-        <p className="muted small insights-single-chart-empty">No entries this day.</p>
+        <p className="insights-chart-title">By time</p>
+        <p className="muted small insights-single-chart-empty">No entries.</p>
       </div>
     );
   }
@@ -186,18 +186,15 @@ function SingleDayCheckinsChart({ entries }: { entries: InsightsRecentEntry[] })
   if (!hasAny) {
     return (
       <div className="insights-chart-card">
-        <p className="insights-chart-title">Check-ins by time</p>
-        <p className="muted small insights-single-chart-empty">
-          No metric values on these entries — dots appear when energy, anxiety, contentment, or focus are set.
-        </p>
+        <p className="insights-chart-title">By time</p>
+        <p className="muted small insights-single-chart-empty">No numeric metrics on these entries.</p>
       </div>
     );
   }
 
   return (
     <div className="insights-chart-card">
-      <p className="insights-chart-title">Check-ins by time</p>
-      <p className="insights-chart-sub muted small">Each dot is one logged value by time of day (local).</p>
+      <p className="insights-chart-title">By time</p>
       <div className="insights-chart-wrap insights-chart-wrap--single-scatter">
         <ResponsiveContainer width="100%" height="100%">
           <ScatterChart margin={{ top: 8, right: 8, left: -12, bottom: 4 }}>
@@ -507,19 +504,17 @@ export default function InsightsPage({ userId, timeZone }: Props) {
         </div>
         <h1 className="insights-title">Insights</h1>
         <p className="insights-lead muted small">
-          {singleDay
-            ? `Snapshot for ${snapshotHeadingDate(startDate)}. CSV export lives in Profile → Data.`
-            : "A calm read on your logged patterns in this range. CSV export lives in Profile → Data."}
+          {singleDay ? snapshotHeadingDate(startDate) : "Summaries and charts for the range below."}
         </p>
         {singleDay ? (
           <p className="insights-snapshot-actions muted small">
             {singleDayIsToday ? (
               <Link className="linkish" to={pathFor("/today")}>
-                Open in Today to edit
+                Edit in Today
               </Link>
             ) : (
               <Link className="linkish" to={`${pathFor("/entries")}?day=${encodeURIComponent(startDate)}`}>
-                Edit this day in Entries
+                Edit in Entries
               </Link>
             )}
           </p>
@@ -575,7 +570,7 @@ export default function InsightsPage({ userId, timeZone }: Props) {
 
       {error && <p className="error-inline insights-error">{error}</p>}
 
-      {loading && !data && <p className="muted insights-loading">Gathering your data…</p>}
+      {loading && !data && <p className="muted insights-loading">Loading…</p>}
 
       {data && (
         <>
@@ -583,9 +578,6 @@ export default function InsightsPage({ userId, timeZone }: Props) {
             <h2 id="summary-heading" className="insights-section-title">
               {singleDay ? "This day" : "Averages"}
             </h2>
-            {singleDay ? (
-              <p className="insights-section-lead muted small">Averages across entries logged on this date.</p>
-            ) : null}
             <div className="insights-summary-grid">
               <div className="insights-metric-card">
                 <p className="insights-metric-label">Energy</p>

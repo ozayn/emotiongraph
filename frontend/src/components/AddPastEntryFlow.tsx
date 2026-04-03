@@ -68,12 +68,11 @@ export default function AddPastEntryFlow({ userId, timeZone, onSaved }: Props) {
   };
 
   return (
-    <div className="profile-data-group">
+    <div className="profile-settings-field profile-manual-row-field">
       <div className="profile-data-kicker-row">
         <h3 className="profile-data-kicker">Manual row</h3>
         <InlineHelp label="Manual log row">
-          <p>Add one structured row for any date, with the same fields as a normal day log (including metrics you track).</p>
-          <p>It is stored like any other row for the date you pick.</p>
+          <p>One structured row for any date — same fields as your day log.</p>
         </InlineHelp>
       </div>
       <button type="button" className="btn ghost small" onClick={openAddPast}>

@@ -1998,10 +1998,11 @@ body {
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.45rem 0.65rem;
-  margin-bottom: 0.65rem;
+  margin-bottom: 0.45rem;
 }
 
-.profile-heading-with-help .preferences-tz-title {
+.profile-heading-with-help .preferences-tz-title,
+.profile-heading-with-help .profile-display-name-title {
   margin: 0;
 }
 
@@ -2141,14 +2142,8 @@ body {
   padding: 1.35rem 1.15rem;
 }
 
-.preferences-tz-title {
-  margin: 0 0 0.5rem;
-  font-size: 1.05rem;
-  font-weight: 650;
-}
-
 .preferences-tz-effective {
-  margin: 0 0 1rem;
+  margin: 0 0 0.65rem;
 }
 
 .preferences-tz-code {
@@ -3324,14 +3319,18 @@ body {
   width: 100%;
 }
 
-/* Profile — calm account / settings hub */
+/* Profile — primary account card + light utility stacks */
 .profile-page {
-  max-width: 28rem;
+  max-width: 26rem;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 1.35rem;
+  gap: 1.25rem;
   padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+}
+
+.profile-page--settings-v2 {
+  gap: 1.65rem;
 }
 
 .profile-page-header {
@@ -3363,10 +3362,20 @@ body {
   border-top: 1px solid var(--ink-a07);
 }
 
-.profile-section--account {
-  padding-top: 0.35rem;
+.profile-section--settings {
+  gap: 0.45rem;
+}
+
+.profile-section--account-primary {
+  padding-top: 0.15rem;
   border-top: none;
-  gap: 0;
+  gap: 0.5rem;
+}
+
+.profile-section--utility {
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--ink-a05);
+  gap: 0.32rem;
 }
 
 .profile-section-kicker {
@@ -3378,19 +3387,227 @@ body {
   color: var(--ink-a52);
 }
 
+.profile-section-heading {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 650;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.profile-section-heading--primary {
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  color: var(--text);
+  opacity: 0.88;
+}
+
+.profile-section-heading--utility {
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-a42);
+}
+
 .profile-panel {
   padding: 0.15rem 0.85rem 0.95rem;
 }
 
-.profile-account-card {
+.profile-settings-group {
   border-radius: var(--radius-lg);
   border: 1px solid var(--ink-a08);
   background: var(--surface);
-  box-shadow: 0 1px 0 var(--frost-a38) inset;
-  padding: 1.15rem 1.1rem 1rem;
+  overflow: hidden;
+}
+
+/* Main account block: single soft surface (clearer hero than utility rows). */
+.profile-settings-group--primary {
+  border: 1px solid var(--ink-a06);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg) 8%);
+  box-shadow: none;
+}
+
+.profile-settings-group--primary .profile-settings-field + .profile-settings-field {
+  border-top: 1px solid var(--ink-a045);
+}
+
+/* Preferences / Data: no outer box — airy utility list on page canvas. */
+.profile-settings-group--utility {
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  overflow: visible;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0;
+}
+
+.profile-settings-group--utility > .profile-settings-field {
+  padding: 0.42rem 0;
+}
+
+.profile-settings-group--utility > .profile-settings-field + .profile-settings-field {
+  margin-top: 0.35rem;
+  padding-top: 0.78rem;
+  border-top: 1px solid var(--ink-a045);
+}
+
+.profile-settings-group--utility .preferences-tz--profile-block {
+  margin: 0;
+  padding: 0.35rem 0 0.15rem;
+}
+
+.profile-settings-field {
+  padding: 0.85rem 1rem;
+}
+
+.profile-settings-group--primary .profile-settings-field {
+  padding: 0.72rem 0.95rem;
+}
+
+.profile-settings-field + .profile-settings-field {
+  border-top: 1px solid var(--ink-a06);
+}
+
+.profile-settings-field--quiet {
+  padding-top: 0.48rem;
+  padding-bottom: 0.52rem;
+  background: transparent;
+}
+
+.profile-settings-group--primary .profile-settings-field--quiet {
+  border-top-color: var(--ink-a045);
+}
+
+.profile-settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.65rem;
+}
+
+.profile-settings-row--spread {
+  justify-content: space-between;
+  align-items: center;
+}
+
+.profile-settings-row--footer {
+  gap: 0.5rem 0.85rem;
+}
+
+.profile-settings-link {
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  color: var(--accent-blue);
+  transition: color 0.2s var(--ease-soft);
+}
+
+.profile-settings-link:hover {
+  color: var(--accent-blue-mid);
+}
+
+.profile-import-field .entries-import-upload {
+  margin-top: 0.15rem;
+}
+
+.profile-settings-group--primary .profile-account-secondary {
+  font-size: 0.78rem;
+  color: var(--ink-a52);
+}
+
+.profile-settings-group--primary .profile-settings-link {
+  font-size: 0.84rem;
+}
+
+.profile-page--settings-v2 .profile-section--account-primary .inline-help-trigger {
+  width: 1.62rem;
+  height: 1.62rem;
+  border-color: var(--ink-a07);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
+}
+
+.profile-page--settings-v2 .profile-section--account-primary .inline-help-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.profile-page--settings-v2 .profile-section--utility .inline-help-trigger {
+  width: 1.42rem;
+  height: 1.42rem;
+  border-color: transparent;
+  background: transparent;
+  color: var(--ink-a35);
+  opacity: 0.72;
+}
+
+.profile-page--settings-v2 .profile-section--utility .inline-help-trigger:hover,
+.profile-page--settings-v2 .profile-section--utility .inline-help-trigger[aria-expanded="true"] {
+  background: var(--ink-a04);
+  color: var(--muted);
+  opacity: 1;
+}
+
+.profile-page--settings-v2 .profile-section--utility .inline-help-icon {
+  width: 13px;
+  height: 13px;
+}
+
+.profile-settings-group--utility .profile-data-kicker {
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.055em;
+  color: var(--ink-a38);
+}
+
+.profile-settings-group--utility .profile-export-label {
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: var(--ink-a42);
+}
+
+.profile-settings-group--utility .preferences-tz-label {
+  color: var(--ink-a38);
+  font-weight: 500;
+}
+
+.profile-settings-group--utility .preferences-tz-code {
+  border-color: var(--ink-a07);
+  background: var(--frost-a32);
+}
+
+.profile-settings-group--utility .user-tz-select {
+  border-color: var(--ink-a08);
+  background: var(--surface);
+}
+
+.profile-settings-group--utility .entries-import-dropzone {
+  border-color: var(--ink-a07);
+  background: var(--surface);
+}
+
+.profile-settings-group--utility .entries-import-dropzone:focus-within {
+  background: var(--frost-a34);
+}
+
+.profile-settings-group--utility .entries-import-choose {
+  border-color: var(--ink-a09);
+  background: var(--frost-a36);
+}
+
+.profile-settings-group--utility .btn.ghost {
+  border-color: var(--ink-a07);
+  color: var(--ink-a52);
+}
+
+.profile-settings-group--utility .btn.ghost:hover:not(:disabled) {
+  border-color: var(--ink-a12);
+  background: var(--ink-a04);
+  color: var(--accent-blue-mid);
 }
 
 .profile-account-head {
@@ -3415,11 +3632,10 @@ body {
 }
 
 .profile-display-name {
-  margin-top: 0.35rem;
-  padding: 0.85rem 1rem 1rem;
+  margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.45rem;
 }
 
 .profile-display-name-title {
@@ -3472,6 +3688,15 @@ body {
   box-shadow: 0 0 0 2px var(--blue-a12);
 }
 
+.profile-settings-group--primary .profile-display-name-input {
+  background: var(--bg);
+  border-color: var(--ink-a08);
+}
+
+.profile-settings-group--primary .profile-display-name-input:focus {
+  background: var(--surface);
+}
+
 .profile-account-meta {
   margin: 0;
   letter-spacing: 0.02em;
@@ -3479,38 +3704,6 @@ body {
 
 .profile-account-meta-sep {
   opacity: 0.65;
-}
-
-.profile-account-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 0.65rem;
-  margin: 0;
-  padding: 0.55rem 0 0;
-  border-top: 1px solid var(--ink-a06);
-}
-
-.profile-account-toolbar .profile-account-add-link {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  text-decoration: none;
-  color: var(--accent-blue);
-  transition: color 0.2s var(--ease-soft);
-}
-
-.profile-account-toolbar .profile-account-add-link:hover {
-  color: var(--accent-blue-mid);
-}
-
-.profile-account-footer {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem 0.5rem;
-  margin: 0.15rem 0 0;
-  padding-top: 0.85rem;
-  border-top: 1px solid var(--ink-a07);
 }
 
 .profile-account-footer-sep {
@@ -3538,28 +3731,28 @@ button.profile-account-secondary {
   cursor: pointer;
 }
 
-.profile-data-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  padding: 1rem 1rem 1.15rem;
+.profile-account-config-link {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+  color: var(--muted);
+  transition: color 0.2s var(--ease-soft);
 }
 
-.profile-data-panel .btn.ghost {
+.profile-account-config-link:hover {
+  color: var(--accent-blue-mid);
+}
+
+.profile-settings-group--primary .btn.ghost {
   border-color: var(--ink-a10);
   color: var(--accent-blue-mid);
 }
 
-.profile-data-panel .btn.ghost:hover:not(:disabled) {
+.profile-settings-group--primary .btn.ghost:hover:not(:disabled) {
   border-color: var(--blue-a20);
   background: var(--accent-blue-soft);
   color: var(--accent-blue-mid);
-}
-
-.profile-data-divider {
-  height: 1px;
-  background: var(--ink-a07);
-  margin: 0;
 }
 
 .profile-data-group {

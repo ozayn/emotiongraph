@@ -299,15 +299,14 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
           <>
             <h1 className="entries-title">Entries</h1>
             <p className="muted small entries-lead">
-              Browse history in a date range and edit or delete rows. CSV and structured add are under{" "}
-              <Link className="linkish" to={pathFor("/profile#data")}>
-                Profile → Data
-              </Link>
-              . Typed or manual logs:{" "}
+              Pick a range, then edit or delete.{" "}
               <Link className="linkish" to={pathFor("/add-entry")}>
                 Add entry
               </Link>
-              .
+              {" · "}
+              <Link className="linkish" to={pathFor("/profile#data")}>
+                Import / export
+              </Link>
             </p>
             <div className="entries-range">
               <label className="entries-range-field">
@@ -363,10 +362,7 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
         {!loading && !loadError && entries.length > 0 && (
         <>
           <div className="entries-view-bar" role="group" aria-label="Entry list layout">
-            <span
-              className={`entries-view-bar-label muted small${variant === "today" ? " sr-only" : ""}`}
-              id="entries-view-mode-label"
-            >
+            <span className="entries-view-bar-label muted small sr-only" id="entries-view-mode-label">
               View
             </span>
             <div className="entries-view-toggle" role="tablist" aria-labelledby="entries-view-mode-label">

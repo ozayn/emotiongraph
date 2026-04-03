@@ -524,9 +524,7 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
       <h2 id="day-log-panel-title" className="entries-day-panel-title">
         Day log
       </h2>
-      <p className="entries-day-panel-lead muted small">
-        Pick a date, then use text or a manual row, set optional day context, and review saved rows for that day.
-      </p>
+      <p className="entries-day-panel-lead muted small">Choose a date, then add or review rows below.</p>
       <div className="entries-day-panel-date-row">
         <label className="entries-day-panel-date-label">
           <span className="sr-only">Log date</span>
@@ -545,7 +543,7 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
               <span className="today-text-summary-title" id={`text-mode-${textAreaId}`}>
                 Text
               </span>
-              <span className="today-text-summary-hint muted">Typed note → extract</span>
+              <span className="today-text-summary-hint muted">Note → extract</span>
             </span>
             <span className="today-text-summary-chevron" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -591,7 +589,7 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
               <span id="manual-add-heading-entries" className="today-manual-summary-title">
                 Manual
               </span>
-              <span className="today-manual-summary-hint muted">Field by field, direct save</span>
+              <span className="today-manual-summary-hint muted">Direct save</span>
             </span>
             <span className="today-manual-summary-chevron" aria-hidden="true">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -600,9 +598,7 @@ export default function DayLogPanel({ userId, timeZone, onMutate, focusLogDate }
             </span>
           </summary>
           <div className="today-manual-body">
-            <p className="today-manual-lead muted small">
-              Structured fields only — fill what you know and save. No extraction step.
-            </p>
+            <p className="today-manual-lead muted small">Fill fields and save — no extraction.</p>
             <div className="manual-add-fields">
               <label className="field field--stacked">
                 <span>What happened</span>

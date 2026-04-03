@@ -28,7 +28,7 @@ export default function AppLayout({ children }: Props) {
             </div>
             {realm === "private" && (
               <Link className="app-header-tertiary-link" to="/demo/">
-                Try demo
+                Demo
               </Link>
             )}
             {usersReady && userScopeReady && (
@@ -52,12 +52,9 @@ export default function AppLayout({ children }: Props) {
       {realm === "demo" && (
         <div className="app-banner app-banner--demo" role="status">
           <div className="app-banner-demo-inner">
-            <span className="app-banner-demo-pill">Sample data</span>
-            <span className="app-banner-demo-sep muted" aria-hidden="true">
-              ·
-            </span>
+            <span className="app-banner-demo-pill">Sample</span>
             <Link className="app-banner-demo-account" to="/">
-              Use my account
+              Sign in
             </Link>
           </div>
         </div>
