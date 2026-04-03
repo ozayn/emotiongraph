@@ -9,6 +9,16 @@ const PRIMARY = [
   { to: "/profile", label: "Profile" },
 ] as const;
 
+function normalizeNavPath(p: string): string {
+  const q = p.split("?")[0] ?? p;
+  if (q.length > 1 && q.endsWith("/")) return q.slice(0, -1);
+  return q;
+}
+
+function isNavActive(pathname: string, to: string, pathFor: (p: string) => string): boolean {
+  return normalizeNavPath(pathname) === normalizeNavPath(pathFor(to));
+}
+
 function ProfileAccountIcon() {
   return (
     <svg
@@ -31,25 +41,33 @@ function ProfileAccountIcon() {
   );
 }
 
-/** Primary IA — hides link for current route (realm-aware paths). */
+/** Primary IA — all items stay visible; current route gets active styling (realm-aware paths). */
 export default function MainNav() {
   const { pathname } = useLocation();
   const { pathFor } = useSession();
 
   return (
     <div className="app-header-nav-primary">
-      {PRIMARY.map(({ to, label }) =>
-        pathname !== pathFor(to) ? (
+      {PRIMARY.map(({ to, label }) => {
+        const active = isNavActive(pathname, to, pathFor);
+        const profile = to === "/profile";
+        return (
           <Link
             key={to}
-            className={to === "/profile" ? "header-link header-link--profile-icon" : "header-link"}
+            className={[
+              profile ? "header-link header-link--profile-icon" : "header-link",
+              active && "header-link--active",
+            ]
+              .filter(Boolean)
+              .join(" ")}
             to={pathFor(to)}
-            aria-label={to === "/profile" ? "Profile — account and settings" : undefined}
+            aria-label={profile ? "Profile — account and settings" : undefined}
+            aria-current={active ? "page" : undefined}
           >
-            {to === "/profile" ? <ProfileAccountIcon /> : label}
+            {profile ? <ProfileAccountIcon /> : label}
           </Link>
-        ) : null,
-      )}
+        );
+      })}
     </div>
   );
 }

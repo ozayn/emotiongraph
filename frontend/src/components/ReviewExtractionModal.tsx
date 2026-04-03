@@ -221,6 +221,9 @@ export default function ReviewExtractionModal({
 
   const canDownloadExtract = Boolean(!extractionLoading && extraction);
 
+  const entriesAlreadyOnServer = initialServerIds != null && initialServerIds.length > 0;
+  const dismissLabel = entriesAlreadyOnServer ? "Close" : "Discard";
+
   return (
     <div className="review-backdrop" role="presentation">
       <div
@@ -395,7 +398,7 @@ export default function ReviewExtractionModal({
 
         <div className="review-sticky-footer">
           <button type="button" className="btn btn-discard-footer" onClick={onDiscard} disabled={saving}>
-            Discard
+            {dismissLabel}
           </button>
           <div className="review-footer-save-row">
             <button

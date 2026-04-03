@@ -195,6 +195,19 @@ def _remove_capture_start_time(rows: list[ExtractLogsRow], cap: str) -> list[Ext
     return out if changed else rows
 
 
+def _transcript_suggests_habitual_framing(text: str) -> bool:
+    """True when the note is framed as a habit or generalization (do not anchor to capture clock)."""
+    if not text or not text.strip():
+        return False
+    lower = text.lower()
+    if re.search(r"\busually\b|\boften\b|\btypically\b|\bgenerally\b|\bmost\s+of\s+the\s+time\b", lower):
+        return True
+    for frag in ("معمولا", "обично", "često", "cesto"):
+        if frag in lower or frag in text:
+            return True
+    return False
+
+
 def _transcript_allows_capture_time_anchor(text: str) -> bool:
     """
     True when the transcript clearly signals present or imminent experience (not only past/habitual).
@@ -246,6 +259,15 @@ def _transcript_allows_capture_time_anchor(text: str) -> bool:
     if re.search(r"\bim\s+working\s+on\b", lower):
         return True
     if re.search(r"\bi'?m\s+feeling\b", lower) or re.search(r"\bi\s+am\s+feeling\b", lower):
+        return True
+    # Broad present-progressive check-ins: "I'm talking to …", "I'm having dinner", "I'm eating", etc.
+    # Skip when the same note reads as habitual (usually/often/…) — conservative.
+    progressive = (
+        re.search(r"\bi'?m\s+[a-z]{2,}ing\b", lower)
+        or re.search(r"\bi\s+am\s+[a-z]{2,}ing\b", lower)
+        or re.search(r"\bim\s+[a-z]{2,}ing\b", lower)
+    )
+    if progressive and not _transcript_suggests_habitual_framing(text):
         return True
     if re.search(r"\bi feel\s+(?!that\b)", lower):
         return True

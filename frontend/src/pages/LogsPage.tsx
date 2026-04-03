@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { deleteLog, fetchLogsRange, patchLog, putLogEntryCustomValues } from "../api";
 import CalmSelect from "../components/CalmSelect";
 import CustomFieldsForm from "../components/CustomFieldsForm";
+import TodaySnapshot from "../components/TodaySnapshot";
 import MetricSelect from "../components/MetricSelect";
 import { buildCustomValuesPayload, customValuesToDraft, filterCustomFormFields } from "../customFieldValues";
 import { fetchTrackerConfig } from "../trackerConfigApi";
@@ -280,24 +281,28 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
       <header className="entries-header">
         {variant === "today" ? (
           <>
-            <h1 className="entries-title">Today</h1>
-            <p className="muted small entries-today-date" aria-live="polite">
-              {todayHeading}
-            </p>
-            <p className="muted small entries-lead">
-              Logs for today in your timezone. For voice, use{" "}
+            <div className="entries-title-row">
+              <h1 className="entries-title">Today</h1>
+              <p className="muted small entries-today-date" aria-live="polite">
+                {todayHeading}
+              </p>
+            </div>
+            <p className="muted small entries-today-actions">
               <Link className="linkish" to={pathFor("/")}>
                 Home
               </Link>
-              . For text or manual rows,{" "}
+              <span className="entries-today-actions-sep" aria-hidden="true">
+                ·
+              </span>
               <Link className="linkish" to={`${pathFor("/add-entry")}?day=${todayIso}`}>
                 Add entry
               </Link>
-              . Import or export lives in{" "}
+              <span className="entries-today-actions-sep" aria-hidden="true">
+                ·
+              </span>
               <Link className="linkish" to={pathFor("/profile#data")}>
-                Profile → Data
+                Data
               </Link>
-              .
             </p>
           </>
         ) : (
@@ -349,6 +354,15 @@ export default function LogsPage({ userId, timeZone, variant = "history" }: Prop
           </>
         )}
       </header>
+
+      {variant === "today" ? (
+        <TodaySnapshot
+          userId={userId}
+          logDate={todayIso}
+          entries={entries}
+          entriesLoading={loading}
+        />
+      ) : null}
 
       <section className="entries-history-block" id="entries-history-focus" aria-label="Log history">
         {loading && <p className="muted">Loading…</p>}

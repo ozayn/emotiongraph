@@ -21,6 +21,9 @@ type Props = { userId: number; timeZone: string; users?: User[] };
 
 type CaptureMode = "voice" | "text";
 
+/** Snackbar auto-hide: long enough to read + tap Review (conventional “long” snackbar range). */
+const SAVE_TOAST_AUTO_DISMISS_MS = 8500;
+
 function normalizeExtractedRows(raw: LogRow[]): LogRow[] {
   return raw.map((row) => ({
     start_time: row.start_time ?? null,
@@ -76,16 +79,30 @@ export default function HomePage({ userId, timeZone, users }: Props) {
 
   const [recordingActive, setRecordingActive] = useState(false);
   const [todayLogCount, setTodayLogCount] = useState<number | null>(null);
-  const [captureSavedAck, setCaptureSavedAck] = useState(false);
-  const captureSavedAckTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [saveToastOpen, setSaveToastOpen] = useState(false);
+  const [saveToastOfferReview, setSaveToastOfferReview] = useState(false);
+  const saveToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reviewSessionInitialIdsRef = useRef<number[] | null>(null);
 
-  const clearCaptureAckTimer = useCallback(() => {
-    if (captureSavedAckTimerRef.current != null) {
-      clearTimeout(captureSavedAckTimerRef.current);
-      captureSavedAckTimerRef.current = null;
+  const clearSaveToastTimer = useCallback(() => {
+    if (saveToastTimerRef.current != null) {
+      clearTimeout(saveToastTimerRef.current);
+      saveToastTimerRef.current = null;
     }
   }, []);
+
+  const showSaveToast = useCallback(
+    (offerReview: boolean) => {
+      clearSaveToastTimer();
+      setSaveToastOfferReview(offerReview);
+      setSaveToastOpen(true);
+      saveToastTimerRef.current = setTimeout(() => {
+        setSaveToastOpen(false);
+        saveToastTimerRef.current = null;
+      }, SAVE_TOAST_AUTO_DISMISS_MS);
+    },
+    [clearSaveToastTimer],
+  );
 
   const refreshTodayLogCount = useCallback(async () => {
     try {
@@ -109,8 +126,8 @@ export default function HomePage({ userId, timeZone, users }: Props) {
   }, [refreshTodayLogCount]);
 
   useEffect(() => {
-    return () => clearCaptureAckTimer();
-  }, [clearCaptureAckTimer]);
+    return () => clearSaveToastTimer();
+  }, [clearSaveToastTimer]);
 
   useEffect(() => {
     if (reviewOpen) {
@@ -120,10 +137,10 @@ export default function HomePage({ userId, timeZone, users }: Props) {
 
   useEffect(() => {
     if (captureMode !== "text") {
-      setCaptureSavedAck(false);
-      clearCaptureAckTimer();
+      setSaveToastOpen(false);
+      clearSaveToastTimer();
     }
-  }, [captureMode, clearCaptureAckTimer]);
+  }, [captureMode, clearSaveToastTimer]);
 
   const resetCaptureDraft = useCallback(() => {
     setReviewOpen(false);
@@ -159,15 +176,6 @@ export default function HomePage({ userId, timeZone, users }: Props) {
     }
     resetCaptureDraft();
   }, [pendingReviewEntryIds, closeReviewSheet, resetCaptureDraft]);
-
-  const triggerCaptureAck = useCallback(() => {
-    clearCaptureAckTimer();
-    setCaptureSavedAck(true);
-    captureSavedAckTimerRef.current = setTimeout(() => {
-      setCaptureSavedAck(false);
-      captureSavedAckTimerRef.current = null;
-    }, 3200);
-  }, [clearCaptureAckTimer]);
 
   const runExtraction = useCallback(
     async (text: string) => {
@@ -220,7 +228,7 @@ export default function HomePage({ userId, timeZone, users }: Props) {
           setTextDraft("");
         }
         setPostExtractSaveError(null);
-        triggerCaptureAck();
+        showSaveToast(true);
         void refreshTodayLogCount();
       } catch (e) {
         setPostExtractSaveError(e instanceof Error ? e.message : "Save failed");
@@ -228,7 +236,7 @@ export default function HomePage({ userId, timeZone, users }: Props) {
         setReviewOpen(true);
       }
     },
-    [userId, logDate, refreshTodayLogCount, triggerCaptureAck],
+    [userId, logDate, refreshTodayLogCount, showSaveToast],
   );
 
   const beginNewVoiceClip = useCallback(() => {
@@ -238,9 +246,9 @@ export default function HomePage({ userId, timeZone, users }: Props) {
     setTranscript("");
     setExtraction(null);
     setExtractionError(null);
-    setCaptureSavedAck(false);
-    clearCaptureAckTimer();
-  }, [clearCaptureAckTimer]);
+    setSaveToastOpen(false);
+    clearSaveToastTimer();
+  }, [clearSaveToastTimer]);
 
   const handleRecordingComplete = async (recording: Blob) => {
     beginNewVoiceClip();
@@ -380,7 +388,7 @@ export default function HomePage({ userId, timeZone, users }: Props) {
     if (fromTextCapture) {
       setTextDraft("");
     }
-    triggerCaptureAck();
+    showSaveToast(false);
     void refreshTodayLogCount();
   };
 
@@ -392,12 +400,6 @@ export default function HomePage({ userId, timeZone, users }: Props) {
     extractionLoading ||
     recordingActive ||
     (captureMode === "voice" && blob != null && !pipelineLoading && !reviewOpen);
-
-  const showPostSaveRow =
-    !reviewOpen &&
-    extraction != null &&
-    pendingReviewEntryIds != null &&
-    pendingReviewEntryIds.length > 0;
 
   const recordPanelClass = [
     "today-record",
@@ -423,24 +425,15 @@ export default function HomePage({ userId, timeZone, users }: Props) {
   const profileSelf = users?.find((u) => u.id === userId);
   const profileName = profileSelf ? displayNameForUser(profileSelf) : "there";
 
-  const postSaveStatus = (
-    <div className="home-capture-post-save" aria-live="polite">
-      {captureSavedAck ? (
-        <p className="home-capture-saved-hint home-capture-saved-hint--pulse" role="status">
-          Saved to Today
-        </p>
-      ) : null}
-      {showPostSaveRow ? (
-        <button
-          type="button"
-          className="home-capture-review-link"
-          onClick={() => setReviewOpen(true)}
-        >
-          Review entry
-        </button>
-      ) : null}
-    </div>
-  );
+  const dismissSaveToast = useCallback(() => {
+    clearSaveToastTimer();
+    setSaveToastOpen(false);
+  }, [clearSaveToastTimer]);
+
+  const openReviewFromToast = useCallback(() => {
+    dismissSaveToast();
+    setReviewOpen(true);
+  }, [dismissSaveToast]);
 
   return (
     <div className="today-page today-page--voice-home">
@@ -523,7 +516,6 @@ export default function HomePage({ userId, timeZone, users }: Props) {
                 {postExtractSaveError && !reviewOpen ? (
                   <p className="error-inline error-inline--spaced">{postExtractSaveError}</p>
                 ) : null}
-                {postSaveStatus}
               </>
             ) : (
               <>
@@ -552,7 +544,6 @@ export default function HomePage({ userId, timeZone, users }: Props) {
                 {postExtractSaveError && !reviewOpen ? (
                   <p className="error-inline error-inline--spaced">{postExtractSaveError}</p>
                 ) : null}
-                {postSaveStatus}
               </>
             )}
           </section>
@@ -584,6 +575,29 @@ export default function HomePage({ userId, timeZone, users }: Props) {
         onSave={handleSaveRows}
         onDiscard={handleReviewDiscard}
       />
+
+      {saveToastOpen ? (
+        <div
+          className="home-save-snackbar"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+        >
+          <div className="home-save-snackbar-inner">
+            <p className="home-save-snackbar-msg">Saved to Today</p>
+            <div className="home-save-snackbar-actions">
+              {saveToastOfferReview ? (
+                <button type="button" className="home-save-snackbar-action" onClick={openReviewFromToast}>
+                  Review
+                </button>
+              ) : null}
+              <button type="button" className="home-save-snackbar-dismiss" onClick={dismissSaveToast}>
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
