@@ -1157,6 +1157,111 @@ body {
   color: var(--text);
 }
 
+/* Home: compact Voice | Text switch — secondary to the main capture surface */
+.home-capture-mode-switch {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-self: center;
+  margin-top: 0.55rem;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--frost-a42);
+  border: 1px solid var(--ink-a07);
+  gap: 2px;
+}
+
+.home-capture-mode-btn {
+  min-width: 4.1rem;
+  padding: 0.3rem 0.6rem;
+  margin: 0;
+  font: inherit;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    color 0.18s var(--ease-soft),
+    background 0.18s var(--ease-soft),
+    box-shadow 0.18s var(--ease-soft);
+}
+
+.home-capture-mode-btn[aria-selected="true"] {
+  color: var(--text);
+  background: var(--frost-a78);
+  box-shadow: 0 1px 2px var(--ink-a05);
+}
+
+.home-capture-mode-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--frost-a78), 0 0 0 4px var(--blue-a12);
+}
+
+.home-capture-mode-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.home-capture-text-panel.panel-elevated {
+  width: 100%;
+  max-width: 22rem;
+  align-self: center;
+  margin-top: 0;
+  padding: 1rem 0.95rem 0.95rem;
+  border-color: var(--ink-a08);
+  box-shadow: 0 1px 0 var(--frost-a38) inset;
+}
+
+.home-capture-textarea {
+  margin-top: 0;
+}
+
+.home-capture-text-actions {
+  margin-top: 0.55rem;
+}
+
+.home-capture-saved-hint {
+  margin: 0.45rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--muted);
+  animation: home-capture-saved-fade 2.6s var(--ease-soft) forwards;
+}
+
+@keyframes home-capture-saved-fade {
+  0% {
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  72% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-capture-saved-hint {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+@media (min-width: 480px) {
+  .home-capture-text-panel.panel-elevated {
+    padding: 1.05rem 1rem 1rem;
+  }
+}
+
 .today-record--voice-home.panel-elevated {
   margin-top: 0;
   width: 100%;
