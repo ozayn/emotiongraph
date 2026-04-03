@@ -2,7 +2,7 @@
   "name": "EmotionGraph",
   "short_name": "EmotionGraph",
   "description": "Voice and text notes turned into structured daily log entries you can review and save.",
-  "id": "https://emotiongraph.ozayn.com/",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "lang": "en",

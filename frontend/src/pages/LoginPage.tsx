@@ -25,6 +25,7 @@ declare global {
               text?: string;
               width?: string | number;
               locale?: string;
+              shape?: string;
             },
           ) => void;
         };
@@ -73,33 +74,45 @@ export default function LoginPage() {
 
     const init = () => {
       if (cancelled || !btnRef.current || !window.google?.accounts?.id) return;
+      const mount = btnRef.current;
+      const host = mount.parentElement;
+      const measured = host?.clientWidth ?? mount.clientWidth;
+      const widthPx = Math.max(260, Math.min(420, Math.floor(measured) || 304));
+
       window.google.accounts.id.initialize({
         client_id: clientId,
         callback: (response) => void onCredential(response.credential),
       });
-      btnRef.current.replaceChildren();
-      window.google.accounts.id.renderButton(btnRef.current, {
+      mount.replaceChildren();
+      window.google.accounts.id.renderButton(mount, {
         theme: "outline",
         size: "large",
         text: "continue_with",
-        width: "100%",
+        shape: "pill",
+        width: widthPx,
         locale: "en",
+      });
+    };
+
+    const initAfterLayout = () => {
+      requestAnimationFrame(() => {
+        if (!cancelled) init();
       });
     };
 
     let script = document.querySelector<HTMLScriptElement>(`script[src="${GIS_SCRIPT}"]`);
     if (script) {
       if (window.google?.accounts?.id) {
-        init();
+        initAfterLayout();
       } else {
-        script.addEventListener("load", init, { once: true });
+        script.addEventListener("load", initAfterLayout, { once: true });
       }
     } else {
       script = document.createElement("script");
       script.src = GIS_SCRIPT;
       script.async = true;
       script.defer = true;
-      script.onload = () => init();
+      script.onload = () => initAfterLayout();
       document.head.appendChild(script);
     }
 
@@ -124,49 +137,47 @@ export default function LoginPage() {
       <main className="login-main">
         <div className="login-backdrop" aria-hidden="true" />
         <div className="login-stage">
-          <div className="login-intro">
-            <span className="login-intro-accent" aria-hidden="true" />
-            <div className="login-intro-text">
-              <h1 className="login-intro-title">Notice how you feel, over time</h1>
-              <p className="login-intro-lead">
-                EmotionGraph is a calm place for quick check-ins and gentle patterns—not a feed. Sign in with Google so your
-                journal and insights stay with your account.
-              </p>
+          <div className="login-cluster">
+            <div className="login-ambient" aria-hidden="true">
+              <svg className="login-ambient__svg" viewBox="0 0 480 160" preserveAspectRatio="xMidYMid meet">
+                <g className="login-ambient__layer login-ambient__layer--lines">
+                  <g className="login-ambient__wave login-ambient__wave--a">
+                    <path d="M-60 102 C 60 78, 180 118, 300 100 S 480 82, 560 98" />
+                  </g>
+                  <g className="login-ambient__wave login-ambient__wave--b">
+                    <path d="M-60 64 C 100 88, 220 44, 340 62 S 500 52, 560 70" />
+                  </g>
+                  <g className="login-ambient__wave login-ambient__wave--c">
+                    <path d="M-60 134 C 140 122, 260 150, 380 132 S 520 140, 560 126" />
+                  </g>
+                </g>
+                <g className="login-ambient__layer login-ambient__layer--nodes">
+                  <circle className="login-ambient__node" cx="108" cy="94" r="1.4" />
+                  <circle className="login-ambient__node" cx="252" cy="58" r="1.1" />
+                  <circle className="login-ambient__node" cx="364" cy="112" r="1.2" />
+                </g>
+              </svg>
             </div>
-          </div>
-          <div className="login-card panel-elevated">
-            <p className="login-kicker muted small">Sign in</p>
-            <h2 className="login-title">Continue with Google</h2>
-            {!clientId ? (
-              <p className="login-lead muted small">
-                Google sign-in needs a web client id in the frontend environment (VITE_GOOGLE_CLIENT_ID) and matching server
-                configuration. Ask your administrator, or use local dev flags to skip this screen.
-              </p>
-            ) : (
-              <p className="login-lead muted small">
-                We use your Google account only to recognize you and keep your entries separate. Password entry stays on
-                Google&apos;s side.
-              </p>
-            )}
-            {clientId ? (
-              <div className={`login-google-host${busy ? " login-google-host--busy" : ""}`}>
-                <div ref={btnRef} className="login-google-btn-mount" />
-                {busy ? <p className="login-google-busy muted small">Signing you in…</p> : null}
-              </div>
-            ) : null}
-            {error ? (
-              <p className="error-inline" role="alert">
-                {error}
-              </p>
-            ) : null}
-            <p className="login-footnote muted small">
-              By continuing you agree that Google may share your name and email with this app as described in their sign-in
-              prompt.
-            </p>
-            <div className="login-demo">
-              <p className="login-demo-label muted small">Prefer to browse first?</p>
-              <Link className="linkish login-demo-link" to="/demo/">
-                Explore the sample demo
+            <h1 className="login-welcome">Welcome — a calm place for voice check-ins.</h1>
+            <div className="login-panel">
+              {!clientId ? (
+                <p className="login-config-hint muted small" role="status">
+                  Google sign-in isn&apos;t configured for this build.
+                </p>
+              ) : null}
+              {clientId ? (
+                <div className={`login-google-host${busy ? " login-google-host--busy" : ""}`}>
+                  <div ref={btnRef} className="login-google-btn-mount" />
+                  {busy ? <p className="login-google-busy muted small">Signing you in…</p> : null}
+                </div>
+              ) : null}
+              {error ? (
+                <p className="error-inline" role="alert">
+                  {error}
+                </p>
+              ) : null}
+              <Link className="login-demo-link" to="/demo/">
+                Open demo
               </Link>
             </div>
           </div>

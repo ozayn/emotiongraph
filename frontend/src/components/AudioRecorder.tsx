@@ -118,13 +118,13 @@ export default function AudioRecorder({ disabled, processing, onRecorded, onReco
         </div>
       ) : recording ? (
         <div className="voice-recorder__stack">
-          <div className="voice-recorder__circle voice-recorder__circle--recording" aria-live="polite" aria-label="Recording">
+          <div className="voice-recorder__circle voice-recorder__circle--recording" aria-live="polite" aria-label="Listening">
             <span className="voice-recorder__live-core" aria-hidden="true" />
           </div>
-          <p className="voice-recorder__status voice-recorder__status--live">Recording</p>
+          <p className="voice-recorder__status voice-recorder__status--live">Listening…</p>
           <div className="voice-recorder__controls">
-            <button type="button" className="voice-recorder__stop" onClick={finishRecording}>
-              Stop
+            <button type="button" className="voice-recorder__done" onClick={finishRecording}>
+              Done
             </button>
             <button type="button" className="voice-recorder__discard" onClick={discardRecording}>
               Discard
