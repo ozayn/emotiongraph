@@ -6011,6 +6011,42 @@ button.profile-account-secondary {
   max-width: 28rem;
 }
 
+.insights-snapshot-actions {
+  margin: 0.4rem 0 0;
+  max-width: 28rem;
+}
+
+.insights-debug-strip {
+  margin: 0.5rem 0 0;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius);
+  border: 1px dashed var(--ink-a12);
+  background: var(--ink-a04);
+}
+
+.insights-debug-strip-line {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.insights-debug-strip-val {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.insights-single-day-marker {
+  margin: 0.5rem 0 0;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-align: center;
+  letter-spacing: 0.02em;
+  color: var(--accent-yellow);
+  background: var(--accent-yellow-soft);
+  border: 1px solid var(--pill-warm-border);
+  border-radius: var(--radius);
+}
+
 .insights-card {
   background: var(--surface);
   border: 1px solid var(--border-line);
@@ -6151,6 +6187,83 @@ button.profile-account-secondary {
   gap: 1rem;
 }
 
+.insights-section--tight {
+  gap: 0.35rem;
+}
+
+.insights-chart-sub {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.insights-chart-wrap--single-scatter {
+  min-height: 200px;
+  height: 220px;
+}
+
+.insights-single-chart-empty {
+  margin: 0;
+  line-height: 1.45;
+  max-width: 22rem;
+}
+
+.insights-list-disclosure {
+  border: 1px solid var(--border-line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+  box-shadow: var(--shadow-soft);
+}
+
+.insights-list-disclosure-summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  padding: 0.65rem 0.85rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.insights-list-disclosure-summary::-webkit-details-marker {
+  display: none;
+}
+
+.insights-list-disclosure-chevron {
+  flex-shrink: 0;
+  font-size: 0.65rem;
+  line-height: 1;
+  color: var(--muted);
+  transition: transform 0.2s var(--ease-soft);
+  width: 1rem;
+  text-align: center;
+}
+
+.insights-list-disclosure[open] .insights-list-disclosure-chevron {
+  transform: rotate(90deg);
+}
+
+.insights-list-disclosure-title {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.insights-list-disclosure-meta {
+  flex-shrink: 0;
+}
+
+.insights-list-disclosure-body {
+  padding: 0 0.85rem 0.85rem;
+  border-top: 1px solid var(--ink-a07);
+}
+
 .insights-section-title {
   margin: 0;
   font-size: 0.7rem;
@@ -6261,6 +6374,11 @@ button.profile-account-secondary {
   margin: 0 0 0.35rem;
   font-weight: 600;
   color: var(--text);
+}
+
+.insights-tooltip-line {
+  margin: 0;
+  font-weight: 500;
 }
 
 .insights-tooltip-list {
